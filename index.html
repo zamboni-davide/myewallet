@@ -1301,6 +1301,7 @@ textarea.input{resize:vertical;min-height:80px;}
   cursor:pointer;
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -2077,11 +2078,82 @@ function getCatIcon(id){
 function catColor(catId){const cat=getCat(catId);return cat?.color||'#F3F4F6';}
 
 // ════════════════════════════════════════════════
+//  SUPABASE
+// ════════════════════════════════════════════════
+const SUPA_URL = 'https://jvobrgidkrwjtgirqrzw.supabase.co';
+const SUPA_KEY = 'sb_publishable_VkgCptKYkM5YzlAAq0p72g_9COxbk9e';
+const _supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+// In-memory cache — populated from Supabase on login
+const _mem = {};
+
+// Async write to Supabase (fire-and-forget, never blocks UI)
+function _supaSync(companyId, key, value) {
+  if (!companyId) return;
+  _supa.from('company_store').upsert({
+    company_id: companyId,
+    store_key: key,
+    store_value: value,
+    updated_at: new Date().toISOString()
+  }, { onConflict: 'company_id,store_key' }).then(({error}) => {
+    if (error) console.warn('[Supabase sync]', key, error.message);
+  });
+}
+
+// Load all data for a company from Supabase into _mem + localStorage cache
+async function _supaLoadAll(companyId) {
+  if (!companyId) return;
+  try {
+    const { data, error } = await _supa.from('company_store')
+      .select('store_key,store_value')
+      .eq('company_id', companyId);
+    if (error) { console.warn('[Supabase load]', error.message); return; }
+    if (data && data.length > 0) {
+      data.forEach(row => {
+        _mem[row.store_key] = row.store_value;
+        try { localStorage.setItem('pda_'+row.store_key, JSON.stringify(row.store_value)); } catch {}
+      });
+      console.log('[Supabase] Caricati', data.length, 'record per', companyId);
+    }
+  } catch(e) { console.warn('[Supabase load exception]', e); }
+}
+
+// Upload all current localStorage data for a company to Supabase
+async function _supaUploadAll(companyId) {
+  if (!companyId) return;
+  const prefix = 'pda_';
+  const upserts = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith(prefix)) continue;
+    const key = k.slice(prefix.length);
+    try {
+      const value = JSON.parse(localStorage.getItem(k));
+      upserts.push({ company_id: companyId, store_key: key, store_value: value, updated_at: new Date().toISOString() });
+    } catch {}
+  }
+  if (upserts.length === 0) return;
+  const { error } = await _supa.from('company_store')
+    .upsert(upserts, { onConflict: 'company_id,store_key' });
+  if (error) console.warn('[Supabase upload]', error.message);
+  else console.log('[Supabase] Upload', upserts.length, 'record per', companyId);
+}
+
+// ════════════════════════════════════════════════
 //  STORAGE
 // ════════════════════════════════════════════════
 const DB = {
-  get(k,def=null){try{const v=localStorage.getItem('pda_'+k);return v?JSON.parse(v):def;}catch{return def;}},
-  set(k,v){try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}},
+  get(k,def=null){
+    if(k in _mem) return _mem[k];
+    try{const v=localStorage.getItem('pda_'+k);const parsed=v?JSON.parse(v):def;if(v)_mem[k]=parsed;return parsed;}catch{return def;}
+  },
+  set(k,v){
+    _mem[k]=v;
+    try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
+    // Sync to Supabase: global data under 'co_admin', per-company data under company id
+    const cid = currentCompany?.id || (k==='companies'||k==='users'||k==='plans_config'||k==='admin_docs'||k==='payment_requests'||k==='invoices'||k==='subscriptions'||k==='notifications'||k==='tickets'||k==='signed_contracts'||k==='terms_versions'||k==='user_consents'||k==='audit_log'||k==='purchase_requests'||k==='renewal_requests'||k==='suspension_events'||k==='recurring_schedule'||k==='billing_profiles'||k==='plan_changelog'||k==='plan_snapshots' ? 'co_admin' : null);
+    if(cid) _supaSync(cid, k, v);
+  },
   getUsers(){return this.get('users',[]);},
   setUsers(u){this.set('users',u);},
   getCompanies(){return this.get('companies',[]);},
@@ -2229,6 +2301,29 @@ async function doLogin(){
   const email=document.getElementById('login-email').value.trim();
   const pwd=document.getElementById('login-pwd').value;
   const remember=document.getElementById('login-remember')?.checked;
+
+  // ── Tenta autenticazione Supabase ──────────────────
+  const {data:authData, error:authError} = await _supa.auth.signInWithPassword({email, password:pwd});
+  if(!authError && authData?.user){
+    const meta = authData.user.user_metadata || {};
+    const companyId = meta.company_id;
+    // Carica dati cloud (sia globali che per-azienda)
+    await _supaLoadAll('co_admin');
+    if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
+    // Trova utente nei dati (ora in _mem)
+    const users = DB.getUsers();
+    const user = users.find(u=>u.email===email);
+    const companies = DB.getCompanies();
+    const co = companies.find(c=>c.id===(companyId||user?.companyId));
+    if(user && co){
+      if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
+      else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
+      currentUser=user; currentCompany=co;
+      startApp(user,co); return;
+    }
+  }
+
+  // ── Fallback: autenticazione localStorage (utenti non ancora migrati) ──
   const users=DB.getUsers();
   const userByEmail=users.find(u=>u.email===email);
   if(!userByEmail){showAuthError('login','Email o password non corretti.');return;}
@@ -2236,13 +2331,8 @@ async function doLogin(){
   const user=userByEmail;
   const companies=DB.getCompanies();
   const co=companies.find(c=>c.id===user.companyId);
-  if(remember){
-    localStorage.setItem('pda_remember_email',email);
-    DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});
-  } else {
-    localStorage.removeItem('pda_remember_email');
-    DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});
-  }
+  if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
+  else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
   currentUser=user; currentCompany=co;
   startApp(user,co);
 }
@@ -2432,7 +2522,10 @@ function showAuthError(form,msg){
 function logout(){
   clearInterval(window._trialCountdownTimer);
   window._trialCountdownTimer=null;
+  _supa.auth.signOut().catch(()=>{});
   DB.clearSession();currentUser=null;currentCompany=null;
+  // Clear memory store
+  Object.keys(_mem).forEach(k=>delete _mem[k]);
   // Reset nav badges
   document.querySelectorAll('.nav-badge').forEach(b=>{b.textContent='0';b.classList.add('hidden');});
   document.querySelectorAll('.m-nav-badge').forEach(b=>{b.textContent='0';b.classList.add('hidden');});
@@ -9529,8 +9622,17 @@ window.addEventListener('DOMContentLoaded',()=>{
     const remChk=document.getElementById('login-remember');
     if(remChk) remChk.checked=true;
   }
-  setTimeout(()=>{
+  setTimeout(async ()=>{
     const _ld=document.getElementById('loading'); if(_ld) _ld.style.display='none';
+    // ── Controlla sessione Supabase ──────────────────
+    const {data:{session:supaSession}} = await _supa.auth.getSession();
+    if(supaSession?.user){
+      const meta = supaSession.user.user_metadata || {};
+      const companyId = meta.company_id;
+      await _supaLoadAll('co_admin');
+      if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
+    }
+    // ── Controlla sessione locale ────────────────────
     const session=DB.getSession();
     if(session&&session.expires>Date.now()){
       const user=DB.getUsers().find(u=>u.id===session.userId);
