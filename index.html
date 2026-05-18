@@ -2409,12 +2409,12 @@ async function doRegister(){
   saveUserConsent(userId,'gdpr',gdprVreg.version,gdprVreg.contentHash,
     {label:"Informativa GDPR letta e accettata"});
   // ── Genera contratto FREE con snapshot ──────────────────
-  const freeContract = createSignedContract(companyId, userId, 'FREE', null, {
+  const freeContract = createSignedContract(coId, userId, 'FREE', null, {
     proof:{method:'registration_clickwrap', timestamp:new Date().toISOString()}
   });
   // ── Crea abbonamento FREE ──────────────────────────────
   if(freeContract){
-    createSubscription(companyId, freeContract.id, 'FREE', 'annual', today.toISOString());
+    createSubscription(coId, freeContract.id, 'FREE', 'annual', today.toISOString());
   }
   // Crea record contratto trial firmato digitalmente al momento della registrazione
   const trialPurchId=uid();
@@ -2430,13 +2430,28 @@ async function doRegister(){
     clientSignedBy:name,clientSignedEmail:email,
     clientIpHint:'accettazione T&C in fase di registrazione'
   }]);
+  // ── Registra utente su Supabase Auth ────────────────────
+  const {data:signUpData, error:signUpError} = await _supa.auth.signUp({
+    email, password: pwd,
+    options:{ data:{ company_id: coId, role:'user', name } }
+  });
+  // ── Sync dati azienda su Supabase ───────────────────────
+  await _supaUploadAll(coId);
+  await _supaUploadAll('co_admin');
   // Clear session — user must login after registration
   DB.setSession(null);
   currentUser=null; currentCompany=null;
-  // Show success and switch to login tab
+  // ── Messaggio di conferma e redirect al login ────────────
+  const emailConfirmRequired = !signUpError && signUpData?.user && !signUpData.session;
   switchAuthTab('login');
   document.getElementById('login-email').value=email;
-  showAuthSuccess('login',`Account creato! Accedi con le tue credenziali per iniziare il trial di 7 giorni.`);
+  if(emailConfirmRequired){
+    showAuthSuccess('login','✓ Account creato! Controlla la tua email e clicca il link di conferma prima di accedere.');
+  } else {
+    showAuthSuccess('login','✓ Account creato! Accedi con le tue credenziali per iniziare il trial gratuito.');
+  }
+  // Scroll top del form per assicurarsi che il messaggio sia visibile
+  document.getElementById('auth-screen')?.scrollTo(0,0);
 }
 
 function showAuthSuccess(form,msg){
