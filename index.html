@@ -9788,14 +9788,19 @@ window.addEventListener('DOMContentLoaded',()=>{
 //  RESET PASSWORD
 // ════════════════════════════════════════════════
 function showForgotPassword(){
+  const modal = document.getElementById('reset-pwd-modal');
+  if(!modal){ console.error('reset-pwd-modal not found'); return; }
   document.getElementById('reset-email-input').value = document.getElementById('login-email')?.value || '';
   document.getElementById('reset-step-email').classList.remove('hidden');
   document.getElementById('reset-step-sent').classList.add('hidden');
   document.getElementById('reset-msg').classList.add('hidden');
-  document.getElementById('reset-pwd-modal').classList.remove('hidden');
+  modal.classList.remove('hidden');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(13,27,42,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
 }
 function closeResetModal(){
-  document.getElementById('reset-pwd-modal').classList.add('hidden');
+  const modal = document.getElementById('reset-pwd-modal');
+  modal.classList.add('hidden');
+  modal.style.cssText = '';
 }
 async function sendResetEmail(){
   const email = document.getElementById('reset-email-input').value.trim();
