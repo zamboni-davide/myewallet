@@ -165,7 +165,7 @@
   --transition: all 0.2s ease;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-html{overscroll-behavior:none;overflow:hidden;height:100%;}body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:auto;}
+html{overscroll-behavior:none;}body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;overscroll-behavior:none;}
 h1,h2,h3,h4{font-family:'Cormorant Garamond',serif;}
 
 /* ── SCROLLBAR ── */
@@ -229,9 +229,9 @@ textarea.input{resize:vertical;min-height:80px;}
 /* ──────────────────────────────────────────
    AUTH SCREEN
 ────────────────────────────────────────── */
-#auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy);position:relative;overflow:hidden;}
+#auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy);position:relative;overflow-x:hidden;overflow-y:auto;}
 #auth-screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%, var(--navy-light) 0%, transparent 70%),radial-gradient(ellipse 40% 40% at 20% 80%, rgba(26,82,212,0.08) 0%, transparent 60%);}
-.auth-box{position:relative;z-index:1;width:440px;max-width:calc(100vw - 40px);}
+.auth-box{position:relative;z-index:1;width:440px;max-width:calc(100vw - 40px);margin:0 auto;}
 .auth-logo-area{text-align:center;margin-bottom:40px;} #auth-logo-svg{display:flex;justify-content:center;margin-bottom:16px;} #auth-logo-svg svg{width:220px;height:auto;max-width:100%;display:block;}
 .auth-logo-area .logo-text{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:600;color:#fff;letter-spacing:0.02em;display:block;margin-bottom:6px;}
 .auth-logo-area .logo-sub{font-size:12px;color:var(--gold);letter-spacing:0.15em;text-transform:uppercase;font-weight:500;}
@@ -245,7 +245,7 @@ textarea.input{resize:vertical;min-height:80px;}
 .auth-card .btn-primary{width:100%;padding:12px;font-size:15px;margin-top:8px;}
 .auth-link{color:var(--gold);cursor:pointer;text-decoration:none;}
 .auth-link:hover{text-decoration:underline;}
-.auth-footer{position:absolute;bottom:0;left:0;right:0;text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.65);}
+.auth-footer{text-align:center;padding:20px 16px 0;font-size:12px;color:rgba(255,255,255,0.65);}
 .auth-tabs{display:flex;gap:0;margin-bottom:28px;border-bottom:1px solid rgba(255,255,255,0.1);}
 .auth-tab{flex:1;text-align:center;padding:10px;font-size:14px;color:rgba(255,255,255,0.4);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:var(--transition);}
 .auth-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
@@ -620,7 +620,7 @@ textarea.input{resize:vertical;min-height:80px;}
   #mobile-fab{
     position:fixed;
     right:16px;
-    bottom:calc(var(--bottom-nav-h) + 14px);
+    bottom:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom,0px) + 16px);
     width:52px;height:52px;
     background:var(--gold);
     color:var(--navy);
@@ -1302,14 +1302,15 @@ textarea.input{resize:vertical;min-height:80px;}
 }
 
 /* ═══════════════════════════════════════════
-   MOBILE BOUNCE SCROLL FIX — iOS + Android
+   MOBILE SCROLL FIX — iOS + Android
    ═══════════════════════════════════════════ */
 @media(max-width:768px){
-  html{height:100%;overflow:hidden;overscroll-behavior:none;}
-  body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-y;}
-  #app-screen{height:100%;overflow:hidden;}
-  .main-content{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
-  #auth-screen{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;}
+  html{overscroll-behavior:none;}
+  body{overscroll-behavior:none;overflow-x:hidden!important;}
+  #app-screen{overflow-x:hidden!important;}
+  .main-content{overflow-x:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;}
+  .page{overflow-x:hidden!important;max-width:100%!important;box-sizing:border-box!important;}
+  #auth-screen{overflow-x:hidden!important;-webkit-overflow-scrolling:touch;}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -2840,7 +2841,7 @@ function renderDashboardMobile(main){
       </div>`:''}
 
       <!-- KPI cards orizzontali scorrevoli -->
-      <div style="display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none">
+      <div style="display:flex;gap:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin-bottom:16px;scrollbar-width:none;touch-action:pan-x">
         <style>#mob-kpi::-webkit-scrollbar{display:none}</style>
 
         <div onclick="navTo('all-docs')" style="flex-shrink:0;width:130px;background:var(--navy);border-radius:14px;padding:16px 14px;cursor:pointer">
