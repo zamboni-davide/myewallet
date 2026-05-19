@@ -1369,6 +1369,25 @@ textarea.input{resize:vertical;min-height:80px;}
         </div>
 
       </div>
+
+      <!-- RESET PASSWORD inline panel -->
+      <div id="form-reset" class="hidden">
+        <h2 class="auth-title">Recupera Password</h2>
+        <p class="auth-subtitle">Inserisci la tua email per ricevere il link di reset</p>
+        <div id="reset-error" class="auth-error hidden"></div>
+        <div id="reset-success" class="hidden" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.3);color:#6ee89a;border-radius:8px;padding:12px 16px;font-size:13px;margin-bottom:16px;text-align:center"></div>
+        <div class="flex-col gap-4">
+          <div class="input-group">
+            <label class="input-label">Email aziendale</label>
+            <input class="input" type="email" id="reset-email-input" placeholder="email@azienda.it"/>
+          </div>
+          <button class="btn btn-primary" onclick="sendResetEmail()">Invia link di reset</button>
+          <p style="text-align:center">
+            <a href="javascript:void(0)" onclick="showLoginForm()" style="font-size:12px;color:var(--gold);opacity:0.8;text-decoration:none">← Torna al login</a>
+          </p>
+        </div>
+      </div>
+
       <!-- REGISTER -->
       <div id="form-register" class="hidden">
         <h2 class="auth-title">Crea account</h2>
@@ -9788,34 +9807,37 @@ window.addEventListener('DOMContentLoaded',()=>{
 //  RESET PASSWORD
 // ════════════════════════════════════════════════
 function showForgotPassword(){
-  const modal = document.getElementById('reset-pwd-modal');
-  if(!modal){ console.error('reset-pwd-modal not found'); return; }
-  document.getElementById('reset-email-input').value = document.getElementById('login-email')?.value || '';
-  document.getElementById('reset-step-email').classList.remove('hidden');
-  document.getElementById('reset-step-sent').classList.add('hidden');
-  document.getElementById('reset-msg').classList.add('hidden');
-  modal.classList.remove('hidden');
-  modal.style.cssText = 'position:fixed;inset:0;background:rgba(13,27,42,0.75);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px);';
+  document.getElementById('reset-email-input').value = document.getElementById('login-email')?.value||'';
+  document.getElementById('reset-error').classList.add('hidden');
+  document.getElementById('reset-success').classList.add('hidden');
+  document.getElementById('form-login').classList.add('hidden');
+  document.getElementById('form-reset').classList.remove('hidden');
+  // Nascondi le tab (Accedi/Registrati) durante il reset
+  const tabs=document.querySelector('.auth-tabs');
+  if(tabs) tabs.style.display='none';
 }
-function closeResetModal(){
-  const modal = document.getElementById('reset-pwd-modal');
-  modal.classList.add('hidden');
-  modal.style.cssText = '';
+function showLoginForm(){
+  document.getElementById('form-reset').classList.add('hidden');
+  document.getElementById('form-login').classList.remove('hidden');
+  const tabs=document.querySelector('.auth-tabs');
+  if(tabs) tabs.style.display='';
 }
+function closeResetModal(){ showLoginForm(); }
 async function sendResetEmail(){
   const email = document.getElementById('reset-email-input').value.trim();
-  const msgEl = document.getElementById('reset-msg');
-  if(!email){ msgEl.textContent='Inserisci la tua email.'; msgEl.classList.remove('hidden'); return; }
+  const errEl = document.getElementById('reset-error');
+  const okEl  = document.getElementById('reset-success');
+  if(!email){ errEl.textContent='Inserisci la tua email.'; errEl.classList.remove('hidden'); return; }
+  errEl.classList.add('hidden');
   const redirectUrl = window.location.origin + window.location.pathname;
   const { error } = await _supa.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
   if(error){
-    msgEl.textContent = error.message || 'Errore. Riprova.';
-    msgEl.classList.remove('hidden');
+    errEl.textContent = error.message || 'Errore. Riprova.';
+    errEl.classList.remove('hidden');
     return;
   }
-  document.getElementById('reset-sent-email').textContent = email;
-  document.getElementById('reset-step-email').classList.add('hidden');
-  document.getElementById('reset-step-sent').classList.remove('hidden');
+  okEl.textContent = '📧 Email inviata a ' + email + '. Controlla la casella e clicca il link.';
+  okEl.classList.remove('hidden');
 }
 async function saveNewPassword(){
   const pwd = document.getElementById('new-pwd-input').value;
