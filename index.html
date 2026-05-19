@@ -2307,6 +2307,25 @@ function seedAdmin(){
   }
 }
 
+// Patch dati co_admin dopo il load da Supabase — sovrascrive dati fake in DB remoto
+function patchAdminCompany(){
+  const real={id:'co_admin',name:'Studio Zamboni',vatNumber:'IT03065200903',
+    address:'Via Perantoni Gavino Satta 14, 07100 Sassari (SS)',
+    email:'direzione@consulenzesardegna.com',phone:'+39 079 291748',
+    plan:'Admin',planEndDate:null};
+  let companies=DB.getCompanies();
+  const idx=companies.findIndex(c=>c.id==='co_admin');
+  if(idx>=0){
+    const existing=companies[idx];
+    // Controlla se i dati sono ancora quelli fake
+    if(existing.vatNumber==='IT02345678901'||existing.email==='info@studiozamboni.it'||existing.email==='admin@studiozamboni.it'){
+      companies[idx]={...existing,...real,planStartDate:existing.planStartDate||new Date().toISOString()};
+      DB.setCompanies(companies); // scrive in _mem, localStorage E Supabase
+      console.log('[MyEwallet] co_admin patched con dati reali');
+    }
+  }
+}
+
 // ════════════════════════════════════════════════
 //  AUTH
 // ════════════════════════════════════════════════
@@ -2345,6 +2364,8 @@ async function doLogin(){
     // Carica dati cloud (sia globali che per-azienda)
     await _supaLoadAll('co_admin');
     if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
+    patchAdminCompany(); // fix dati fake legacy
+    patchAdminCompany(); // fix dati fake legacy
     // Trova utente nei dati (ora in _mem)
     const users = DB.getUsers();
     let user = users.find(u=>u.email===email);
