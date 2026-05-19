@@ -1358,6 +1358,9 @@ textarea.input{resize:vertical;min-height:80px;}
             <label for="login-remember" style="font-size:12px;color:rgba(255,255,255,0.65);cursor:pointer;user-select:none">Ricordami su questo dispositivo</label>
           </div>
           <button class="btn btn-primary" onclick="doLogin()">Accedi</button>
+          <p style="text-align:center;margin-top:4px">
+            <a href="javascript:void(0)" onclick="showForgotPassword()" style="font-size:12px;color:var(--gold);opacity:0.8;text-decoration:none">Password dimenticata?</a>
+          </p>
           <p style="font-size:11px;color:rgba(255,255,255,0.45);line-height:1.5;margin-top:8px;text-align:center">
             Accedendo confermi di aver accettato i
             <a href="javascript:void(0)" onclick="showTermsReadOnly()" style="color:var(--gold)">Termini d'Uso</a>
@@ -2575,6 +2578,57 @@ Diritti artt. 15-20 GDPR esercitabili via PEC. Foro competente: Sassari.</p>
 <p>© ${year} Studio Zamboni – Tutti i diritti riservati. MyEwallet® è marchio esclusivo di Studio Zamboni.
 È vietata la riproduzione o distribuzione non autorizzata.</p>
 <footer>© ${year} Studio Zamboni · MyEwallet® · Via Perantoni Satta, 14 – 07100 Sassari · consulenzesardegna@pec.it</footer>
+
+<!-- ══ MODAL RESET PASSWORD ══ -->
+<div id="reset-pwd-modal" class="modal-overlay hidden" style="z-index:9999">
+  <div class="modal" style="max-width:420px;width:90%">
+    <div class="modal-header">
+      <h3 class="modal-title">Recupera Password</h3>
+      <button class="modal-close" onclick="closeResetModal()">✕</button>
+    </div>
+    <div class="modal-body" id="reset-pwd-body">
+      <!-- step 1: inserisci email -->
+      <div id="reset-step-email">
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">Inserisci la tua email. Ti mandiamo un link per reimpostare la password.</p>
+        <div class="form-group">
+          <label class="label">Email</label>
+          <input class="input" type="email" id="reset-email-input" placeholder="email@azienda.it"/>
+        </div>
+        <div id="reset-msg" class="auth-error hidden" style="margin-top:8px"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="sendResetEmail()">Invia link di reset</button>
+      </div>
+      <!-- step 2: conferma inviata -->
+      <div id="reset-step-sent" class="hidden" style="text-align:center;padding:16px 0">
+        <div style="font-size:40px;margin-bottom:12px">📧</div>
+        <p style="font-size:14px;font-weight:600;margin-bottom:8px">Email inviata!</p>
+        <p style="font-size:13px;color:var(--text-light)">Controlla la casella <strong id="reset-sent-email"></strong> e clicca il link per impostare la nuova password.</p>
+        <button class="btn btn-secondary" style="margin-top:20px;width:100%" onclick="closeResetModal()">Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL NUOVA PASSWORD (dopo click sul link) ══ -->
+<div id="new-pwd-modal" class="modal-overlay hidden" style="z-index:9999">
+  <div class="modal" style="max-width:420px;width:90%">
+    <div class="modal-header">
+      <h3 class="modal-title">Imposta Nuova Password</h3>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">Scegli una nuova password per il tuo account.</p>
+      <div class="form-group">
+        <label class="label">Nuova Password</label>
+        <input class="input" type="password" id="new-pwd-input" placeholder="Minimo 8 caratteri"/>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="label">Conferma Password</label>
+        <input class="input" type="password" id="new-pwd-confirm" placeholder="Ripeti la password"/>
+      </div>
+      <div id="new-pwd-msg" class="auth-error hidden" style="margin-top:8px"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="saveNewPassword()">Salva nuova password</button>
+    </div>
+  </div>
+</div>
 </body></html>`;
   openDocModal(html,"Condizioni d'Uso e Privacy – MyEwallet");
 }
@@ -9727,6 +9781,7 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
 //  BOOT
 // ════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+  checkRecoveryToken();
   const y=new Date().getFullYear();
   document.querySelectorAll('#footer-year,#auth-year,#terms-year,.terms-year-inline').forEach(el=>el.textContent=y);
 
@@ -9779,6 +9834,76 @@ window.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('auth-screen').classList.remove('hidden');
   },900);
 });
+
+// ════════════════════════════════════════════════
+//  RESET PASSWORD
+// ════════════════════════════════════════════════
+function showForgotPassword(){
+  document.getElementById('reset-email-input').value = document.getElementById('login-email')?.value || '';
+  document.getElementById('reset-step-email').classList.remove('hidden');
+  document.getElementById('reset-step-sent').classList.add('hidden');
+  document.getElementById('reset-msg').classList.add('hidden');
+  document.getElementById('reset-pwd-modal').classList.remove('hidden');
+}
+function closeResetModal(){
+  document.getElementById('reset-pwd-modal').classList.add('hidden');
+}
+async function sendResetEmail(){
+  const email = document.getElementById('reset-email-input').value.trim();
+  const msgEl = document.getElementById('reset-msg');
+  if(!email){ msgEl.textContent='Inserisci la tua email.'; msgEl.classList.remove('hidden'); return; }
+  const redirectUrl = window.location.origin + window.location.pathname;
+  const { error } = await _supa.auth.resetPasswordForEmail(email, { redirectTo: redirectUrl });
+  if(error){
+    msgEl.textContent = error.message || 'Errore. Riprova.';
+    msgEl.classList.remove('hidden');
+    return;
+  }
+  document.getElementById('reset-sent-email').textContent = email;
+  document.getElementById('reset-step-email').classList.add('hidden');
+  document.getElementById('reset-step-sent').classList.remove('hidden');
+}
+async function saveNewPassword(){
+  const pwd = document.getElementById('new-pwd-input').value;
+  const confirm = document.getElementById('new-pwd-confirm').value;
+  const msgEl = document.getElementById('new-pwd-msg');
+  if(pwd.length < 8){ msgEl.textContent='Password minimo 8 caratteri.'; msgEl.classList.remove('hidden'); return; }
+  if(pwd !== confirm){ msgEl.textContent='Le password non coincidono.'; msgEl.classList.remove('hidden'); return; }
+  const { error } = await _supa.auth.updateUser({ password: pwd });
+  if(error){
+    msgEl.textContent = error.message || 'Errore. Riprova.';
+    msgEl.classList.remove('hidden');
+    return;
+  }
+  document.getElementById('new-pwd-modal').classList.add('hidden');
+  showToast('Password aggiornata con successo!', 'success');
+  // Auto-login: la sessione è già attiva dopo updateUser
+  await _supa.auth.getSession().then(async ({data})=>{
+    if(data?.session?.user){
+      const email = data.session.user.email;
+      await _supaLoadAll('co_admin');
+      patchAdminCompany();
+      let users = DB.getUsers();
+      let user = users.find(u=>u.email===email);
+      if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:'admin',createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
+      const co = DB.getCompanies().find(c=>c.id===user.companyId);
+      if(user&&co){ currentUser=user; currentCompany=co; startApp(user,co); }
+    }
+  });
+}
+
+// Intercetta il token di recovery nell'URL all'avvio
+function checkRecoveryToken(){
+  // Supabase aggiunge #access_token=...&type=recovery all'URL dopo il click sul link email
+  const hash = window.location.hash;
+  if(hash && hash.includes('type=recovery')){
+    // Pulisci l'URL senza ricaricare la pagina
+    history.replaceState(null,'',window.location.pathname);
+    // Supabase ha già aggiornato la sessione — mostra il modal nuova password
+    document.getElementById('new-pwd-modal').classList.remove('hidden');
+  }
+}
+
 </script>
 </body>
 </html>
