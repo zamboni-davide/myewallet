@@ -2578,57 +2578,6 @@ Diritti artt. 15-20 GDPR esercitabili via PEC. Foro competente: Sassari.</p>
 <p>© ${year} Studio Zamboni – Tutti i diritti riservati. MyEwallet® è marchio esclusivo di Studio Zamboni.
 È vietata la riproduzione o distribuzione non autorizzata.</p>
 <footer>© ${year} Studio Zamboni · MyEwallet® · Via Perantoni Satta, 14 – 07100 Sassari · consulenzesardegna@pec.it</footer>
-
-<!-- ══ MODAL RESET PASSWORD ══ -->
-<div id="reset-pwd-modal" class="modal-overlay hidden" style="z-index:9999">
-  <div class="modal" style="max-width:420px;width:90%">
-    <div class="modal-header">
-      <h3 class="modal-title">Recupera Password</h3>
-      <button class="modal-close" onclick="closeResetModal()">✕</button>
-    </div>
-    <div class="modal-body" id="reset-pwd-body">
-      <!-- step 1: inserisci email -->
-      <div id="reset-step-email">
-        <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">Inserisci la tua email. Ti mandiamo un link per reimpostare la password.</p>
-        <div class="form-group">
-          <label class="label">Email</label>
-          <input class="input" type="email" id="reset-email-input" placeholder="email@azienda.it"/>
-        </div>
-        <div id="reset-msg" class="auth-error hidden" style="margin-top:8px"></div>
-        <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="sendResetEmail()">Invia link di reset</button>
-      </div>
-      <!-- step 2: conferma inviata -->
-      <div id="reset-step-sent" class="hidden" style="text-align:center;padding:16px 0">
-        <div style="font-size:40px;margin-bottom:12px">📧</div>
-        <p style="font-size:14px;font-weight:600;margin-bottom:8px">Email inviata!</p>
-        <p style="font-size:13px;color:var(--text-light)">Controlla la casella <strong id="reset-sent-email"></strong> e clicca il link per impostare la nuova password.</p>
-        <button class="btn btn-secondary" style="margin-top:20px;width:100%" onclick="closeResetModal()">Chiudi</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MODAL NUOVA PASSWORD (dopo click sul link) ══ -->
-<div id="new-pwd-modal" class="modal-overlay hidden" style="z-index:9999">
-  <div class="modal" style="max-width:420px;width:90%">
-    <div class="modal-header">
-      <h3 class="modal-title">Imposta Nuova Password</h3>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">Scegli una nuova password per il tuo account.</p>
-      <div class="form-group">
-        <label class="label">Nuova Password</label>
-        <input class="input" type="password" id="new-pwd-input" placeholder="Minimo 8 caratteri"/>
-      </div>
-      <div class="form-group" style="margin-top:12px">
-        <label class="label">Conferma Password</label>
-        <input class="input" type="password" id="new-pwd-confirm" placeholder="Ripeti la password"/>
-      </div>
-      <div id="new-pwd-msg" class="auth-error hidden" style="margin-top:8px"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="saveNewPassword()">Salva nuova password</button>
-    </div>
-  </div>
-</div>
 </body></html>`;
   openDocModal(html,"Condizioni d'Uso e Privacy – MyEwallet");
 }
@@ -9905,5 +9854,54 @@ function checkRecoveryToken(){
 }
 
 </script>
+
+<!-- ══ MODAL RESET PASSWORD ══ -->
+<div id="reset-pwd-modal" class="modal-overlay hidden" style="z-index:9999">
+  <div class="modal" style="max-width:420px;width:90%">
+    <div class="modal-header">
+      <h3 class="modal-title">Recupera Password</h3>
+      <button class="modal-close" onclick="closeResetModal()">✕</button>
+    </div>
+    <div class="modal-body" id="reset-pwd-body">
+      <div id="reset-step-email">
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">Inserisci la tua email. Ti mandiamo un link per reimpostare la password.</p>
+        <div class="form-group">
+          <label class="label">Email</label>
+          <input class="input" type="email" id="reset-email-input" placeholder="email@azienda.it"/>
+        </div>
+        <div id="reset-msg" class="auth-error hidden" style="margin-top:8px"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="sendResetEmail()">Invia link di reset</button>
+      </div>
+      <div id="reset-step-sent" class="hidden" style="text-align:center;padding:16px 0">
+        <div style="font-size:40px;margin-bottom:12px">📧</div>
+        <p style="font-size:14px;font-weight:600;margin-bottom:8px">Email inviata!</p>
+        <p style="font-size:13px;color:var(--text-light)">Controlla la casella <strong id="reset-sent-email"></strong> e clicca il link per impostare la nuova password.</p>
+        <button class="btn btn-secondary" style="margin-top:20px;width:100%" onclick="closeResetModal()">Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ══ MODAL NUOVA PASSWORD ══ -->
+<div id="new-pwd-modal" class="modal-overlay hidden" style="z-index:9999">
+  <div class="modal" style="max-width:420px;width:90%">
+    <div class="modal-header">
+      <h3 class="modal-title">Imposta Nuova Password</h3>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">Scegli una nuova password per il tuo account.</p>
+      <div class="form-group">
+        <label class="label">Nuova Password</label>
+        <input class="input" type="password" id="new-pwd-input" placeholder="Minimo 8 caratteri"/>
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label class="label">Conferma Password</label>
+        <input class="input" type="password" id="new-pwd-confirm" placeholder="Ripeti la password"/>
+      </div>
+      <div id="new-pwd-msg" class="auth-error hidden" style="margin-top:8px"></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="saveNewPassword()">Salva nuova password</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
