@@ -2365,13 +2365,21 @@ async function doLogin(){
     await _supaLoadAll('co_admin');
     if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
     patchAdminCompany(); // fix dati fake legacy
-    patchAdminCompany(); // fix dati fake legacy
     // Trova utente nei dati (ora in _mem)
-    const users = DB.getUsers();
+    let users = DB.getUsers();
     let user = users.find(u=>u.email===email);
-    // Se utente non trovato ma è admin Supabase, usa l'utente admin interno
-    if(!user && meta.role==='admin'){
-      user = users.find(u=>u.role==='admin') || users[0];
+    // Se utente non trovato: aggiunge il record con i dati Supabase, senza toccare quelli esistenti
+    if(!user){
+      const supaUid = authData.user.id;
+      user = {id:'u_'+supaUid.slice(0,8),
+              name: meta.name || email.split('@')[0],
+              email: email,
+              pwd: '__supabase__',
+              companyId: companyId || 'co_admin',
+              role: meta.role || 'admin',
+              createdAt: new Date().toISOString()};
+      users.push(user);
+      DB.setUsers(users);
     }
     const companies = DB.getCompanies();
     const co = companies.find(c=>c.id===(companyId||user?.companyId));
