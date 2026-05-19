@@ -165,7 +165,7 @@
   --transition: all 0.2s ease;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;}
+html{overscroll-behavior:none;overflow:hidden;height:100%;}body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;overscroll-behavior:none;-webkit-overflow-scrolling:auto;}
 h1,h2,h3,h4{font-family:'Cormorant Garamond',serif;}
 
 /* ── SCROLLBAR ── */
@@ -2379,6 +2379,8 @@ async function doRegister(){
     showAuthError('register','Devi accettare tutte le condizioni per completare la registrazione.');
     return;
   }
+  // Carica dati aggiornati da Supabase prima di verificare l'email
+  await _supaLoadAll('co_admin');
   const users=DB.getUsers();
   if(users.find(u=>u.email===email)){showAuthError('register','Email già registrata.');return;}
   const coId='co_'+uid();
