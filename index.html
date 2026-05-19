@@ -245,7 +245,7 @@ textarea.input{resize:vertical;min-height:80px;}
 .auth-card .btn-primary{width:100%;padding:12px;font-size:15px;margin-top:8px;}
 .auth-link{color:var(--gold);cursor:pointer;text-decoration:none;}
 .auth-link:hover{text-decoration:underline;}
-.auth-footer{text-align:center;margin-top:24px;font-size:13px;color:rgba(255,255,255,0.4);}
+.auth-footer{position:absolute;bottom:0;left:0;right:0;text-align:center;padding:16px;font-size:12px;color:rgba(255,255,255,0.65);}
 .auth-tabs{display:flex;gap:0;margin-bottom:28px;border-bottom:1px solid rgba(255,255,255,0.1);}
 .auth-tab{flex:1;text-align:center;padding:10px;font-size:14px;color:rgba(255,255,255,0.4);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:var(--transition);}
 .auth-tab.active{color:var(--gold);border-bottom-color:var(--gold);}
@@ -1300,6 +1300,17 @@ textarea.input{resize:vertical;min-height:80px;}
   opacity:1;
   cursor:pointer;
 }
+
+/* ═══════════════════════════════════════════
+   MOBILE BOUNCE SCROLL FIX — iOS + Android
+   ═══════════════════════════════════════════ */
+@media(max-width:768px){
+  html{height:100%;overflow:hidden;overscroll-behavior:none;}
+  body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-y;}
+  #app-screen{height:100%;overflow:hidden;}
+  .main-content{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  #auth-screen{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
@@ -1421,6 +1432,9 @@ textarea.input{resize:vertical;min-height:80px;}
     </div>
   </div>
 </div>
+  <div class="auth-footer">
+    © <span id="auth-year"></span> <strong style="color:rgba(255,255,255,0.7)">Studio Zamboni</strong> di Davide Pasquale Zamboni · MyEwallet® tutti i diritti riservati
+  </div>
 
 <!-- MAIN APP -->
 <div id="app-screen" class="hidden">
@@ -2379,10 +2393,11 @@ async function doRegister(){
     showAuthError('register','Devi accettare tutte le condizioni per completare la registrazione.');
     return;
   }
-  // Carica dati aggiornati da Supabase prima di verificare l'email
+  // Verifica email: carica da Supabase e controlla
   await _supaLoadAll('co_admin');
   const users=DB.getUsers();
-  if(users.find(u=>u.email===email)){showAuthError('register','Email già registrata.');return;}
+  const emailExists=users.find(u=>u.email===email);
+  if(emailExists){showAuthError('register','Email gia registrata. Accedi o usa un altra email.');return;}
   const coId='co_'+uid();
   const today=new Date();
   const _freePlan=DB.getPlansConfig()['FREE']||{trialDays:30};
@@ -9621,7 +9636,7 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
 // ════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
   const y=new Date().getFullYear();
-  document.querySelectorAll('#footer-year,#terms-year,.terms-year-inline').forEach(el=>el.textContent=y);
+  document.querySelectorAll('#footer-year,#auth-year,#terms-year,.terms-year-inline').forEach(el=>el.textContent=y);
 
   seedAdmin();
   // ── Inject SVG logos ──
