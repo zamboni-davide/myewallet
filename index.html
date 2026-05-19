@@ -4086,8 +4086,9 @@ function createSignedContract(companyId, userId, planName, purchaseId, opts={}){
 
 // ── CONTRATTO ATTIVO PER AZIENDA ───────────────────────────
 function getActiveContract(companyId){
-  const contracts = DB.getSignedContracts()
-    .filter(c=>c.companyId===companyId&&c.status==='active')
+  const all=DB.getSignedContracts();
+  if(!all||!Array.isArray(all)) return null;
+  const contracts=all.filter(c=>c.companyId===companyId&&c.status==='active')
     .sort((a,b)=>new Date(b.signedAt)-new Date(a.signedAt));
   return contracts[0]||null;
 }
