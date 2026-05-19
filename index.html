@@ -1388,6 +1388,24 @@ textarea.input{resize:vertical;min-height:80px;}
         </div>
       </div>
 
+      <!-- NUOVA PASSWORD (dopo click link reset) -->
+      <div id="form-new-pwd" class="hidden">
+        <h2 class="auth-title">Nuova Password</h2>
+        <p class="auth-subtitle">Scegli una nuova password per il tuo account</p>
+        <div id="new-pwd-msg" class="auth-error hidden"></div>
+        <div class="flex-col gap-4">
+          <div class="input-group">
+            <label class="input-label">Nuova Password</label>
+            <input class="input" type="password" id="new-pwd-input" placeholder="Minimo 8 caratteri"/>
+          </div>
+          <div class="input-group">
+            <label class="input-label">Conferma Password</label>
+            <input class="input" type="password" id="new-pwd-confirm" placeholder="Ripeti la password"/>
+          </div>
+          <button class="btn btn-primary" onclick="saveNewPassword()">Salva nuova password</button>
+        </div>
+      </div>
+
       <!-- REGISTER -->
       <div id="form-register" class="hidden">
         <h2 class="auth-title">Crea account</h2>
@@ -9868,16 +9886,33 @@ async function saveNewPassword(){
   });
 }
 
-// Intercetta il token di recovery nell'URL all'avvio
+// Intercetta il token di recovery — Supabase v2 usa onAuthStateChange PASSWORD_RECOVERY
 function checkRecoveryToken(){
-  // Supabase aggiunge #access_token=...&type=recovery all'URL dopo il click sul link email
+  // Listener per evento PASSWORD_RECOVERY da Supabase
+  _supa.auth.onAuthStateChange((event, session) => {
+    if(event === 'PASSWORD_RECOVERY'){
+      history.replaceState(null,'',window.location.pathname);
+      showNewPasswordForm();
+    }
+  });
+  // Fallback: controlla anche il fragment URL (alcuni client lo usano ancora)
   const hash = window.location.hash;
   if(hash && hash.includes('type=recovery')){
-    // Pulisci l'URL senza ricaricare la pagina
     history.replaceState(null,'',window.location.pathname);
-    // Supabase ha già aggiornato la sessione — mostra il modal nuova password
-    document.getElementById('new-pwd-modal').classList.remove('hidden');
+    showNewPasswordForm();
   }
+}
+
+function showNewPasswordForm(){
+  document.getElementById('new-pwd-input').value = '';
+  document.getElementById('new-pwd-confirm').value = '';
+  document.getElementById('new-pwd-msg').classList.add('hidden');
+  // Mostra il pannello nuova password al posto del login
+  document.getElementById('form-login').classList.add('hidden');
+  document.getElementById('form-reset').classList.add('hidden');
+  document.getElementById('form-new-pwd').classList.remove('hidden');
+  const tabs = document.querySelector('.auth-tabs');
+  if(tabs) tabs.style.display='none';
 }
 
 </script>
