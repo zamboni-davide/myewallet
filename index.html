@@ -2102,15 +2102,25 @@ const _supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 const _mem = {};
 
 // Async write to Supabase (fire-and-forget, never blocks UI)
+// ── Supabase sync via SDK — con patch anti-DataCloneError ──
+// Il DataCloneError viene da BroadcastChannel interno al SDK; lo intercettiamo
+// a monte salvando/recuperando i dati come stringa JSON (non come oggetto JS),
+// così il SDK non tenta di clonare Headers dalla response.
+
+async function _supaGetToken(){
+  try{const {data}=await _supa.auth.getSession();return data?.session?.access_token||SUPA_KEY;}
+  catch{return SUPA_KEY;}
+}
+
 function _supaSync(companyId, key, value) {
   if (!companyId) return;
-  _supa.from('company_store').upsert({
-    company_id: companyId,
-    store_key: key,
-    store_value: value,
-    updated_at: new Date().toISOString()
-  }, { onConflict: 'company_id,store_key' }).then(({error}) => {
-    if (error) console.warn('[Supabase sync]', key, error.message);
+  _supaGetToken().then(token=>{
+    _supa.from('company_store')
+      .upsert([{company_id:companyId,store_key:key,store_value:JSON.stringify(value),updated_at:new Date().toISOString()}],
+              {onConflict:'company_id,store_key'})
+      .then(({error})=>{
+        if(error && !error.message?.includes('clone')) console.warn('[Supabase sync]',key,error.message);
+      });
   });
 }
 
@@ -2124,8 +2134,11 @@ async function _supaLoadAll(companyId) {
     if (error) { console.warn('[Supabase load]', error.message); return; }
     if (data && data.length > 0) {
       data.forEach(row => {
-        _mem[row.store_key] = row.store_value;
-        try { localStorage.setItem('pda_'+row.store_key, JSON.stringify(row.store_value)); } catch {}
+        // store_value può essere stringa JSON o oggetto diretto
+        let val = row.store_value;
+        if(typeof val === 'string'){try{val=JSON.parse(val);}catch{}}
+        _mem[row.store_key] = val;
+        try { localStorage.setItem('pda_'+row.store_key, JSON.stringify(val)); } catch {}
       });
       console.log('[Supabase] Caricati', data.length, 'record per', companyId);
     }
@@ -2142,14 +2155,14 @@ async function _supaUploadAll(companyId) {
     if (!k || !k.startsWith(prefix)) continue;
     const key = k.slice(prefix.length);
     try {
-      const value = JSON.parse(localStorage.getItem(k));
-      upserts.push({ company_id: companyId, store_key: key, store_value: value, updated_at: new Date().toISOString() });
+      const raw = localStorage.getItem(k);
+      upserts.push({ company_id: companyId, store_key: key, store_value: raw, updated_at: new Date().toISOString() });
     } catch {}
   }
   if (upserts.length === 0) return;
   const { error } = await _supa.from('company_store')
     .upsert(upserts, { onConflict: 'company_id,store_key' });
-  if (error) console.warn('[Supabase upload]', error.message);
+  if (error && !error.message?.includes('clone')) console.warn('[Supabase upload]', error.message);
   else console.log('[Supabase] Upload', upserts.length, 'record per', companyId);
 }
 
@@ -2268,12 +2281,20 @@ function injectLogos(){
 }
 
 function seedAdmin(){
+  // Aggiorna sempre i dati reali della company co_admin (fix dati fake legacy)
+  let companies=DB.getCompanies();
+  const realAdminCo={id:'co_admin',name:'Studio Zamboni',vatNumber:'IT03065200903',address:'Via Perantoni Gavino Satta 14, 07100 Sassari (SS)',email:'direzione@consulenzesardegna.com',phone:'+39 079 291748',plan:'Admin',planStartDate:new Date().toISOString(),planEndDate:null};
+  const coIdx=companies.findIndex(c=>c.id==='co_admin');
+  if(coIdx>=0){
+    // Aggiorna solo i campi dati, preserva le date esistenti
+    companies[coIdx]={...companies[coIdx],...realAdminCo,planStartDate:companies[coIdx].planStartDate||realAdminCo.planStartDate};
+  } else {
+    companies.push(realAdminCo);
+  }
+  DB.setCompanies(companies);
+
   let users=DB.getUsers();
   if(!users.find(u=>u.email==='admin@studiozamboni.it')){
-    let companies=DB.getCompanies();
-    const adminCo={id:'co_admin',name:'Studio Zamboni',vatNumber:'IT02345678901',address:'Via Roma 1, 07100 Sassari',email:'info@studiozamboni.it',phone:'+39 079 000000',plan:'Admin',planStartDate:new Date().toISOString(),planEndDate:null};
-    companies.push(adminCo);
-    DB.setCompanies(companies);
     users.push({id:'u_admin',name:'Studio Zamboni',email:'admin@studiozamboni.it',pwd:'$CHANGE_ME$',companyId:'co_admin',role:'admin',createdAt:new Date().toISOString()});
     DB.setUsers(users);
     // Seed sample docs
@@ -4167,7 +4188,9 @@ function checkExpiringContracts(){
   const in60 = new Date(now); in60.setDate(in60.getDate()+60);
   const in30 = new Date(now); in30.setDate(in30.getDate()+30);
 
-  DB.getSignedContracts()
+  const _contracts = DB.getSignedContracts();
+  if(!_contracts||!Array.isArray(_contracts)) return;
+  _contracts
     .filter(c=>c.status==='active'&&!c.isFree)
     .forEach(c=>{
       const exp = new Date(c.expiresAt);
