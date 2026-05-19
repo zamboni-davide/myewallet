@@ -1313,11 +1313,6 @@ textarea.input{resize:vertical;min-height:80px;}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<link rel="icon" type="image/png" href="/icon.png">
-<link rel="apple-touch-icon" href="/icon.png">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0B1B4D">
-<meta name="mobile-web-app-capable" content="yes">
 </head>
 <body>
 
@@ -3507,11 +3502,31 @@ function closeDetailPanel(){
   document.getElementById('detail-panel').classList.remove('open');
 }
 
-function downloadDoc(docId){
+async function downloadDoc(docId){
   const docs=DB.getDocs(currentCompany.id);
   const doc=docs.find(d=>d.id===docId);
-  if(!doc||!doc.fileData){showToast('File non disponibile per il download','error');return;}
-  const a=document.createElement('a');a.href=doc.fileData;a.download=doc.name;a.click();
+  if(!doc){showToast('Documento non trovato','error');return;}
+  if(doc.storagePath){
+    try{
+      const{data,error}=await _supa.storage.from('documents').createSignedUrl(doc.storagePath,3600);
+      if(!error&&data?.signedUrl){
+        const a=document.createElement('a');a.href=data.signedUrl;a.download=doc.name;a.click();
+        return;
+      }
+    }catch(e){console.warn('[Storage] signed URL error:',e);}
+  }
+  if(doc.fileData){const a=document.createElement('a');a.href=doc.fileData;a.download=doc.name;a.click();return;}
+  showToast('File non disponibile per il download','error');
+}
+
+async function getDocViewUrl(doc){
+  if(doc.storagePath){
+    try{
+      const{data,error}=await _supa.storage.from('documents').createSignedUrl(doc.storagePath,3600);
+      if(!error&&data?.signedUrl) return data.signedUrl;
+    }catch(e){}
+  }
+  return doc.fileData||null;
 }
 
 // ════════════════════════════════════════════════
@@ -3582,7 +3597,7 @@ function renderFileList(){
 
 function removePendingFile(i){pendingFiles.splice(i,1);renderFileList();}
 
-function doUpload(){
+async function doUpload(){
   if(pendingFiles.length===0){showToast('Seleziona almeno un file','error');return;}
   const totalNewSize=pendingFiles.reduce((s,f)=>s+f.size,0);
   const uploadCheck=canUpload(totalNewSize);
@@ -3595,25 +3610,35 @@ function doUpload(){
   const tags=tagsRaw?tagsRaw.split(',').map(t=>t.trim()).filter(Boolean):[];
   const dataEmissione=document.getElementById('up-emissione').value||null;
   const dataScadenza=document.getElementById('up-scadenza').value||null;
-  let processed=0;
   const docs=DB.getDocs(currentCompany.id);
-  pendingFiles.forEach((f,i)=>{
-    const reader=new FileReader();
-    reader.onload=ev=>{
-      const doc={id:uid(),name:f.name,category:cat,subcategory:sub,description:desc,tags,fileType:getExt(f.name),fileSize:f.size,fileData:ev.target.result,uploadedBy:currentUser.name,uploadedAt:new Date().toISOString(),dataEmissione,dataScadenza};
-      docs.push(doc);
-      processed++;
-      if(processed===pendingFiles.length){
-        DB.setDocs(currentCompany.id,docs);
-        closeUploadModal();
-        updateDocCount();
-        updateTrialDocCounters();
-        showToast(`${processed} documento${processed>1?'i':''} caricato${processed>1?'i':''}!`,'success');
-        navTo('all-docs');
-      }
+  let processed=0;
+  showToast('Caricamento in corso...','info');
+  for(const f of pendingFiles){
+    const docId=uid();
+    const storagePath=`${currentCompany.id}/${docId}/${f.name}`;
+    let uploadOk=false;
+    try{
+      const{error}=await _supa.storage.from('documents').upload(storagePath,f,{upsert:true});
+      if(!error) uploadOk=true;
+      else console.warn('[Storage] upload error:',error.message);
+    }catch(e){console.warn('[Storage] upload exception:',e);}
+    const doc={
+      id:docId,name:f.name,category:cat,subcategory:sub,description:desc,tags,
+      fileType:getExt(f.name),fileSize:f.size,
+      storagePath:uploadOk?storagePath:null,
+      fileData:null,
+      uploadedBy:currentUser.name,uploadedAt:new Date().toISOString(),dataEmissione,dataScadenza
     };
-    reader.readAsDataURL(f);
-  });
+    docs.push(doc);
+    processed++;
+  }
+  DB.setDocs(currentCompany.id,docs);
+  _supaSync(currentCompany.id,'docs_'+currentCompany.id,docs);
+  closeUploadModal();
+  updateDocCount();
+  updateTrialDocCounters();
+  showToast(`${processed} documento${processed>1?'i':''} caricato${processed>1?'i':''}!`,'success');
+  navTo('all-docs');
 }
 
 // ════════════════════════════════════════════════
@@ -3678,9 +3703,14 @@ function confirmDelete(docId){
   const doc=docs.find(d=>d.id===docId);
   document.getElementById('confirm-title').textContent='Elimina documento';
   document.getElementById('confirm-text').textContent=`Stai per eliminare "${doc?.name||docId}". L'operazione non può essere annullata.`;
-  confirmCallback=()=>{
+  confirmCallback=async()=>{
     const docs2=DB.getDocs(currentCompany.id);
+    const toDelete=docs2.find(d=>d.id===docId);
+    if(toDelete?.storagePath){
+      try{await _supa.storage.from('documents').remove([toDelete.storagePath]);}catch(e){}
+    }
     DB.setDocs(currentCompany.id,docs2.filter(d=>d.id!==docId));
+    _supaSync(currentCompany.id,'docs_'+currentCompany.id,docs2.filter(d=>d.id!==docId));
     updateDocCount();
     showToast('Documento eliminato','success');
     refreshCurrentPage();
