@@ -2326,7 +2326,11 @@ async function doLogin(){
     if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
     // Trova utente nei dati (ora in _mem)
     const users = DB.getUsers();
-    const user = users.find(u=>u.email===email);
+    let user = users.find(u=>u.email===email);
+    // Se utente non trovato ma è admin Supabase, usa l'utente admin interno
+    if(!user && meta.role==='admin'){
+      user = users.find(u=>u.role==='admin') || users[0];
+    }
     const companies = DB.getCompanies();
     const co = companies.find(c=>c.id===(companyId||user?.companyId));
     if(user && co){
