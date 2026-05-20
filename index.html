@@ -3491,19 +3491,20 @@ function shareDocFallback(name, text){
 // ════════════════════════════════════════════════
 //  MOBILE DOCUMENT VIEWER — bottom sheet
 // ════════════════════════════════════════════════
-function openDocMobileSheet(doc){
+async function openDocMobileSheet(doc){
   document.getElementById('mob-doc-sheet')?.remove();
   const ext = getExt(doc.name);
   const cat = getCat(doc.category);
+  const viewUrl = await getDocViewUrl(doc);
 
   // Preview content
   let previewHtml = '';
-  if(doc.fileData){
+  if(viewUrl){
     if(['jpg','jpeg','png','gif','webp'].includes(ext)){
-      previewHtml = `<img src="${doc.fileData}" alt="${esc(doc.name)}"
+      previewHtml = `<img src="${viewUrl}" alt="${esc(doc.name)}"
         style="width:100%;max-height:55vh;object-fit:contain;border-radius:10px;background:#f4f3ef;display:block"/>`;
     } else if(ext==='pdf'){
-      previewHtml = `<iframe src="${(doc.fileData||'about:blank')}"
+      previewHtml = `<iframe src="${viewUrl}"
         sandbox="allow-same-origin allow-scripts"
         style="width:100%;height:55vh;border:none;border-radius:10px;background:#f4f3ef"></iframe>`;
     } else {
@@ -3617,7 +3618,7 @@ function closeDocMobileSheet(){
   } else { sheet.remove(); }
 }
 
-function openDetail(docId){
+async function openDetail(docId){
   const docs=DB.getDocs(currentCompany.id);
   const doc=docs.find(d=>d.id===docId);
   if(!doc) return;
@@ -3628,13 +3629,15 @@ function openDetail(docId){
   document.getElementById('dp-name').textContent=doc.name;
   document.getElementById('dp-meta').textContent=getCat(doc.category)?.name+' · '+formatDate(doc.uploadedAt);
   const ext=getExt(doc.name);
+  // Ottieni URL firmato da Storage (o fileData legacy)
+  const viewUrl = await getDocViewUrl(doc);
   let preview='';
-  if(doc.fileData){
-    if(['jpg','jpeg','png'].includes(ext)) preview=`<img src="${doc.fileData}" alt="${esc(doc.name)}"/>`;
-    else if(ext==='pdf') preview=`<iframe src="${doc.fileData}"></iframe>`;
+  if(viewUrl){
+    if(['jpg','jpeg','png','gif','webp'].includes(ext)) preview=`<img src="${viewUrl}" alt="${esc(doc.name)}" style="width:100%;max-height:300px;object-fit:contain"/>`;
+    else if(ext==='pdf') preview=`<iframe src="${viewUrl}" style="width:100%;height:300px;border:none;border-radius:8px"></iframe>`;
     else preview=`<div style="text-align:center"><div style="font-size:60px">${fileIcon(doc.name)}</div><p style="font-size:13px;color:var(--text-muted);margin-top:8px">Anteprima non disponibile</p></div>`;
   } else {
-    preview=`<div style="text-align:center"><div style="font-size:60px">${fileIcon(doc.name)}</div><p style="font-size:13px;color:var(--text-muted);margin-top:8px">File demo – nessun dato</p></div>`;
+    preview=`<div style="text-align:center"><div style="font-size:60px">${fileIcon(doc.name)}</div><p style="font-size:13px;color:var(--text-muted);margin-top:8px">Anteprima non disponibile</p></div>`;
   }
   document.getElementById('dp-body').innerHTML=`
     <div class="detail-preview">${preview}</div>
@@ -3650,7 +3653,7 @@ function openDetail(docId){
     <div class="detail-info-row"><span class="detail-info-label">Data caricamento</span><span class="detail-info-value">${formatDate(doc.uploadedAt)}</span></div>`;
   document.getElementById('dp-actions').innerHTML=`
     <button class="btn btn-navy btn-sm flex-1" onclick="openEditModal('${doc.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Modifica</button>
-    ${doc.fileData?`<button class="btn btn-secondary btn-sm flex-1" onclick="downloadDoc('${doc.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Scarica</button>`:''}
+    ${(doc.storagePath||doc.fileData)?`<button class="btn btn-secondary btn-sm flex-1" onclick="downloadDoc('${doc.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Scarica</button>`:''}
     <button class="btn btn-secondary btn-sm flex-1" onclick="shareDoc('${doc.id}')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Condividi</button>
     <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="confirmDelete('${doc.id}');closeDetailPanel()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>`;
   panel.classList.add('open');
