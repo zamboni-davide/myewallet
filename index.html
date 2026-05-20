@@ -836,6 +836,9 @@ textarea.input{resize:vertical;min-height:80px;}
 }@media(max-width:480px){
   :root{--bottom-nav-h:58px;}
   .page{padding:10px 10px 20px!important;}
+  .doc-filter-bar{flex-wrap:wrap!important;gap:8px!important;}
+  .doc-filter-bar>*{min-width:0;flex-shrink:1;}
+  .doc-count-label{white-space:nowrap;flex-shrink:0;}
   .topbar{height:48px!important;}
   .page-title{font-size:18px!important;}
   .kpi-grid-4{gap:8px!important;}
@@ -853,6 +856,9 @@ textarea.input{resize:vertical;min-height:80px;}
   .auth-card{padding:20px 16px!important;}
   .modal-footer .btn+.btn{margin-top:0!important;}
   .input{font-size:16px!important;} /* always 16px to prevent iOS zoom */
+  /* FIX footer sovrapposto: auth-screen scrollabile su mobile */
+  #auth-screen{align-items:flex-start!important;overflow-y:auto!important;overflow-x:hidden!important;padding-top:32px;padding-bottom:32px;}
+  .auth-footer{position:static!important;margin-top:24px;padding-bottom:env(safe-area-inset-bottom,12px);}
 }
 @media(max-width:768px){
   /* Scadenzario alert boxes */
@@ -1309,8 +1315,12 @@ textarea.input{resize:vertical;min-height:80px;}
 @media(max-width:768px){
   html{height:100%;overflow:hidden;overscroll-behavior:none;}
   body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-y;}
-  #app-screen{height:100%;overflow:hidden;}
-  .main-content{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  #app-screen{height:100%;overflow:hidden;max-width:100vw;}
+  .main-content{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;max-width:100%;}
+  .page{overflow-x:hidden;max-width:100%;}
+  /* Tabelle e container orizzontali: solo scroll interno */
+  table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;}
+  .topbar{max-width:100vw;overflow:hidden;}
   #auth-screen{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;}
 }
 </style>
