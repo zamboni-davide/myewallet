@@ -2589,9 +2589,9 @@ async function doRegister(){
       options:{ data:{ company_id: coId, role:'user', name } }
     });
     signUpData=res.data; signUpError=res.error;
-    // Sync silenzioso — non blocca il flusso se fallisce (utente non ancora autenticato)
-    try{ await _supaUploadAll(coId); }catch(e){}
-    try{ await _supaUploadAll('co_admin'); }catch(e){}
+    // Sync silenzioso fire-and-forget — non blocca il flusso
+    _supaUploadAll(coId).catch(()=>{});
+    _supaUploadAll('co_admin').catch(()=>{});
   }catch(e){ console.warn('[doRegister] Supabase error:',e); }
   // Clear session — user must login after registration
   DB.setSession(null);
