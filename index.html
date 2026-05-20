@@ -2527,6 +2527,7 @@ async function doRegister(){
     return;
   }
   // La verifica email duplicata è delegata a Supabase Auth (signUp restituisce errore se già registrata)
+  const users=DB.getUsers(); // necessario per push del nuovo utente più avanti
   const coId='co_'+uid();
   const today=new Date();
   const _freePlan=DB.getPlansConfig()['FREE']||{trialDays:30};
