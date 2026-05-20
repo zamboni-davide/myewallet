@@ -1315,13 +1315,18 @@ textarea.input{resize:vertical;min-height:80px;}
 @media(max-width:768px){
   html{height:100%;overflow:hidden;overscroll-behavior:none;}
   body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-y;}
-  #app-screen{height:100%;overflow:hidden;max-width:100vw;}
-  .main-content{overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;max-width:100%;}
-  .page{overflow-x:hidden;max-width:100%;box-sizing:border-box;}
-  /* Footer nascosto su mobile — sostituito dal bottom nav */
+  /* app-screen occupa tutto il viewport */
+  #app-screen{height:100%;overflow:hidden;}
+  /* main-content è il solo scroll container — NO overflow-x:hidden qui
+     perché romperebbe position:sticky del topbar */
+  .main-content{overflow-y:auto;overflow-x:visible;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+  /* Il clip orizzontale va sul .page, non sul parent del topbar */
+  .page{overflow-x:hidden;max-width:100%;box-sizing:border-box;width:100%;}
+  /* Footer nascosto su mobile — il bottom nav è sufficiente */
   .app-footer{display:none!important;}
-  /* Tabelle: scroll interno senza allargare il viewport */
-  table{max-width:100%;box-sizing:border-box;}
+  /* Assicura padding-bottom corretto sotto il bottom nav */
+  .main-content{padding-bottom:calc(var(--bottom-nav-h,64px) + 20px)!important;}
+  /* Auth screen scrollabile su mobile */
   #auth-screen{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;}
 }
 </style>
