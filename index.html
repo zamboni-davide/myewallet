@@ -2326,12 +2326,13 @@ function seedAdmin(){
   const realAdminCo={id:'co_admin',name:'Studio Zamboni',vatNumber:'IT03065200903',address:'Via Perantoni Gavino Satta 14, 07100 Sassari (SS)',email:'direzione@consulenzesardegna.com',phone:'+39 079 291748',plan:'Admin',planStartDate:new Date().toISOString(),planEndDate:null};
   const coIdx=companies.findIndex(c=>c.id==='co_admin');
   if(coIdx>=0){
-    // Aggiorna solo i campi dati, preserva le date esistenti
     companies[coIdx]={...companies[coIdx],...realAdminCo,planStartDate:companies[coIdx].planStartDate||realAdminCo.planStartDate};
   } else {
     companies.push(realAdminCo);
   }
-  DB.setCompanies(companies);
+  // Solo localStorage al boot — no Supabase senza auth (evita 401 RLS)
+  _mem['companies']=companies;
+  try{localStorage.setItem('pda_companies',JSON.stringify(companies));}catch{}
 
   let users=DB.getUsers();
   if(!users.find(u=>u.email==='admin@studiozamboni.it')){
@@ -2347,7 +2348,8 @@ function seedAdmin(){
   }
 }
 
-// Patch dati co_admin dopo il load da Supabase — sovrascrive dati fake in DB remoto
+// Patch dati co_admin dopo il load da Supabase — solo in memoria/localStorage
+// NON chiama DB.setCompanies (che scrive su Supabase) al boot senza auth → evita 401 RLS
 function patchAdminCompany(){
   const real={id:'co_admin',name:'Studio Zamboni',vatNumber:'IT03065200903',
     address:'Via Perantoni Gavino Satta 14, 07100 Sassari (SS)',
@@ -2357,11 +2359,12 @@ function patchAdminCompany(){
   const idx=companies.findIndex(c=>c.id==='co_admin');
   if(idx>=0){
     const existing=companies[idx];
-    // Controlla se i dati sono ancora quelli fake
     if(existing.vatNumber==='IT02345678901'||existing.email==='info@studiozamboni.it'||existing.email==='admin@studiozamboni.it'){
       companies[idx]={...existing,...real,planStartDate:existing.planStartDate||new Date().toISOString()};
-      DB.setCompanies(companies); // scrive in _mem, localStorage E Supabase
-      console.log('[MyEwallet] co_admin patched con dati reali');
+      // Aggiorna solo in _mem e localStorage — NON sync su Supabase senza auth
+      _mem['companies']=companies;
+      try{localStorage.setItem('pda_companies',JSON.stringify(companies));}catch{}
+      console.log('[MyEwallet] co_admin patched in memoria');
     }
   }
 }
@@ -2396,53 +2399,66 @@ async function doLogin(){
   const pwd=document.getElementById('login-pwd').value;
   const remember=document.getElementById('login-remember')?.checked;
 
-  // ── Tenta autenticazione Supabase ──────────────────
-  const {data:authData, error:authError} = await _supa.auth.signInWithPassword({email, password:pwd});
-  if(!authError && authData?.user){
-    const meta = authData.user.user_metadata || {};
-    const companyId = meta.company_id;
-    // Carica dati cloud (sia globali che per-azienda)
-    await _supaLoadAll('co_admin');
-    if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
-    patchAdminCompany(); // fix dati fake legacy
-    // Trova utente nei dati (ora in _mem)
-    let users = DB.getUsers();
-    let user = users.find(u=>u.email===email);
-    // Se utente non trovato: aggiunge il record con i dati Supabase, senza toccare quelli esistenti
-    if(!user){
-      const supaUid = authData.user.id;
-      user = {id:'u_'+supaUid.slice(0,8),
-              name: meta.name || email.split('@')[0],
-              email: email,
-              pwd: '__supabase__',
-              companyId: companyId || 'co_admin',
-              role: meta.role || 'admin',
-              createdAt: new Date().toISOString()};
-      users.push(user);
-      DB.setUsers(users);
-    }
-    const companies = DB.getCompanies();
-    const co = companies.find(c=>c.id===(companyId||user?.companyId));
-    if(user && co){
-      if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
-      else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
-      currentUser=user; currentCompany=co;
-      startApp(user,co); return;
-    }
-  }
+  // Validazione input
+  if(!email||!pwd){showAuthError('login','Inserisci email e password.');return;}
 
-  // ── Fallback: autenticazione localStorage (utenti non ancora migrati) ──
-  const users=DB.getUsers();
-  const userByEmail=users.find(u=>u.email===email);
-  if(!userByEmail){showAuthError('login','Email o password non corretti.');return;}
-  if(!(await checkPassword(pwd,userByEmail.pwd))){showAuthError('login','Email o password non corretti.');return;}
-  const user=userByEmail;
-  const companies=DB.getCompanies();
-  const co=companies.find(c=>c.id===user.companyId);
-  if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
-  else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
-  currentUser=user; currentCompany=co;
-  startApp(user,co);
+  // ── Loading state: disabilita bottone, mostra spinner ──
+  const btn=document.querySelector('#form-login .btn-primary');
+  const origText = btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Accesso in corso...';}
+  document.getElementById('login-error')?.classList.add('hidden');
+
+  try{
+    // ── Tenta autenticazione Supabase ──────────────────
+    const {data:authData, error:authError} = await _supa.auth.signInWithPassword({email, password:pwd});
+    if(!authError && authData?.user){
+      const meta = authData.user.user_metadata || {};
+      const companyId = meta.company_id;
+      await _supaLoadAll('co_admin');
+      if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
+      patchAdminCompany();
+      let users = DB.getUsers();
+      let user = users.find(u=>u.email===email);
+      if(!user){
+        const supaUid = authData.user.id;
+        user = {id:'u_'+supaUid.slice(0,8),
+                name: meta.name || email.split('@')[0],
+                email, pwd:'__supabase__',
+                companyId: companyId||'co_admin',
+                role: meta.role||'admin',
+                createdAt: new Date().toISOString()};
+        users.push(user); DB.setUsers(users);
+      }
+      const companies = DB.getCompanies();
+      let co = companies.find(c=>c.id===(companyId||user?.companyId));
+      // Se company non trovata ma auth Supabase ok → non mostrare errore, usa co_admin
+      if(!co) co = companies.find(c=>c.id==='co_admin');
+      if(user && co){
+        if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
+        else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
+        currentUser=user; currentCompany=co;
+        startApp(user,co); return;
+      }
+    }
+
+    // ── Fallback: autenticazione localStorage ──
+    const users=DB.getUsers();
+    const userByEmail=users.find(u=>u.email===email);
+    if(!userByEmail){showAuthError('login','Email o password non corretti.');return;}
+    if(!(await checkPassword(pwd,userByEmail.pwd))){showAuthError('login','Email o password non corretti.');return;}
+    const localUser=userByEmail;
+    const companies=DB.getCompanies();
+    const co=companies.find(c=>c.id===localUser.companyId);
+    if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:localUser.id,companyId:localUser.companyId,expires:Date.now()+86400000*30});}
+    else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:localUser.id,companyId:localUser.companyId,expires:Date.now()+86400000*7});}
+    currentUser=localUser; currentCompany=co;
+    startApp(localUser,co);
+
+  } catch(e){
+    showAuthError('login','Errore di connessione. Riprova.');
+  } finally{
+    if(btn){btn.disabled=false;btn.textContent=origText;}
+  }
 }
 
 function togglePwd(inputId, btnId){
@@ -2554,15 +2570,25 @@ async function doRegister(){
   currentUser=null; currentCompany=null;
   // ── Messaggio di conferma e redirect al login ────────────
   const emailConfirmRequired = !signUpError && signUpData?.user && !signUpData.session;
+  // Reset form registrazione
+  ['reg-name','reg-company','reg-email','reg-pwd'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value='';
+  });
+  ['reg-chk1','reg-chk2','reg-chk3'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.checked=false;
+  });
+  const regBtn=document.getElementById('reg-submit-btn');
+  if(regBtn){regBtn.disabled=true;regBtn.textContent='Crea Account e Inizia il Trial';}
   switchAuthTab('login');
   document.getElementById('login-email').value=email;
-  if(emailConfirmRequired){
-    showAuthSuccess('login','✓ Account creato! Controlla la tua email e clicca il link di conferma prima di accedere.');
-  } else {
-    showAuthSuccess('login','✓ Account creato! Accedi con le tue credenziali per iniziare il trial gratuito.');
-  }
-  // Scroll top del form per assicurarsi che il messaggio sia visibile
-  document.getElementById('auth-screen')?.scrollTo(0,0);
+  const msg = emailConfirmRequired
+    ? '✓ Account creato! Controlla la tua email e clicca il link di conferma prima di accedere.'
+    : '✓ Account creato! Accedi con le tue credenziali per iniziare il trial gratuito.';
+  // Mostra messaggio successo in modo robusto
+  setTimeout(()=>{
+    showAuthSuccess('login', msg);
+    document.getElementById('auth-screen')?.scrollTo({top:0,behavior:'smooth'});
+  }, 100);
 }
 
 function showAuthSuccess(form,msg){
