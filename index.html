@@ -1337,6 +1337,8 @@ textarea.input{resize:vertical;min-height:80px;}
   .page{overflow-x:hidden;max-width:100%;box-sizing:border-box;width:100%;}
   /* Footer nascosto su mobile — il bottom nav è sufficiente */
   .app-footer{display:none!important;visibility:hidden!important;height:0!important;overflow:hidden!important;}
+  /* Cookie banner: stai sopra il bottom nav su mobile */
+  #cookie-banner{bottom:calc(var(--bottom-nav-h,64px) + 8px)!important;border-radius:12px!important;margin:0 8px!important;left:0!important;right:0!important;width:auto!important;}
   /* Assicura padding-bottom corretto sotto il bottom nav */
   .main-content{padding-bottom:calc(var(--bottom-nav-h,64px) + 20px)!important;}
   /* Auth screen scrollabile su mobile */
@@ -6637,8 +6639,26 @@ function renderSettingsMobile(main){
       </div>
     </div>`;
 
+    // Privacy & GDPR
+    const privacyContent=`<div style="padding-top:12px;display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.5">Gestisci le tue preferenze sulla privacy e i tuoi diritti GDPR.</div>
+      <button onclick="showTermsReadOnly()" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Privacy Policy & Termini d'Uso
+      </button>
+      <button onclick="showCookiePolicy()" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px">
+        🍪 Cookie Policy
+      </button>
+      <div style="height:1px;background:var(--border-light)"></div>
+      <button onclick="openDeleteAccountModal()" style="width:100%;background:#FEF2F2;border:1.5px solid #FCA5A5;color:#DC2626;border-radius:10px;padding:13px;font-size:14px;font-weight:700;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Richiedi cancellazione account (art. 17 GDPR)
+      </button>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.5">La richiesta verrà processata entro 30 giorni. Per urgenze: <strong>consulenzesardegna@pec.it</strong></div>
+    </div>\`;
+
     // Backup
-    const backupContent=`<div style="padding-top:12px;display:flex;flex-direction:column;gap:10px">
+    const backupContent=\`<div style="padding-top:12px;display:flex;flex-direction:column;gap:10px">
       <div style="font-size:13px;color:var(--text-muted);line-height:1.5">Esporta o importa tutti i tuoi documenti, acquisti e dati account.</div>
       <button onclick="exportBackup()" style="width:100%;background:var(--navy);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -6663,6 +6683,7 @@ function renderSettingsMobile(main){
       ${section('profilo','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>','Profilo Utente','',userContent)}
       ${section('ticket','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>','Assistenza',openTickets>0?openTickets:'',ticketContent)}
       ${section('backup','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>','Backup Dati','',backupContent)}
+      ${section('privacy','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>','Privacy & GDPR','',privacyContent)}
 
       <!-- Logout -->
       <button onclick="logout()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;background:#fff;border:1.5px solid #FEE2E2;border-radius:14px;color:#DC2626;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;-webkit-tap-highlight-color:transparent">
@@ -7026,7 +7047,7 @@ function renderSettings(main){
           :'<span style=\"color:#9CA3AF;font-size:10px;\">–<\/span>');
       return '<div class=\"settings-section\" style=\"margin-top:0\"><div class=\"settings-section-title\"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Storico Acquisti &amp; Contratti<\/div><div style=\"overflow-x:auto\"><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr style=\"background:var(--navy);color:#fff\"><th style=\"padding:8px 12px;text-align:left\">Data<\/th><th style=\"padding:8px 12px;text-align:left\">Tipo<\/th><th style=\"padding:8px 12px;text-align:left\">Piano<\/th><th style=\"padding:8px 12px;text-align:right\">Imponibile<\/th><th style=\"padding:8px 12px;text-align:right\">IVA<\/th><th style=\"padding:8px 12px;text-align:right\">Totale<\/th><th style=\"padding:8px 12px;text-align:center\">Firma<\/th><th style=\"padding:8px 12px;text-align:center\">Contratto<\/th><\/tr><\/thead><tbody>'+
       purchases.slice().reverse().map((p,i)=>'<tr style=\"background:'+(i%2===0?'#fff':'#F9F8F6')+';border-bottom:1px solid var(--border-light)\"><td style=\"padding:8px 12px\">'+(p.createdAt?new Date(p.createdAt).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}):'–')+'<\/td><td style=\"padding:8px 12px\"><span class=\"badge '+(p.type==='activation'?'badge-gold':p.type==='trial'?'badge-gray':'badge-navy')+'\">'+( typeLabel[p.type]||p.type)+'<\/span><\/td><td style=\"padding:8px 12px;font-weight:600\">'+esc(p.plan||'Standard')+'<\/td><td style=\"padding:8px 12px;text-align:right\">€ '+(p.price||0).toFixed(2)+'<\/td><td style=\"padding:8px 12px;text-align:right\">€ '+(p.iva||0).toFixed(2)+'<\/td><td style=\"padding:8px 12px;text-align:right;font-weight:700;color:var(--navy)\">€ '+(p.total||0).toFixed(2)+'<\/td><td style=\"padding:8px 12px;text-align:center\">'+sigBadge(p)+(p.pendingClientSignature?'<br><button onclick=\"showSignatureModal(\''+p.id+'\',\'\')\" style=\"margin-top:4px;background:#041348;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer;\"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19.5v.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h.5"/><path d="M18 1l4 4-9.5 9.5-5 1 1-5z"/></svg> Firma<\/button>':'')+'<\/td><td style=\"padding:8px 12px;text-align:center\"><button onclick=\"openPurchaseContract(\''+p.id+'\')\" style=\"background:var(--navy);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;white-space:nowrap\"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF<\/button><\/td><\/tr>').join('')+
-      '<\/tbody><tfoot><tr style=\"background:var(--bg);font-weight:700;border-top:2px solid var(--navy)\"><td colspan=\"7\" style=\"padding:8px 12px;text-align:right;color:var(--text-muted)\">Totale complessivo:<\/td><td style=\"padding:8px 12px;text-align:right;color:var(--navy);font-size:14px\">€ '+purchases.reduce((s,p)=>s+(p.total||0),0).toFixed(2)+'<\/td><\/tr><\/tfoot><\/table><\/div><div style=\"display:flex;gap:8px;margin-top:12px;flex-wrap:wrap\"><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"showTermsReadOnly()\">Condizioni d\'Uso<\/button><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"downloadTermsPDF()\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/></svg> Privacy PDF<\/button><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"downloadContractPDF()\">Contratto generico<\/button><\/div><\/div>';
+      '<\/tbody><tfoot><tr style=\"background:var(--bg);font-weight:700;border-top:2px solid var(--navy)\"><td colspan=\"7\" style=\"padding:8px 12px;text-align:right;color:var(--text-muted)\">Totale complessivo:<\/td><td style=\"padding:8px 12px;text-align:right;color:var(--navy);font-size:14px\">€ '+purchases.reduce((s,p)=>s+(p.total||0),0).toFixed(2)+'<\/td><\/tr><\/tfoot><\/table><\/div><div style=\"display:flex;gap:8px;margin-top:12px;flex-wrap:wrap\"><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"showTermsReadOnly()\">Condizioni d\'Uso<\/button><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"downloadTermsPDF()\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/></svg> Privacy PDF<\/button><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"downloadContractPDF()\">Contratto generico<\/button><button class=\"btn\" style=\"font-size:12px;padding:6px 12px;background:#FEF2F2;border:1px solid #FCA5A5;color:#DC2626;\" onclick=\"openDeleteAccountModal()\">⚠ Richiedi cancellazione account (art.17 GDPR)<\/button><\/div><\/div>';
     })():''}
     ${renderSettingsNotifBlock(co)}
 
@@ -9842,6 +9863,7 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
 // ════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
   checkRecoveryToken();
+  initCookieBanner();
   const y=new Date().getFullYear();
   document.querySelectorAll('#footer-year,#auth-year,#terms-year,.terms-year-inline').forEach(el=>el.textContent=y);
 
@@ -9989,6 +10011,121 @@ function showNewPasswordForm(){
   if(tabs) tabs.style.display='none';
 }
 
+
+// ════════════════════════════════════════════════
+//  GDPR — COOKIE BANNER
+// ════════════════════════════════════════════════
+function initCookieBanner(){
+  if(localStorage.getItem('mew_cookie_consent')) return; // già scelto
+  const banner = document.getElementById('cookie-banner');
+  if(banner) banner.style.display='block';
+}
+function acceptCookies(choice){
+  localStorage.setItem('mew_cookie_consent', choice);
+  localStorage.setItem('mew_cookie_consent_date', new Date().toISOString());
+  const banner = document.getElementById('cookie-banner');
+  if(banner) banner.style.display='none';
+}
+function showCookiePolicy(){
+  const html=`<div style="font-family:'DM Sans',sans-serif;max-width:660px;padding:0 4px">
+    <h2 style="font-family:'Cormorant Garamond',serif;color:#041348;margin:0 0 16px">Cookie Policy — MyEwallet</h2>
+    <p style="font-size:13px;color:#4a5568;margin-bottom:16px">Ultimo aggiornamento: ${new Date().toLocaleDateString('it-IT')} — Studio Zamboni, Via Perantoni Satta 14, 07100 Sassari</p>
+
+    <h3 style="color:#041348;font-size:15px;margin:20px 0 8px">1. Cosa sono i cookie</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6">I cookie sono piccoli file di testo salvati sul dispositivo dell'utente durante la navigazione. MyEwallet utilizza esclusivamente cookie tecnici necessari al funzionamento del servizio.</p>
+
+    <h3 style="color:#041348;font-size:15px;margin:20px 0 8px">2. Cookie utilizzati</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:16px">
+      <thead><tr style="background:#041348;color:#fff">
+        <th style="padding:8px 10px;text-align:left">Nome</th>
+        <th style="padding:8px 10px;text-align:left">Tipo</th>
+        <th style="padding:8px 10px;text-align:left">Scopo</th>
+        <th style="padding:8px 10px;text-align:left">Durata</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #e2e8f0">
+          <td style="padding:8px 10px">sb-* (Supabase)</td>
+          <td style="padding:8px 10px">Tecnico necessario</td>
+          <td style="padding:8px 10px">Autenticazione e sessione utente</td>
+          <td style="padding:8px 10px">Sessione / 7 giorni</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2e8f0">
+          <td style="padding:8px 10px">mew_cookie_consent</td>
+          <td style="padding:8px 10px">Tecnico necessario</td>
+          <td style="padding:8px 10px">Salva la preferenza cookie dell'utente</td>
+          <td style="padding:8px 10px">1 anno</td>
+        </tr>
+        <tr style="border-bottom:1px solid #e2e8f0">
+          <td style="padding:8px 10px">pda_* (localStorage)</td>
+          <td style="padding:8px 10px">Tecnico necessario</td>
+          <td style="padding:8px 10px">Dati sessione e preferenze app (localStorage, non cookie)</td>
+          <td style="padding:8px 10px">Persistente</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="color:#041348;font-size:15px;margin:20px 0 8px">3. Cookie di terze parti</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6">MyEwallet utilizza i seguenti servizi di terze parti che possono impostare cookie tecnici propri:</p>
+    <ul style="font-size:13px;color:#4a5568;line-height:1.8;padding-left:20px">
+      <li><strong>Supabase</strong> (autenticazione) — <a href="https://supabase.com/privacy" target="_blank" style="color:#1A52D4">Privacy Policy</a></li>
+      <li><strong>Google Fonts</strong> (tipografia) — caricamento font, nessun cookie di profilazione</li>
+      <li><strong>jsDelivr CDN</strong> (librerie) — distribuzione codice, nessun cookie di profilazione</li>
+    </ul>
+    <p style="font-size:13px;color:#4a5568;margin-top:8px">Non utilizziamo Google Analytics, Meta Pixel, o qualsiasi altro strumento di tracking/profilazione.</p>
+
+    <h3 style="color:#041348;font-size:15px;margin:20px 0 8px">4. Gestione del consenso</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6">Puoi modificare o revocare il consenso in qualsiasi momento:</p>
+    <button onclick="localStorage.removeItem('mew_cookie_consent');localStorage.removeItem('mew_cookie_consent_date');location.reload();" style="background:#041348;color:#C9A84C;border:none;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;margin-top:4px">Resetta preferenze cookie</button>
+
+    <h3 style="color:#041348;font-size:15px;margin:20px 0 8px">5. Contatti</h3>
+    <p style="font-size:13px;color:#4a5568">Per informazioni: <strong>consulenzesardegna@pec.it</strong> · Studio Zamboni, Via Perantoni Satta 14, 07100 Sassari (SS) · P.IVA IT03065200903</p>
+  </div>`;
+  openDocModal(html,'Cookie Policy — MyEwallet');
+}
+
+// ════════════════════════════════════════════════
+//  GDPR — CANCELLAZIONE ACCOUNT (art. 17)
+// ════════════════════════════════════════════════
+function openDeleteAccountModal(){
+  const modal = document.getElementById('delete-account-modal');
+  if(modal){ modal.style.display='flex'; }
+}
+function closeDeleteAccountModal(){
+  const modal = document.getElementById('delete-account-modal');
+  if(modal){ modal.style.display='none'; }
+  const ta = document.getElementById('delete-account-reason');
+  if(ta) ta.value='';
+}
+function submitDeleteAccountRequest(){
+  if(!currentUser||!currentCompany) return;
+  const reason = document.getElementById('delete-account-reason')?.value?.trim()||'Non specificato';
+  const ticket = {
+    id: uid(),
+    companyId: currentCompany.id,
+    userId: currentUser.id,
+    userEmail: currentUser.email,
+    category: 'gdpr_erasure',
+    subject: 'RICHIESTA CANCELLAZIONE ACCOUNT — Art. 17 GDPR',
+    message: `Richiesta di cancellazione account ai sensi dell'art. 17 GDPR.
+
+Utente: ${currentUser.name} (${currentUser.email})
+Azienda: ${currentCompany.name}
+Motivo: ${reason}
+Data: ${new Date().toLocaleString('it-IT')}
+
+Richiesta inviata tramite MyEwallet.`,
+    status: 'open',
+    priority: 'high',
+    createdAt: new Date().toISOString(),
+    thread: []
+  };
+  const tickets = DB.getTickets();
+  tickets.push(ticket);
+  DB.setTickets(tickets);
+  closeDeleteAccountModal();
+  showToast('Richiesta inviata. Verrai contattato entro 30 giorni.','success');
+}
+
 </script>
 
 <!-- ══ MODAL RESET PASSWORD ══ -->
@@ -10035,6 +10172,44 @@ function showNewPasswordForm(){
       </div>
       <div id="new-pwd-msg" class="auth-error hidden" style="margin-top:8px"></div>
       <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="saveNewPassword()">Salva nuova password</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ COOKIE BANNER ══ -->
+<div id="cookie-banner" style="display:none;position:fixed;bottom:16px;left:16px;right:16px;z-index:8000;background:var(--navy,#041348);color:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 4px 24px rgba(0,0,0,0.35);max-width:680px;margin:0 auto;">
+  <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:13px;font-weight:700;margin-bottom:4px">🍪 Informativa Cookie</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.7);line-height:1.5">
+        Utilizziamo cookie tecnici necessari per il funzionamento del servizio (autenticazione, sessione).
+        Non utilizziamo cookie di profilazione o marketing.
+        <a onclick="showCookiePolicy()" href="javascript:void(0)" style="color:var(--gold,#C9A84C);text-decoration:underline;cursor:pointer">Cookie policy</a>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap;margin-top:4px">
+      <button onclick="acceptCookies('necessary')" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:rgba(255,255,255,0.8);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap">Solo necessari</button>
+      <button onclick="acceptCookies('all')" style="background:#C9A84C;border:none;color:#041348;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Accetta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL RICHIESTA CANCELLAZIONE ACCOUNT ══ -->
+<div id="delete-account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;padding:28px 24px">
+    <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#DC2626;margin:0 0 8px">⚠️ Richiesta cancellazione account</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6;margin:0 0 16px">
+      Ai sensi dell'art. 17 GDPR hai il diritto di richiedere la cancellazione dei tuoi dati personali.<br><br>
+      La richiesta verrà inviata a <strong>Studio Zamboni</strong> e processata entro <strong>30 giorni</strong>. I tuoi dati verranno eliminati salvo obblighi di legge (conservazione fiscale 10 anni).
+    </p>
+    <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#991B1B">
+      <strong>Attenzione:</strong> questa azione è irreversibile. Tutti i documenti, dati e accessi verranno rimossi.
+    </div>
+    <textarea id="delete-account-reason" placeholder="Motivo della richiesta (opzionale)..." rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:13px;resize:none;box-sizing:border-box;font-family:inherit;margin-bottom:16px"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeDeleteAccountModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer">Annulla</button>
+      <button onclick="submitDeleteAccountRequest()" style="background:#DC2626;border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Invia richiesta</button>
     </div>
   </div>
 </div>
