@@ -2578,13 +2578,19 @@ async function doRegister(){
     clientIpHint:'accettazione T&C in fase di registrazione'
   }]);
   // ── Registra utente su Supabase Auth ────────────────────
-  const {data:signUpData, error:signUpError} = await _supa.auth.signUp({
-    email, password: pwd,
-    options:{ data:{ company_id: coId, role:'user', name } }
-  });
-  // ── Sync dati azienda su Supabase ───────────────────────
-  await _supaUploadAll(coId);
-  await _supaUploadAll('co_admin');
+  let signUpData=null, signUpError=null;
+  try{
+    const btn2=document.getElementById('reg-submit-btn');
+    if(btn2){btn2.disabled=true;btn2.textContent='Registrazione in corso...';}
+    const res = await _supa.auth.signUp({
+      email, password: pwd,
+      options:{ data:{ company_id: coId, role:'user', name } }
+    });
+    signUpData=res.data; signUpError=res.error;
+    // Sync silenzioso — non blocca il flusso se fallisce (utente non ancora autenticato)
+    try{ await _supaUploadAll(coId); }catch(e){}
+    try{ await _supaUploadAll('co_admin'); }catch(e){}
+  }catch(e){ console.warn('[doRegister] Supabase error:',e); }
   // Clear session — user must login after registration
   DB.setSession(null);
   currentUser=null; currentCompany=null;
