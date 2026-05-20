@@ -2188,14 +2188,16 @@ async function _supaGetToken(){
 
 function _supaSync(companyId, key, value) {
   if (!companyId) return;
-  _supaGetToken().then(token=>{
+  // Salta sync se non c'è sessione attiva (es. durante registrazione)
+  _supa.auth.getSession().then(({data})=>{
+    if(!data?.session) return; // non autenticato, skip
     _supa.from('company_store')
       .upsert([{company_id:companyId,store_key:key,store_value:JSON.stringify(value),updated_at:new Date().toISOString()}],
               {onConflict:'company_id,store_key'})
       .then(({error})=>{
         if(error && !error.message?.includes('clone')) console.warn('[Supabase sync]',key,error.message);
       });
-  });
+  }).catch(()=>{});
 }
 
 // Load all data for a company from Supabase into _mem + localStorage cache
