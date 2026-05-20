@@ -2368,18 +2368,7 @@ function seedAdmin(){
   _mem['companies']=companies;
   try{localStorage.setItem('pda_companies',JSON.stringify(companies));}catch{}
 
-  let users=DB.getUsers();
-  if(!users.find(u=>u.email==='admin@studiozamboni.it')){
-    users.push({id:'u_admin',name:'Studio Zamboni',email:'admin@studiozamboni.it',pwd:'$CHANGE_ME$',companyId:'co_admin',role:'admin',createdAt:new Date().toISOString()});
-    DB.setUsers(users);
-    // Seed sample docs
-    const sampleDocs=[
-      {id:uid(),name:'DVR_2024.pdf',category:'sicurezza',subcategory:'DVR',description:'Documento di Valutazione dei Rischi 2024',tags:['2024','sicurezza','obbligatorio'],fileType:'pdf',fileSize:245000,fileData:null,uploadedBy:'Studio Zamboni',uploadedAt:new Date('2024-03-15').toISOString()},
-      {id:uid(),name:'Visura_Camerale.pdf',category:'societari',subcategory:'Visura camerale',description:'Visura camerale ordinaria',tags:['2024','registro imprese'],fileType:'pdf',fileSize:85000,fileData:null,uploadedBy:'Studio Zamboni',uploadedAt:new Date('2024-01-10').toISOString()},
-      {id:uid(),name:'Contratto_Lavoro_Rossi.docx',category:'dipendenti',subcategory:'Contratti',description:'Contratto di assunzione Mario Rossi',tags:['assunzione','CCNL'],fileType:'docx',fileSize:38000,fileData:null,uploadedBy:'Studio Zamboni',uploadedAt:new Date('2024-02-20').toISOString()},
-    ];
-    DB.setDocs('co_admin',sampleDocs);
-  }
+  // Admin@studiozamboni.it rimosso — super admin è direzione@consulenzesardegna.com via Supabase Auth
 }
 
 // Patch dati co_admin dopo il load da Supabase — solo in memoria/localStorage
@@ -4758,7 +4747,7 @@ function checkOverduePayments(){
         subs2[sidx].missedPaymentsCount=(subs2[sidx].missedPaymentsCount||0)+1;
         DB.setSubscriptions(subs2);
         createNotification({
-          recipientId:'u_admin',recipientRole:'admin',
+          recipientId:(DB.getUsers().find(u=>u.role==='admin'&&u.email!=='admin@studiozamboni.it')?.id||'u_admin'),recipientRole:'admin',
           companyId:sub.companyId,companyName:'',
           message:`Pagamento scaduto: <strong>${sub.planName}</strong> — ${sub.companyId} (${daysPast} giorni)`,
           type:'warning',senderName:'Sistema'
@@ -5278,7 +5267,7 @@ function _doCreatePaymentRequest(planName,billingCycle,paymentMethod,consents,bi
   showToast('Richiesta inviata a Studio Zamboni','success');
   // Notifica admin
   createNotification({
-    recipientId:'u_admin',recipientRole:'admin',
+    recipientId:(DB.getUsers().find(u=>u.role==='admin'&&u.email!=='admin@studiozamboni.it')?.id||'u_admin'),recipientRole:'admin',
     companyId:currentCompany.id,companyName:currentCompany.name,
     message:`Nuova richiesta piano <strong>${esc(planName)}</strong> (${billingCycle==='monthly'?'mensile':'annuale'}) da <strong>${esc(currentCompany.name)}</strong>`,
     type:'info',senderName:currentCompany.name
@@ -7861,7 +7850,7 @@ function requestMobilePurchase(){
     status:'submitted', requestedAt:new Date().toISOString(), updatedAt:new Date().toISOString()
   });
   DB.setPurchaseRequests(reqs);
-  createNotification({recipientId:'u_admin',recipientRole:'admin',
+  createNotification({recipientId:(DB.getUsers().find(u=>u.role==='admin'&&u.email!=='admin@studiozamboni.it')?.id||'u_admin'),recipientRole:'admin',
     companyId:currentCompany.id,companyName:currentCompany.name,
     message:`Nuova richiesta acquisto: <strong>${plan}</strong> da ${esc(currentCompany.name)}`,
     type:'info',senderName:currentCompany.name});
