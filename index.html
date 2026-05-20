@@ -2213,6 +2213,9 @@ async function _supaLoadAll(companyId) {
         // store_value può essere stringa JSON o oggetto diretto
         let val = row.store_value;
         if(typeof val === 'string'){try{val=JSON.parse(val);}catch{}}
+        // Non scrivere null in _mem: causerebbe DB.get() a restituire null
+        // ignorando il default [] su getSignedContracts e simili
+        if(val === null || val === undefined) return;
         _mem[row.store_key] = val;
         try { localStorage.setItem('pda_'+row.store_key, JSON.stringify(val)); } catch {}
       });
@@ -2298,7 +2301,7 @@ const DB = {
   setPlanSnapshots(v){this.set('plan_snapshots',v);},
 
   // Contratti firmati (read-only dopo creazione)
-  getSignedContracts(){return this.get('signed_contracts',[]);},
+  getSignedContracts(){const v=this.get('signed_contracts',[]); return Array.isArray(v)?v:[];},
   setSignedContracts(v){this.set('signed_contracts',v);},
 
   // Versioni T&C/Privacy con hash e tipo modifica
@@ -4183,7 +4186,7 @@ function createSignedContract(companyId, userId, planName, purchaseId, opts={}){
   expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
 
   const contractNum = 'MEW-'+signedAt.getFullYear()+'-'
-    +String(DB.getSignedContracts().length+1).padStart(4,'0');
+    +String((DB.getSignedContracts()||[]).length+1).padStart(4,'0');
 
   const contract = {
     id: uid(),
@@ -4220,7 +4223,7 @@ function createSignedContract(companyId, userId, planName, purchaseId, opts={}){
     expiresAt: contract.expiresAt
   }));
 
-  const contracts = DB.getSignedContracts();
+  const contracts = DB.getSignedContracts()||[];
   contracts.push(contract);
   DB.setSignedContracts(contracts);
 
