@@ -231,7 +231,7 @@ textarea.input{resize:vertical;min-height:80px;}
 /* ──────────────────────────────────────────
    AUTH SCREEN
 ────────────────────────────────────────── */
-#auth-screen{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:60px 20px;background:var(--navy);position:relative;overflow-x:hidden;overflow-y:auto;}
+#auth-screen{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px 20px 40px;box-sizing:border-box;background:var(--navy);position:relative;overflow-x:hidden;overflow-y:auto;}
 #auth-screen::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%, var(--navy-light) 0%, transparent 70%),radial-gradient(ellipse 40% 40% at 20% 80%, rgba(26,82,212,0.08) 0%, transparent 60%);}
 .auth-box{position:relative;z-index:1;width:440px;max-width:calc(100vw - 40px);}
 .auth-logo-area{text-align:center;margin-bottom:40px;} #auth-logo-svg{display:flex;justify-content:center;margin-bottom:16px;} #auth-logo-svg svg{width:220px;height:auto;max-width:100%;display:block;}
@@ -1326,8 +1326,9 @@ textarea.input{resize:vertical;min-height:80px;}
    MOBILE BOUNCE SCROLL FIX — iOS + Android
    ═══════════════════════════════════════════ */
 @media(max-width:768px){
-  html{height:100%;overflow:hidden;overscroll-behavior:none;}
-  body{height:100%;overflow:hidden;overscroll-behavior:none;touch-action:pan-y;}
+  html{height:100%;}
+  body{height:100%;overscroll-behavior:none;touch-action:pan-y;}
+  /* overflow:hidden su body viene impostato via JS solo quando app è attiva */
   /* app-screen occupa tutto il viewport */
   #app-screen{height:100%;overflow:hidden;}
   /* main-content è il solo scroll container — NO overflow-x:hidden qui
@@ -2705,6 +2706,8 @@ function showAuthError(form,msg){
 }
 
 function logout(){
+  document.body.style.overflow='';
+  document.documentElement.style.overflow='';
   clearInterval(window._trialCountdownTimer);
   window._trialCountdownTimer=null;
   _supa.auth.signOut().catch(()=>{});
@@ -2767,6 +2770,8 @@ function checkSignatureReminders(){
 }
 
 function startApp(user,co){
+  document.body.style.overflow='hidden';
+  document.documentElement.style.overflow='hidden';
   currentUser=user;currentCompany=co;
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
@@ -9862,6 +9867,9 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
 //  BOOT
 // ════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+  // Scroll libero finché l'app non è attiva
+  document.body.style.overflow='';
+  document.documentElement.style.overflow='';
   checkRecoveryToken();
   initCookieBanner();
   const y=new Date().getFullYear();
