@@ -2526,11 +2526,7 @@ async function doRegister(){
     showAuthError('register','Devi accettare tutte le condizioni per completare la registrazione.');
     return;
   }
-  // Verifica email: carica da Supabase e controlla
-  await _supaLoadAll('co_admin');
-  const users=DB.getUsers();
-  const emailExists=users.find(u=>u.email===email);
-  if(emailExists){showAuthError('register','Email gia registrata. Accedi o usa un altra email.');return;}
+  // La verifica email duplicata è delegata a Supabase Auth (signUp restituisce errore se già registrata)
   const coId='co_'+uid();
   const today=new Date();
   const _freePlan=DB.getPlansConfig()['FREE']||{trialDays:30};
