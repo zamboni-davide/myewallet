@@ -2260,9 +2260,9 @@ const DB = {
     const cid = currentCompany?.id || (k==='companies'||k==='users'||k==='plans_config'||k==='admin_docs'||k==='payment_requests'||k==='invoices'||k==='subscriptions'||k==='notifications'||k==='tickets'||k==='signed_contracts'||k==='terms_versions'||k==='user_consents'||k==='audit_log'||k==='purchase_requests'||k==='renewal_requests'||k==='suspension_events'||k==='recurring_schedule'||k==='billing_profiles'||k==='plan_changelog'||k==='plan_snapshots' ? 'co_admin' : null);
     if(cid) _supaSync(cid, k, v);
   },
-  getUsers(){return this.get('users',[]);},
+  getUsers(){const v=this.get('users',[]); return Array.isArray(v)?v:[];},
   setUsers(u){this.set('users',u);},
-  getCompanies(){return this.get('companies',[]);},
+  getCompanies(){const v=this.get('companies',[]); return Array.isArray(v)?v:[];},
   setCompanies(c){this.set('companies',c);},
   getPlansConfig(){return this.get('plans_config',{
     FREE:        {price:0,   vatRate:0,  paymentMethods:[], notes:'', storageMB:50,  trialDays:30, trialDocLimit:15, isFree:true},
@@ -2270,34 +2270,34 @@ const DB = {
     Professional:{price:199, vatRate:22, paymentMethods:['bonifico','pos'], notes:'', storageMB:400},
     Enterprise:  {price:349, vatRate:22, paymentMethods:['bonifico','pos','paypal'], notes:'', storageMB:700}
   });},
-  getPlanChangelog(){return this.get('plan_changelog',[]);},
+  getPlanChangelog(){const v=this.get('plan_changelog',[]); return Array.isArray(v)?v:[];},
   setPlanChangelog(v){this.set('plan_changelog',v);},
   setPlansConfig(p){this.set('plans_config',p);},
-  getAdminDocs(){return this.get('admin_docs',[]);},
+  getAdminDocs(){const v=this.get('admin_docs',[]); return Array.isArray(v)?v:[];},
   setAdminDocs(v){this.set('admin_docs',v);},
 
   // ── PAYMENT ARCHITECTURE ─────────────────────────────
-  getPaymentRequests(){return this.get('payment_requests',[]);},
+  getPaymentRequests(){const v=this.get('payment_requests',[]); return Array.isArray(v)?v:[];},
   setPaymentRequests(v){this.set('payment_requests',v);},
 
-  getInvoices(){return this.get('invoices',[]);},
+  getInvoices(){const v=this.get('invoices',[]); return Array.isArray(v)?v:[];},
   setInvoices(v){this.set('invoices',v);},
 
-  getSubscriptions(){return this.get('subscriptions',[]);},
+  getSubscriptions(){const v=this.get('subscriptions',[]); return Array.isArray(v)?v:[];},
   setSubscriptions(v){this.set('subscriptions',v);},
 
-  getSuspensionEvents(){return this.get('suspension_events',[]);},
+  getSuspensionEvents(){const v=this.get('suspension_events',[]); return Array.isArray(v)?v:[];},
   setSuspensionEvents(v){this.set('suspension_events',v);},
 
-  getRecurringSchedule(){return this.get('recurring_schedule',[]);},
+  getRecurringSchedule(){const v=this.get('recurring_schedule',[]); return Array.isArray(v)?v:[];},
   setRecurringSchedule(v){this.set('recurring_schedule',v);},
 
-  getBillingProfiles(){return this.get('billing_profiles',[]);},
+  getBillingProfiles(){const v=this.get('billing_profiles',[]); return Array.isArray(v)?v:[];},
   setBillingProfiles(v){this.set('billing_profiles',v);},
 
   // ── CONTRACT ARCHITECTURE ─────────────────────────────
   // Piano snapshot immutabile al momento del contratto
-  getPlanSnapshots(){return this.get('plan_snapshots',[]);},
+  getPlanSnapshots(){const v=this.get('plan_snapshots',[]); return Array.isArray(v)?v:[];},
   setPlanSnapshots(v){this.set('plan_snapshots',v);},
 
   // Contratti firmati (read-only dopo creazione)
@@ -2305,15 +2305,15 @@ const DB = {
   setSignedContracts(v){this.set('signed_contracts',v);},
 
   // Versioni T&C/Privacy con hash e tipo modifica
-  getTermsVersions(){return this.get('terms_versions',[]);},
+  getTermsVersions(){const v=this.get('terms_versions',[]); return Array.isArray(v)?v:[];},
   setTermsVersions(v){this.set('terms_versions',v);},
 
   // Consensi utente con proof completa
-  getUserConsents(){return this.get('user_consents',[]);},
+  getUserConsents(){const v=this.get('user_consents',[]); return Array.isArray(v)?v:[];},
   setUserConsents(v){this.set('user_consents',v);},
 
   // Audit log append-only (mai modificato)
-  getAuditLog(){return this.get('audit_log',[]);},
+  getAuditLog(){const v=this.get('audit_log',[]); return Array.isArray(v)?v:[];},
   appendAuditLog(entry){
     const log=this.get('audit_log',[]);
     log.push({...entry, _id:Math.random().toString(36).slice(2), _ts:new Date().toISOString()});
@@ -2322,18 +2322,18 @@ const DB = {
   getDocs(cid){return this.get('docs_'+cid,[]);},
   setDocs(cid,d){this.set('docs_'+cid,d);},
   getAllDocs(){const companies=this.getCompanies();let all=[];companies.forEach(c=>all=[...all,...this.getDocs(c.id).map(d=>({...d,_company:c.name}))]);return all;},
-  getRenewalRequests(){return this.get('renewal_requests',[]);},
+  getRenewalRequests(){const v=this.get('renewal_requests',[]); return Array.isArray(v)?v:[];},
   setRenewalRequests(r){this.set('renewal_requests',r);},
   getSession(){return this.get('session',null);},
   setSession(s){if(s===null){localStorage.removeItem('pda_session');}else{this.set('session',s);}},
   clearSession(){localStorage.removeItem('pda_session');},
   getPurchases(cid){return this.get('purchases_'+cid,[]);},
   setPurchases(cid,p){this.set('purchases_'+cid,p);},
-  getPurchaseRequests(){return this.get('purchase_requests',[]);},
+  getPurchaseRequests(){const v=this.get('purchase_requests',[]); return Array.isArray(v)?v:[];},
   setPurchaseRequests(r){this.set('purchase_requests',r);},
-  getNotifications(){return this.get('notifications',[]);},
+  getNotifications(){const v=this.get('notifications',[]); return Array.isArray(v)?v:[];},
   setNotifications(n){this.set('notifications',n);},
-  getTickets(){return this.get('tickets',[]);},
+  getTickets(){const v=this.get('tickets',[]); return Array.isArray(v)?v:[];},
   setTickets(t){this.set('tickets',t);}
 };
 
