@@ -2531,6 +2531,10 @@ async function doRegister(){
     showAuthError('register','Devi accettare tutte le condizioni per completare la registrazione.');
     return;
   }
+  // Disabilita pulsante subito per evitare doppio submit
+  const regBtnMain=document.getElementById('reg-submit-btn');
+  if(regBtnMain){regBtnMain.disabled=true;regBtnMain.textContent='Registrazione in corso...';}
+  try{
   // La verifica email duplicata è delegata a Supabase Auth (signUp restituisce errore se già registrata)
   const users=DB.getUsers(); // necessario per push del nuovo utente più avanti
   const coId='co_'+uid();
@@ -2585,8 +2589,7 @@ async function doRegister(){
   // ── Registra utente su Supabase Auth ────────────────────
   let signUpData=null, signUpError=null;
   try{
-    const btn2=document.getElementById('reg-submit-btn');
-    if(btn2){btn2.disabled=true;btn2.textContent='Registrazione in corso...';}
+    // btn già disabilitato all'inizio
     const res = await _supa.auth.signUp({
       email, password: pwd,
       options:{ data:{ company_id: coId, role:'user', name } }
@@ -2596,6 +2599,18 @@ async function doRegister(){
     _supaUploadAll(coId).catch(()=>{});
     _supaUploadAll('co_admin').catch(()=>{});
   }catch(e){ console.warn('[doRegister] Supabase error:',e); }
+  // ── Gestione errore Supabase Auth ──────────────────────
+  if(signUpError){
+    const errMsg = signUpError.message||'Errore durante la registrazione. Riprova.'
+    const isAlreadyRegistered = errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('registered') || errMsg.toLowerCase().includes('exists');
+    const userMsg = isAlreadyRegistered
+      ? 'Email già registrata. Accedi oppure usa il recupero password.'
+      : 'Errore durante la registrazione: '+errMsg;
+    showAuthError('register', userMsg);
+    const regBtnErr=document.getElementById('reg-submit-btn');
+    if(regBtnErr){regBtnErr.disabled=false;regBtnErr.textContent='Crea Account e Inizia il Trial';}
+    return;
+  }
   // Clear session — user must login after registration
   DB.setSession(null);
   currentUser=null; currentCompany=null;
@@ -2609,7 +2624,8 @@ async function doRegister(){
     const el=document.getElementById(id); if(el) el.checked=false;
   });
   const regBtn=document.getElementById('reg-submit-btn');
-  if(regBtn){regBtn.disabled=true;regBtn.textContent='Crea Account e Inizia il Trial';}
+  const regBtn=document.getElementById('reg-submit-btn');
+  if(regBtn){regBtn.disabled=false;regBtn.textContent='Crea Account e Inizia il Trial';}
   switchAuthTab('login');
   document.getElementById('login-email').value=email;
   const msg = emailConfirmRequired
@@ -2621,6 +2637,12 @@ async function doRegister(){
     document.getElementById('auth-screen')?.scrollTo({top:0,behavior:'smooth'});
   }, 100);
 }
+  }catch(err){
+    console.error('[doRegister] Errore imprevisto:',err);
+    showAuthError('register','Errore imprevisto durante la registrazione. Riprova o contatta il supporto.');
+    const regBtnCatch=document.getElementById('reg-submit-btn');
+    if(regBtnCatch){regBtnCatch.disabled=false;regBtnCatch.textContent='Crea Account e Inizia il Trial';}
+  }
 
 function showAuthSuccess(form,msg){
   // Show a green success message in the auth form
