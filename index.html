@@ -2453,7 +2453,7 @@ async function doLogin(){
                 name: meta.name || email.split('@')[0],
                 email, pwd:'__supabase__',
                 companyId: companyId||'co_admin',
-                role: meta.role||'admin',
+                role: meta.role||'user',
                 createdAt: new Date().toISOString()};
         users.push(user); DB.setUsers(users);
       }
@@ -9981,7 +9981,7 @@ async function saveNewPassword(){
       patchAdminCompany();
       let users = DB.getUsers();
       let user = users.find(u=>u.email===email);
-      if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:'admin',createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
+      if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:meta.role||'user',createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
       const co = DB.getCompanies().find(c=>c.id===user.companyId);
       if(user&&co){ currentUser=user; currentCompany=co; startApp(user,co); }
     }
