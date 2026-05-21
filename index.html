@@ -2424,23 +2424,23 @@ async function checkPassword(input,stored){
 }
 // Punto canonico unico per il ruolo — chiamare SOLO qui, mai inline
 // Punto canonico unico per il ruolo — source of truth: RPC is_admin()
+// Punto canonico unico per il ruolo — source of truth: RPC is_admin()
 async function _resolveRole(){
   const { data, error } = await _supa.rpc('is_admin');
   if(error){
-    console.error('[auth] role resolution failed — fallback user:', error.message);
+    console.error('[auth] role resolution failed:', error.message);
     return null; // non assume ruolo — il chiamante gestisce null
   }
+  const role = data === true ? 'admin' : 'user';
+  localStorage.setItem('pda_role', role); // UI hint only
+  return role;
+}
 async function requireRole(){
   const role = await _resolveRole();
   if(role === null) throw new Error('AUTH_UNAVAILABLE');
   return role;
 }
 
-async function requireRole(){
-  const role = data === true ? 'admin' : 'user';
-  localStorage.setItem('pda_role', role); // UI hint only
-  return role;
-}
 
 
 async function doLogin(){
