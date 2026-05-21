@@ -2469,18 +2469,8 @@ async function doLogin(){
       }
     }
 
-    // ── Fallback: autenticazione localStorage ──
-    const users=DB.getUsers();
-    const userByEmail=users.find(u=>u.email===email);
-    if(!userByEmail){showAuthError('login','Email o password non corretti.');return;}
-    if(!(await checkPassword(pwd,userByEmail.pwd))){showAuthError('login','Email o password non corretti.');return;}
-    const localUser=userByEmail;
-    const companies=DB.getCompanies();
-    const co=companies.find(c=>c.id===localUser.companyId);
-    if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:localUser.id,companyId:localUser.companyId,expires:Date.now()+86400000*30});}
-    else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:localUser.id,companyId:localUser.companyId,expires:Date.now()+86400000*7});}
-    currentUser=localUser; currentCompany=co;
-    startApp(localUser,co);
+    // ── Supabase auth fallito: nessun fallback locale — la beta richiede Supabase ──
+    showAuthError('login','Email o password non corretti, oppure account non confermato.');
 
   } catch(e){
     showAuthError('login','Errore di connessione. Riprova.');
@@ -2520,10 +2510,8 @@ async function doRegister(){
   const coName=document.getElementById('reg-company').value.trim();
   const email=document.getElementById('reg-email').value.trim();
   const pwd=document.getElementById('reg-pwd').value;
-  // Validate fields
   if(!name||!coName||!email||!pwd){showAuthError('register','Compila tutti i campi.');return;}
   if(pwd.length<6){showAuthError('register','Password minimo 6 caratteri.');return;}
-  // Validate T&C checkboxes
   const chk1=document.getElementById('reg-chk1')?.checked;
   const chk2=document.getElementById('reg-chk2')?.checked;
   const chk3=document.getElementById('reg-chk3')?.checked;
@@ -2531,12 +2519,10 @@ async function doRegister(){
     showAuthError('register','Devi accettare tutte le condizioni per completare la registrazione.');
     return;
   }
-  // Disabilita pulsante subito per evitare doppio submit
   const regBtnMain=document.getElementById('reg-submit-btn');
   if(regBtnMain){regBtnMain.disabled=true;regBtnMain.textContent='Registrazione in corso...';}
   try{
-  // La verifica email duplicata è delegata a Supabase Auth (signUp restituisce errore se già registrata)
-  const users=DB.getUsers(); // necessario per push del nuovo utente più avanti
+  // ── STEP 1: costruisci oggetti in memoria — nessuna scrittura locale ancora ──
   const coId='co_'+uid();
   const today=new Date();
   const _freePlan=DB.getPlansConfig()['FREE']||{trialDays:30};
@@ -2546,15 +2532,38 @@ async function doRegister(){
     trialMode:true,trialStartDate:today.toISOString(),trialEndDate:trialEnd.toISOString(),
     accountStatus:'trial',createdAt:today.toISOString(),
     consentTimestamp:today.toISOString(),gdprConsent:true};
-  const companies=DB.getCompanies();companies.push(co);DB.setCompanies(companies);
-  // Save terms acceptance at registration time
   const termsAcceptedAt=new Date().toISOString();
   const userId='u_'+uid();
   const user={id:userId,name,email,pwd,companyId:coId,role:'user',
     selfRegistered:true,termsAcceptedAt,createdAt:today.toISOString()};
   user.pwd=await hashPassword(user.pwd);
-  users.push(user);DB.setUsers(users);
-  // ── Salva consensi T&C / Privacy / GDPR con proof ───────
+
+  // ── STEP 2: Supabase Auth — PRIMA di qualsiasi scrittura locale ────────────
+  let signUpData=null, signUpError=null;
+  try{
+    const res = await _supa.auth.signUp({
+      email, password: pwd,
+      options:{ data:{ company_id: coId, role:'user', name } }
+    });
+    signUpData=res.data; signUpError=res.error;
+  }catch(e){ console.warn('[doRegister] Supabase signUp exception:',e); }
+
+  // ── STEP 3: Supabase fallito → nessuna scrittura locale, errore all'utente ─
+  if(signUpError || !signUpData?.user){
+    const errMsg = signUpError?.message||'Errore durante la registrazione. Riprova.';
+    const isAlreadyRegistered = errMsg.toLowerCase().includes('already')||errMsg.toLowerCase().includes('registered')||errMsg.toLowerCase().includes('exists');
+    const userMsg = isAlreadyRegistered
+      ? 'Email già registrata. Accedi oppure usa il recupero password.'
+      : 'Errore durante la registrazione: '+errMsg;
+    showAuthError('register', userMsg);
+    const regBtnErr=document.getElementById('reg-submit-btn');
+    if(regBtnErr){regBtnErr.disabled=false;regBtnErr.textContent='Crea Account e Inizia il Trial';}
+    return;
+  }
+
+  // ── STEP 4: Supabase confermato — ora scriviamo in localStorage (cache) ────
+  const companies=DB.getCompanies(); companies.push(co); DB.setCompanies(companies);
+  const users=DB.getUsers(); users.push(user); DB.setUsers(users);
   const tosVreg  = getCurrentTermsVersion('tos');
   const privVreg = getCurrentTermsVersion('privacy');
   const gdprVreg = getCurrentTermsVersion('gdpr');
@@ -2564,15 +2573,12 @@ async function doRegister(){
     {label:"Acconsento al trattamento dati personali"});
   saveUserConsent(userId,'gdpr',gdprVreg.version,gdprVreg.contentHash,
     {label:"Informativa GDPR letta e accettata"});
-  // ── Genera contratto FREE con snapshot ──────────────────
   const freeContract = createSignedContract(coId, userId, 'FREE', null, {
     proof:{method:'registration_clickwrap', timestamp:new Date().toISOString()}
   });
-  // ── Crea abbonamento FREE ──────────────────────────────
   if(freeContract){
     createSubscription(coId, freeContract.id, 'FREE', 'annual', today.toISOString());
   }
-  // Crea record contratto trial firmato digitalmente al momento della registrazione
   const trialPurchId=uid();
   DB.setPurchases(coId,[{
     id:trialPurchId,type:'trial',plan:'Trial',
@@ -2586,36 +2592,11 @@ async function doRegister(){
     clientSignedBy:name,clientSignedEmail:email,
     clientIpHint:'accettazione T&C in fase di registrazione'
   }]);
-  // ── Registra utente su Supabase Auth ────────────────────
-  let signUpData=null, signUpError=null;
-  try{
-    // btn già disabilitato all'inizio
-    const res = await _supa.auth.signUp({
-      email, password: pwd,
-      options:{ data:{ company_id: coId, role:'user', name } }
-    });
-    signUpData=res.data; signUpError=res.error;
-    // Sync silenzioso fire-and-forget — non blocca il flusso
-    // _supaUploadAll rimosso: signUp non crea sessione, il sync avviene al primo login.
-  }catch(e){ console.warn('[doRegister] Supabase error:',e); }
-  // ── Gestione errore Supabase Auth ──────────────────────
-  if(signUpError){
-    const errMsg = signUpError.message||'Errore durante la registrazione. Riprova.'
-    const isAlreadyRegistered = errMsg.toLowerCase().includes('already') || errMsg.toLowerCase().includes('registered') || errMsg.toLowerCase().includes('exists');
-    const userMsg = isAlreadyRegistered
-      ? 'Email già registrata. Accedi oppure usa il recupero password.'
-      : 'Errore durante la registrazione: '+errMsg;
-    showAuthError('register', userMsg);
-    const regBtnErr=document.getElementById('reg-submit-btn');
-    if(regBtnErr){regBtnErr.disabled=false;regBtnErr.textContent='Crea Account e Inizia il Trial';}
-    return;
-  }
-  // Clear session — user must login after registration
+
+  // ── STEP 5: reset sessione e UI ───────────────────────────────────────────
   DB.setSession(null);
   currentUser=null; currentCompany=null;
-  // ── Messaggio di conferma e redirect al login ────────────
-  const emailConfirmRequired = !signUpError && signUpData?.user && !signUpData.session;
-  // Reset form registrazione
+  const emailConfirmRequired = !signUpData.session;
   ['reg-name','reg-company','reg-email','reg-pwd'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
@@ -2629,7 +2610,6 @@ async function doRegister(){
   const msg = emailConfirmRequired
     ? '✓ Account creato! Controlla la tua email e clicca il link di conferma prima di accedere.'
     : '✓ Account creato! Accedi con le tue credenziali per iniziare il trial gratuito.';
-  // Mostra messaggio successo in modo robusto
   setTimeout(()=>{
     showAuthSuccess('login', msg);
     document.getElementById('auth-screen')?.scrollTo({top:0,behavior:'smooth'});
@@ -2641,7 +2621,6 @@ async function doRegister(){
     if(regBtnCatch){regBtnCatch.disabled=false;regBtnCatch.textContent='Crea Account e Inizia il Trial';}
   }
 }
-
 function showAuthSuccess(form,msg){
   // Show a green success message in the auth form
   let el=document.getElementById(form+'-success');
@@ -9921,19 +9900,25 @@ window.addEventListener('DOMContentLoaded',()=>{
       await _supaLoadAll('co_admin');
       if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
     }
-    // ── Controlla sessione locale ────────────────────
-    const session=DB.getSession();
-    if(session&&session.expires>Date.now()){
-      const user=DB.getUsers().find(u=>u.id===session.userId);
-      const co=DB.getCompanies().find(c=>c.id===session.companyId);
-      if(user&&co){
-        currentUser=user; currentCompany=co;
-        if(needsTermsAcceptance(user)){
-          document.getElementById('auth-screen').classList.add('hidden');
-          document.getElementById('app-screen').classList.remove('hidden');
-          showTermsModal(()=>startApp(user,co));
-        } else {
-          startApp(user,co);
+    // ── Sessione locale: usata solo se Supabase ha già una sessione valida ────
+    if(supaSession?.user){
+      const session=DB.getSession();
+      if(session&&session.expires>Date.now()){
+        const user=DB.getUsers().find(u=>u.id===session.userId);
+        const co=DB.getCompanies().find(c=>c.id===session.companyId);
+        if(user&&co){
+          currentUser=user; currentCompany=co;
+          if(needsTermsAcceptance(user)){
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-screen').classList.remove('hidden');
+            showTermsModal(()=>startApp(user,co));
+          } else {
+            startApp(user,co);
+          }
+          return;
+        }
+      }
+    }
         }
         return;
       }
