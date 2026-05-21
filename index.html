@@ -6871,22 +6871,22 @@ function renderSettings(main){
         </div>
 
         ${ps.status==='admin'?`
-        <div class="settings-section" style="padding:0;overflow:hidden">
-          <div class="plan-card active" style="border-radius:var(--radius) var(--radius) 0 0;background:linear-gradient(135deg,#041348 0%,#0B1E5C 100%)">
+        <div class="settings-section" style="padding:0;overflow:visible;border-radius:var(--radius);overflow:hidden">
+          <div class="plan-card active" style="padding:20px 22px 22px;border-radius:var(--radius) var(--radius) 0 0;background:linear-gradient(135deg,#041348 0%,#0B1E5C 100%)">
             <div class="plan-card-badge" style="background:rgba(106,159,255,0.15);color:#6A9FFF">
               <span style="font-size:14px">✦</span> Account Amministratore
             </div>
             <div class="plan-card-name" style="color:#fff">Studio Zamboni</div>
             <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px">Accesso completo alla piattaforma MyEwallet®</div>
-            <div style="display:flex;gap:20px;row-gap:12px;margin-top:16px;padding-bottom:4px;flex-wrap:wrap">
-              <div><div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Ruolo</div>
-                <div style="font-size:15px;font-weight:700;color:#6A9FFF">Amministratore</div>
+            <div style="display:flex;gap:24px;row-gap:14px;margin-top:18px;padding-bottom:2px;flex-wrap:wrap;align-items:flex-start">
+              <div style="min-width:90px"><div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Ruolo</div>
+                <div style="font-size:14px;font-weight:700;color:#6A9FFF">Amministratore</div>
               </div>
-              <div><div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Azienda</div>
-                <div style="font-size:15px;font-weight:700;color:#fff">${esc(currentUser.name||'–')}</div>
+              <div style="min-width:90px"><div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Azienda</div>
+                <div style="font-size:14px;font-weight:700;color:#fff">${esc(currentUser.name||'–')}</div>
               </div>
-              <div><div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px">Piano</div>
-                <div style="font-size:15px;font-weight:700;color:#fff">Accesso illimitato</div>
+              <div style="min-width:90px"><div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Piano</div>
+                <div style="font-size:14px;font-weight:700;color:#fff">Accesso illimitato</div>
               </div>
             </div>
           </div>
