@@ -2596,8 +2596,7 @@ async function doRegister(){
     });
     signUpData=res.data; signUpError=res.error;
     // Sync silenzioso fire-and-forget — non blocca il flusso
-    _supaUploadAll(coId).catch(()=>{});
-    _supaUploadAll('co_admin').catch(()=>{});
+    // _supaUploadAll rimosso: signUp non crea sessione, il sync avviene al primo login.
   }catch(e){ console.warn('[doRegister] Supabase error:',e); }
   // ── Gestione errore Supabase Auth ──────────────────────
   if(signUpError){
