@@ -2422,6 +2422,27 @@ async function checkPassword(input,stored){
   if(stored.length===64) return await hashPassword(input)===stored;
   return input===stored||btoa(input)===stored;
 }
+// Punto canonico unico per il ruolo — chiamare SOLO qui, mai inline
+// Punto canonico unico per il ruolo — source of truth: RPC is_admin()
+async function _resolveRole(){
+  const { data, error } = await _supa.rpc('is_admin');
+  if(error){
+    console.error('[auth] role resolution failed — fallback user:', error.message);
+    return null; // non assume ruolo — il chiamante gestisce null
+  }
+async function requireRole(){
+  const role = await _resolveRole();
+  if(role === null) throw new Error('AUTH_UNAVAILABLE');
+  return role;
+}
+
+async function requireRole(){
+  const role = data === true ? 'admin' : 'user';
+  localStorage.setItem('pda_role', role); // UI hint only
+  return role;
+}
+
+
 async function doLogin(){
   const email=document.getElementById('login-email').value.trim();
   const pwd=document.getElementById('login-pwd').value;
@@ -2445,6 +2466,7 @@ async function doLogin(){
       await _supaLoadAll('co_admin');
       if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
       patchAdminCompany();
+      const serverRole = await requireRole();
       let users = DB.getUsers();
       let user = users.find(u=>u.email===email);
       if(!user){
@@ -2453,9 +2475,12 @@ async function doLogin(){
                 name: meta.name || email.split('@')[0],
                 email, pwd:'__supabase__',
                 companyId: companyId||'co_admin',
-                role: meta.role||'user',
+                role: serverRole,
                 createdAt: new Date().toISOString()};
         users.push(user); DB.setUsers(users);
+      } else {
+        // Aggiorna ruolo dal server anche per utenti già in cache locale
+        user.role = serverRole; DB.setUsers(users);
       }
       const companies = DB.getCompanies();
       let co = companies.find(c=>c.id===(companyId||user?.companyId));
@@ -2707,7 +2732,7 @@ function logout(){
   clearInterval(window._trialCountdownTimer);
   window._trialCountdownTimer=null;
   _supa.auth.signOut().catch(()=>{});
-  DB.clearSession();currentUser=null;currentCompany=null;
+  DB.clearSession(); localStorage.removeItem('pda_role');currentUser=null;currentCompany=null;
   // Clear memory store
   Object.keys(_mem).forEach(k=>delete _mem[k]);
   // Reset nav badges
@@ -9907,6 +9932,8 @@ window.addEventListener('DOMContentLoaded',()=>{
         const user=DB.getUsers().find(u=>u.id===session.userId);
         const co=DB.getCompanies().find(c=>c.id===session.companyId);
         if(user&&co){
+          const srRole = await requireRole();
+          user = {...user, role: srRole};
           currentUser=user; currentCompany=co;
           if(needsTermsAcceptance(user)){
             document.getElementById('auth-screen').classList.add('hidden');
@@ -9921,6 +9948,26 @@ window.addEventListener('DOMContentLoaded',()=>{
     }
     document.getElementById('auth-screen').classList.remove('hidden');
   },900);
+});
+
+// Sincronizzazione ruolo al ritorno del tab (revoca admin server-side)
+let _roleSyncInProgress = false;
+window.addEventListener('focus', async ()=>{
+  if(!currentUser || _roleSyncInProgress) return; // solo se sessione attiva
+  _roleSyncInProgress = true;
+  try{
+    const role = await _resolveRole();
+    if(role === null) return; // RPC fallito: mantieni stato attuale senza desync
+    if(currentUser.role !== role){
+      currentUser.role = role;
+      // Aggiorna UI ruolo senza ricaricare la pagina
+      const roleEl = document.getElementById('sidebar-user-role');
+      if(roleEl) roleEl.textContent = role === 'admin' ? 'Amministratore' : 'Utente';
+    }
+  }catch(e){ console.warn('[auth] focus role sync failed:', e.message);
+  }finally{
+    _roleSyncInProgress = false;
+  }
 });
 
 // ════════════════════════════════════════════════
@@ -9979,9 +10026,9 @@ async function saveNewPassword(){
       const email = data.session.user.email;
       await _supaLoadAll('co_admin');
       patchAdminCompany();
-      let users = DB.getUsers();
+      const spRole = await requireRole();
       let user = users.find(u=>u.email===email);
-      if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:meta.role||'user',createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
+      if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:spRole,createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
       const co = DB.getCompanies().find(c=>c.id===user.companyId);
       if(user&&co){ currentUser=user; currentCompany=co; startApp(user,co); }
     }
