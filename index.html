@@ -2635,13 +2635,13 @@ async function doRegister(){
     showAuthSuccess('login', msg);
     document.getElementById('auth-screen')?.scrollTo({top:0,behavior:'smooth'});
   }, 100);
-}
   }catch(err){
     console.error('[doRegister] Errore imprevisto:',err);
     showAuthError('register','Errore imprevisto durante la registrazione. Riprova o contatta il supporto.');
     const regBtnCatch=document.getElementById('reg-submit-btn');
     if(regBtnCatch){regBtnCatch.disabled=false;regBtnCatch.textContent='Crea Account e Inizia il Trial';}
   }
+}
 
 function showAuthSuccess(form,msg){
   // Show a green success message in the auth form
