@@ -1456,6 +1456,16 @@ textarea.input{resize:vertical;min-height:80px;}
             <input class="input" type="text" id="reg-company" placeholder="Rossi S.r.l."/>
           </div>
           <div class="input-group">
+            <label class="input-label">Tipo di utilizzo <span style="color:#fc8181">*</span></label>
+            <select class="input" id="reg-usertype" required style="cursor:pointer;background:rgba(255,255,255,0.08);color:#fff">
+              <option value="" style="background:#1a1a2e;color:#fff">— Seleziona —</option>
+              <option value="consumer" style="background:#1a1a2e;color:#fff">Consumatore privato</option>
+              <option value="professional" style="background:#1a1a2e;color:#fff">Professionista / Freelance</option>
+              <option value="sme" style="background:#1a1a2e;color:#fff">PMI / Microimpresa</option>
+              <option value="studio" style="background:#1a1a2e;color:#fff">Studio professionale / Consulente</option>
+            </select>
+          </div>
+          <div class="input-group">
             <label class="input-label">Email aziendale</label>
             <input class="input" type="email" id="reg-email" placeholder="mario@rossi.it"/>
           </div>
@@ -2483,6 +2493,13 @@ async function doLogin(){
         // Aggiorna ruolo dal server anche per utenti già in cache locale
         user.role = serverRole; DB.setUsers(users);
       }
+      // 2.2 — Marca email come verificata (autenticazione Supabase confermata)
+      if(!user.emailVerified){
+        user.emailVerified = true;
+        user.emailVerifiedAt = new Date().toISOString();
+        const _uidx2 = users.findIndex(u=>u.id===user.id);
+        if(_uidx2>=0){ users[_uidx2]=user; DB.setUsers(users); }
+      }
       const companies = DB.getCompanies();
       let co = companies.find(c=>c.id===(companyId||user?.companyId));
       // Se company non trovata ma auth Supabase ok → non mostrare errore, usa co_admin
@@ -2536,7 +2553,8 @@ async function doRegister(){
   const coName=document.getElementById('reg-company').value.trim();
   const email=document.getElementById('reg-email').value.trim();
   const pwd=document.getElementById('reg-pwd').value;
-  if(!name||!coName||!email||!pwd){showAuthError('register','Compila tutti i campi.');return;}
+  const userTypeVal=document.getElementById('reg-usertype')?.value||'';
+  if(!name||!coName||!email||!pwd||!userTypeVal){showAuthError('register','Compila tutti i campi obbligatori, incluso il tipo di utilizzo.');return;}
   if(pwd.length<6){showAuthError('register','Password minimo 6 caratteri.');return;}
   const chk1=document.getElementById('reg-chk1')?.checked;
   const chk2=document.getElementById('reg-chk2')?.checked;
@@ -2553,7 +2571,8 @@ async function doRegister(){
   const today=new Date();
   const _freePlan=DB.getPlansConfig()['FREE']||{trialDays:30};
   const trialEnd=new Date(today);trialEnd.setDate(trialEnd.getDate()+(_freePlan.trialDays||30));
-  const co={id:coId,name:coName,vatNumber:'',address:'',email:email,phone:'',
+  const userType=document.getElementById('reg-usertype')?.value||'';
+  const co={id:coId,name:coName,vatNumber:'',address:'',email:email,phone:'',userType,
     plan:'Trial',planStartDate:null,planEndDate:null,
     trialMode:true,trialStartDate:today.toISOString(),trialEndDate:trialEnd.toISOString(),
     accountStatus:'trial',createdAt:today.toISOString(),
@@ -6798,6 +6817,18 @@ function renderSettings(main){
 
   main.innerHTML=`
     <div class="page-header"><h1 class="page-title">Il mio Account</h1><p class="page-subtitle">Gestisci il profilo aziendale, piano e preferenze</p></div>
+    ${ti.isExpired?`
+    <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:var(--radius);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <span style="font-size:22px;flex-shrink:0">⏰</span>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:#C0392B;margin-bottom:2px">Periodo di prova scaduto</div>
+          <div style="font-size:13px;color:#7f1d1d">Il tuo trial è terminato. Per sbloccare l'accesso completo scegli un piano di abbonamento.</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="background:#C0392B;border-color:#C0392B;flex-shrink:0" onclick="document.getElementById('plan-section')?.scrollIntoView({behavior:'smooth'})">Scegli Piano →</button>
+    </div>
+    `:''}
     <div class="settings-grid">
       <div class="settings-section">
         <div class="settings-section-title">Profilo Aziendale</div>
@@ -8608,8 +8639,28 @@ function importBackup(event){
     try{
       const data=JSON.parse(e.target.result);
       if(!data.version||!data.company||!data.documents) throw new Error('File non valido');
+      // 2.6 — Verifica ownership con consenso tracciato per tutela Studio Zamboni
       if(data.company.id!==currentCompany.id){
-        if(!confirm('Il backup appartiene a un\u2019altra azienda ('+esc(data.company.name)+'). Vuoi importare comunque i documenti nel tuo account?')) return;
+        const confirmed = confirm(
+          'Il backup appartiene a un account diverso (' + esc(data.company.name) + ').\n\n' +
+          'Procedi SOLO se sei il legittimo titolare di entrambi gli account ' +
+          'e stai trasferendo i tuoi documenti.\n\n' +
+          'Confermando dichiari sotto tua responsabilità di essere il proprietario dei dati e di autorizzarne il trasferimento.'
+        );
+        if(!confirmed) return;
+        // Tracciamento audit per tutela contrattuale Studio Zamboni
+        DB.appendAuditLog({
+          action: 'cross_account_import',
+          sourceCompanyName: data.company.name,
+          sourceCompanyId: data.company.id,
+          targetCompanyId: currentCompany.id,
+          targetCompanyName: currentCompany.name,
+          userId: currentUser?.id||'unknown',
+          userEmail: currentUser?.email||'unknown',
+          timestamp: new Date().toISOString(),
+          ipHint: 'dichiarazione titolarità accettata dall\'utente tramite confirm UI',
+          note: 'Import cross-account — utente ha dichiarato di essere il legittimo proprietario dei dati importati'
+        });
       }
       // Restore docs only (safe import)
       const existing=DB.getDocs(currentCompany.id);
@@ -10179,6 +10230,15 @@ Richiesta inviata tramite MyEwallet.`,
   const tickets = DB.getTickets();
   tickets.push(ticket);
   DB.setTickets(tickets);
+  // 2.1 — Stato deletion_requested sull'account con timestamp SLA
+  const _cos = DB.getCompanies();
+  const _cidx = _cos.findIndex(c=>c.id===currentCompany.id);
+  if(_cidx>=0){
+    _cos[_cidx].accountStatus = 'deletion_requested';
+    _cos[_cidx].deletionRequestedAt = new Date().toISOString();
+    DB.setCompanies(_cos);
+    currentCompany = _cos[_cidx];
+  }
   closeDeleteAccountModal();
   showToast('Richiesta inviata. Verrai contattato entro 30 giorni.','success');
 }
