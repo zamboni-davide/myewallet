@@ -6798,21 +6798,6 @@ function renderSettings(main){
 
   main.innerHTML=`
     <div class="page-header"><h1 class="page-title">Il mio Account</h1><p class="page-subtitle">Gestisci il profilo aziendale, piano e preferenze</p></div>
-    ${ps.status==='admin'?`
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px;margin-bottom:20px;background:linear-gradient(135deg,#041348 0%,#0B1E5C 100%);border-radius:var(--radius);border:1px solid rgba(106,159,255,0.2);flex-wrap:wrap;row-gap:8px">
-      <div style="display:flex;align-items:center;gap:12px;min-width:0">
-        <span style="color:#6A9FFF;font-size:20px;flex-shrink:0">✦</span>
-        <div style="min-width:0">
-          <div style="font-size:11px;font-weight:700;color:#6A9FFF;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Account Amministratore</div>
-          <div style="font-size:13px;font-weight:600;color:#fff">${esc(co.name)}<span style="color:rgba(255,255,255,0.5)"> · Piano Admin · Accesso illimitato</span></div>
-        </div>
-      </div>
-      <a href="javascript:void(0)" onclick="navTo('admin')" style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;padding:8px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(106,159,255,0.3);border-radius:8px;font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap;text-decoration:none">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-        Pannello Admin
-      </a>
-    </div>
-    `:''}
     <div class="settings-grid">
       <div class="settings-section">
         <div class="settings-section-title">Profilo Aziendale</div>
@@ -6824,6 +6809,18 @@ function renderSettings(main){
           <div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="set-addr" value="${esc(co.address||'')}"/></div>
           <button class="btn btn-primary" onclick="saveSettings()">Salva Modifiche</button>
         </div>
+        ${ps.status==='admin'?`
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:20px;padding:14px 16px;background:linear-gradient(135deg,#041348 0%,#0B1E5C 100%);border-radius:var(--radius);border:1px solid rgba(106,159,255,0.2);flex-wrap:wrap;row-gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
+            <span style="color:#6A9FFF;font-size:16px;flex-shrink:0">✦</span>
+            <div style="min-width:0">
+              <div style="font-size:10px;font-weight:700;color:#6A9FFF;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Account Amministratore</div>
+              <div style="font-size:12px;font-weight:600;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(co.name)}<span style="color:rgba(255,255,255,0.5)"> · Piano Admin · Accesso illimitato</span></div>
+            </div>
+          </div>
+          <a href="javascript:void(0)" onclick="navTo('admin')" style="flex-shrink:0;font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap;text-decoration:none">Pannello Admin →</a>
+        </div>
+        `:''}
       </div>
       <div class="flex-col gap-4">
         <div class="settings-section">
