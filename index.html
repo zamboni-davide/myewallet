@@ -4229,7 +4229,7 @@ function createSignedContract(companyId, userId, planName, purchaseId, opts={}){
     signedAt:   signedAt.toISOString(),
     expiresAt:  expiresAt.toISOString(),
     renewsAt:   expiresAt.toISOString(),
-    autoRenew:  !isFree,
+    autoRenew:  false,
     durationMonths,
     renewalNotificationSent: false,
     acceptanceProof: opts.proof || {
@@ -4399,6 +4399,12 @@ const PAYMENT_STATUS = {
   COMPLETED:             'completed',
   CANCELLED:             'cancelled'
 };
+
+// Stati "in lavorazione" unificati per compatibilità con purchase_requests
+const PURCHASE_PENDING_STATES = [
+  'submitted','processing','paid','payment_failed',
+  'pending_admin','approved','payment_instructions_sent','payment_pending'
+];
 
 const SUBSCRIPTION_STATUS = {
   TRIAL:            'trial',
@@ -4603,7 +4609,7 @@ function createSubscription(companyId, contractId, planName, billingCycle, start
     currentPeriodEnd:   nextPayment ? nextPayment.toISOString() : end.toISOString(),
     nextPaymentDate: nextPayment?.toISOString()||null,
     status: plan.isFree ? SUBSCRIPTION_STATUS.TRIAL : SUBSCRIPTION_STATUS.ACTIVE,
-    autoRenew: !plan.isFree,
+    autoRenew: false,
     renewalNotificationSent: false,
     renewalTermsVersionId: tosV.id,
     paymentMethod: null,
@@ -5186,7 +5192,7 @@ function showCheckoutConsents(planName, billingCycle, paymentMethod, onConfirm){
       <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:12px 14px;margin-bottom:18px;font-size:12px;color:#92400E">
         <strong>Informativa precontrattuale obbligatoria (art. 49-51 D.Lgs. 206/2005):</strong><br>
         Durata: ${billingCycle==='monthly'?'12 mesi con pagamenti mensili ricorrenti':'12 mesi con pagamento annuale anticipato'}.
-        Il rinnovo è automatico salvo disdetta 30 giorni prima della scadenza.
+        Il rinnovo avviene su richiesta del Cliente tramite la piattaforma, almeno 30 giorni prima della scadenza. Per non rinnovare è sufficiente non inviare richiesta di rinnovo.
         In caso di mancato pagamento (mensile) il servizio verrà sospeso dopo 7 giorni di ritardo.
         Versione T&C applicabile: v${tosV.version}.
         <a href="javascript:void(0)" onclick="showTermsReadOnly()" style="color:var(--gold);font-weight:700">Consulta T&C completi →</a>
@@ -5200,7 +5206,7 @@ function showCheckoutConsents(planName, billingCycle, paymentMethod, onConfirm){
           <input type="checkbox" id="chk-tos" style="margin-top:2px;width:16px;height:16px;accent-color:var(--gold);flex-shrink:0" onchange="checkCheckoutReady()"/>
           <span style="font-size:12px;color:var(--text)">
             Ho letto e accetto le <a href="javascript:void(0)" onclick="showTermsReadOnly()" style="color:var(--gold)">Condizioni d'Uso di MyEwallet v${tosV.version}</a>,
-            incluse le disposizioni su: durata abbonamento, periodicità di pagamento, condizioni di rinnovo automatico.
+            incluse le disposizioni su: durata abbonamento, periodicità di pagamento, condizioni di rinnovo su richiesta.
             <strong>[Obbligatorio]</strong>
           </span>
         </label>
@@ -5228,9 +5234,9 @@ function showCheckoutConsents(planName, billingCycle, paymentMethod, onConfirm){
         <label style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--bg);border-radius:8px;cursor:pointer">
           <input type="checkbox" id="chk-autorenewal" style="margin-top:2px;width:16px;height:16px;accent-color:var(--gold);flex-shrink:0" onchange="checkCheckoutReady()"/>
           <span style="font-size:12px;color:var(--text)">
-            Approvo il <strong>rinnovo automatico</strong> dell'abbonamento alla scadenza per un ulteriore periodo pari a quello originario,
-            salvo disdetta comunicata almeno 30 giorni prima via email a consulenzesardegna@pec.it.
-            Al rinnovo si applicheranno le condizioni vigenti alla data di rinnovo.
+            Prendo atto che il <strong>rinnovo avviene su mia richiesta</strong> tramite la piattaforma, almeno 30 giorni prima della scadenza.
+            Per non rinnovare è sufficiente non inviare richiesta. In caso di rinnovo, si applicheranno le condizioni vigenti alla data della richiesta.
+            La disdetta anticipata può essere comunicata a consulenzesardegna@pec.it.
             <strong>[Obbligatorio]</strong>
           </span>
         </label>
@@ -5269,7 +5275,7 @@ function confirmCheckout(planName, billingCycle, paymentMethod){
     {type:'tos',label:"Condizioni d'Uso v"+getCurrentTermsVersion('tos').version},
     {type:'suspension_clause',label:"Clausola sospensione art. 1341 c.2 c.c."},
     {type:'resolution_clause',label:"Clausola risolutiva espressa art. 1456 c.c."},
-    {type:'autorenewal',label:"Rinnovo automatico"},
+    {type:'autorenewal',label:"Rinnovo abbonamento (su richiesta)"},
     {type:'recesso_waiver',label:"Rinuncia recesso 14gg art. 59 Cod. Consumo"},
   ].map(ct=>{
     const v=getCurrentTermsVersion(ct.type==='tos'?'tos':'gdpr');
@@ -5341,9 +5347,9 @@ function renderAdmin(main){
         <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">${formatBytes(allDocs.reduce((s,d)=>s+(d.fileSize||0),0))}</div>
         <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:36px;opacity:0.12"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
       </div>
-      <div style="background:${DB.getPurchaseRequests().filter(r=>['submitted','processing','paid','payment_failed'].includes(r.status)).length+DB.getRenewalRequests().filter(r=>['submitted','processing','paid','payment_failed'].includes(r.status)).length>0?'#7F1D1D':'#041348'};border-radius:var(--radius);padding:20px 18px;position:relative;overflow:hidden;">
+      <div style="background:${DB.getPurchaseRequests().filter(r=>PURCHASE_PENDING_STATES.includes(r.status)).length+DB.getRenewalRequests().filter(r=>PURCHASE_PENDING_STATES.includes(r.status)).length>0?'#7F1D1D':'#041348'};border-radius:var(--radius);padding:20px 18px;position:relative;overflow:hidden;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#1A52D4;margin-bottom:8px;">Richieste aperte</div>
-        <div style="font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:#fff;line-height:1">${DB.getPurchaseRequests().filter(r=>['submitted','processing','paid','payment_failed'].includes(r.status)).length+DB.getRenewalRequests().filter(r=>['submitted','processing','paid','payment_failed'].includes(r.status)).length}</div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:#fff;line-height:1">${DB.getPurchaseRequests().filter(r=>PURCHASE_PENDING_STATES.includes(r.status)).length+DB.getRenewalRequests().filter(r=>PURCHASE_PENDING_STATES.includes(r.status)).length}</div>
         <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">acquisti + rinnovi</div>
         <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:36px;opacity:0.12"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></div>
       </div>
@@ -5366,11 +5372,11 @@ function renderAdmin(main){
       <div class="admin-tab ${adminTab==='docs'?'active':''}" onclick="setAdminTab('docs')">Tutti i Documenti</div>
       <div class="admin-tab ${adminTab==='purchases'?'active':''}" onclick="setAdminTab('purchases')" style="position:relative">
         Richieste Acquisto
-        ${DB.getPurchaseRequests().filter(r=>['submitted','processing','paid','payment_failed'].includes(r.status)).length>0?`<span style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#E74C3C"></span>`:''}
+        ${DB.getPurchaseRequests().filter(r=>PURCHASE_PENDING_STATES.includes(r.status)).length>0?`<span style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:#E74C3C"></span>`:''}
       </div>
       <div class="admin-tab ${adminTab==='renewals'?'active':''}" onclick="setAdminTab('renewals')" style="position:relative">
         Richieste Rinnovo
-        ${DB.getRenewalRequests().filter(r=>['submitted','processing','paid','payment_failed'].includes(r.status)).length>0?`<span style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--gold)"></span>`:''}
+        ${DB.getRenewalRequests().filter(r=>PURCHASE_PENDING_STATES.includes(r.status)).length>0?`<span style="position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--gold)"></span>`:''}
       </div>
       <div class="admin-tab ${adminTab==='plans'?'active':''}" onclick="setAdminTab('plans')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9.354a4 4 0 1 0 0 5.292M8 12h8"/></svg> Piani &amp; Prezzi</div>
       <div class="admin-tab ${adminTab==='invoices'?'active':''}" onclick="setAdminTab('invoices')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Fatture &amp; Doc.</div>
@@ -5557,7 +5563,7 @@ function renderAdminTab(){
         const ti=getTrialInfo(co);
         const ps=getPlanStatus(co);
         const purchases=DB.getPurchases(co.id);
-        const hasPending=DB.getPurchaseRequests().some(r=>r.companyId===co.id&&['submitted','processing','paid','payment_failed'].includes(r.status));
+        const hasPending=DB.getPurchaseRequests().some(r=>r.companyId===co.id&&PURCHASE_PENDING_STATES.includes(r.status));
         // Colored status badge
         const statusColor=ti.isTrial
           ?(ti.isExpired?{bg:'#F3F4F6',text:'#6B7280',border:'#D1D5DB'}:{bg:'#FEF3C7',text:'#92400E',border:'#FCD34D'})
@@ -6593,7 +6599,7 @@ function renderSettingsMobile(main){
           <button onclick="openPurchaseContract('${p.id}')" style="background:none;border:1.5px solid var(--border-light);border-radius:7px;padding:6px 10px;font-size:11px;color:var(--navy);font-weight:600">PDF</button>
         </div>`).join('')}`:'<div style="font-size:13px;color:var(--text-muted);padding-top:8px">Nessun acquisto</div>'}
         ${(()=>{
-          const _pendingP=DB.getPurchaseRequests().find(r=>r.companyId===co.id&&['submitted','processing','paid','payment_failed'].includes(r.status));
+          const _pendingP=DB.getPurchaseRequests().find(r=>r.companyId===co.id&&PURCHASE_PENDING_STATES.includes(r.status));
           if(!ti.isTrial) return `<button onclick="requestMobilePurchase()" style="width:100%;margin-top:14px;background:var(--navy);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700">Rinnova / Cambia piano</button>`;
           if(_pendingP) return `<div style="margin-top:12px;padding:12px;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px;font-size:13px;color:#92400E;font-weight:600">⏳ Richiesta di acquisto in attesa · Piano ${esc(_pendingP.planRequested)} · in elaborazione da Studio Zamboni</div>`;
           return `
@@ -6780,7 +6786,7 @@ function renderSettings(main){
   const co=currentCompany;
   const ti=getTrialInfo(co);
   const ps=getPlanStatus(co);
-  const _ACTIVE=['submitted','processing','paid','payment_failed'];
+  const _ACTIVE=PURCHASE_PENDING_STATES;
   const pendingRenewal=DB.getRenewalRequests().find(r=>r.companyId===co.id&&_ACTIVE.includes(r.status));
   const pendingPurchase=DB.getPurchaseRequests().find(r=>r.companyId===co.id&&_ACTIVE.includes(r.status));
 
@@ -6850,6 +6856,9 @@ function renderSettings(main){
 
             <!-- Cambio password -->
             <div style="border-top:1px solid var(--border-light);padding-top:14px">
+              <div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:10px 13px;margin-bottom:14px;font-size:11px;color:#92400E;line-height:1.5">
+                ⚠️ <strong>Account personale e non cedibile.</strong> La condivisione delle credenziali con terzi è fortemente sconsigliata. Studio Zamboni non può garantire la riservatezza dei dati in caso di accesso condiviso. Il titolare dell'account è l'unico responsabile degli accessi effettuati con le proprie credenziali.
+              </div>
               <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">Cambio Password</div>
               <div class="flex gap-3" style="flex-wrap:wrap">
                 <div class="input-group flex-1" style="min-width:160px">
@@ -7875,7 +7884,7 @@ function requestMobilePurchase(){
   const payment = document.getElementById('mob-purchase-payment')?.value || '';
   const note    = document.getElementById('mob-purchase-note')?.value.trim() || '';
   const reqs = DB.getPurchaseRequests();
-  const existing = reqs.find(r=>r.companyId===currentCompany.id&&['submitted','processing','paid','payment_failed'].includes(r.status));
+  const existing = reqs.find(r=>r.companyId===currentCompany.id&&PURCHASE_PENDING_STATES.includes(r.status));
   if(existing){ showToast('Hai già una richiesta in attesa','error'); return; }
   reqs.push({
     id:uid(), companyId:currentCompany.id, companyName:currentCompany.name,
@@ -7897,7 +7906,7 @@ function requestPurchase(){
   const paymentMethod=document.getElementById('purchase-payment')?.value||'';
   const note=document.getElementById('purchase-note')?.value.trim()||'';
   const requests=DB.getPurchaseRequests();
-  const active=['submitted','processing','paid','payment_failed'];
+  const active=PURCHASE_PENDING_STATES;
   if(requests.find(r=>r.companyId===currentCompany.id&&active.includes(r.status)&&r.status!=='completed')){
     showToast('Hai già una richiesta in corso','error'); return;
   }
@@ -7924,7 +7933,7 @@ function requestRenewal(){
   const paymentMethod=document.getElementById('renewal-payment')?.value||'';
   const note=document.getElementById('renewal-note')?.value.trim()||'';
   const requests=DB.getRenewalRequests();
-  const active=['submitted','processing','paid','payment_failed'];
+  const active=PURCHASE_PENDING_STATES;
   if(requests.find(r=>r.companyId===currentCompany.id&&active.includes(r.status)&&r.status!=='completed')){
     showToast('Hai già una richiesta in corso','error'); return;
   }
@@ -7948,7 +7957,7 @@ function requestRenewal(){
 
 // ── BADGE UPDATES ──
 function updatePurchaseBadge(){
-  const active=['submitted','processing','paid','payment_failed'];
+  const active=PURCHASE_PENDING_STATES;
   const n=DB.getPurchaseRequests().filter(r=>active.includes(r.status)).length;
   const badge=document.getElementById('nav-purchase-badge');
   if(!badge)return;
@@ -7957,7 +7966,7 @@ function updatePurchaseBadge(){
 }
 
 function updateRenewalBadge(){
-  const active=['submitted','processing','paid','payment_failed'];
+  const active=PURCHASE_PENDING_STATES;
   const n=DB.getRenewalRequests().filter(r=>active.includes(r.status)).length;
   const badge=document.getElementById('nav-renewal-badge');
   if(!badge)return;
@@ -8043,7 +8052,7 @@ function adminPurchaseConfirmPaid(reqId){
   if(_req2){const _us2=DB.getUsers().filter(u=>u.companyId===_req2.companyId);
     _us2.forEach(u=>createNotification({recipientId:u.id,recipientRole:'user',
       companyId:_req2.companyId,companyName:_req2.companyName,
-      message:'💳 Pagamento confermato! Studio Zamboni sta procedendo con l\'attivazione del tuo abbonamento.',
+      message:'💳 Pagamento ricevuto. Studio Zamboni verificherà i dettagli e procederà con l\'attivazione del tuo abbonamento a breve.',
       type:'success',relatedRequestId:reqId,senderName:'Studio Zamboni'}));}
   updatePurchaseBadge();
   showToast('Pagamento confermato','success');
@@ -8152,6 +8161,14 @@ function showEmailTemplate(purchaseId, coId){
 }
 
 function adminApprovePurchase(reqId){
+  // Guard idempotency: blocca doppia approvazione
+  const _existingActive = DB.getSignedContracts()
+    .some(c => c.companyId === DB.getPurchaseRequests().find(r=>r.id===reqId)?.companyId
+               && c.status === 'active');
+  if(_existingActive){
+    showToast('Contratto già attivo per questa azienda — operazione annullata','error');
+    return;
+  }
   const durationMonths=parseInt(document.getElementById('apur-duration-'+reqId)?.value||'12');
   const note=document.getElementById('apur-note3-'+reqId)?.value.trim()||'';
   const now=new Date();
