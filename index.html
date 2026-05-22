@@ -6880,31 +6880,18 @@ function renderSettings(main){
         </div>
 
         ${ps.status==='admin'?`
-        <div class="settings-section" style="padding:0;overflow:visible;border-radius:var(--radius);overflow:hidden">
-          <div class="plan-card active" style="padding:20px 22px 22px;border-radius:var(--radius) var(--radius) 0 0;background:linear-gradient(135deg,#041348 0%,#0B1E5C 100%)">
-            <div class="plan-card-badge" style="background:rgba(106,159,255,0.15);color:#6A9FFF">
-              <span style="font-size:14px">✦</span> Account Amministratore
-            </div>
-            <div class="plan-card-name" style="color:#fff">Studio Zamboni</div>
-            <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px">Accesso completo alla piattaforma MyEwallet®</div>
-            <div style="display:flex;gap:24px;row-gap:14px;margin-top:18px;padding-bottom:2px;flex-wrap:wrap;align-items:flex-start">
-              <div style="min-width:90px"><div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Ruolo</div>
-                <div style="font-size:14px;font-weight:700;color:#6A9FFF">Amministratore</div>
-              </div>
-              <div style="min-width:90px"><div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Azienda</div>
-                <div style="font-size:14px;font-weight:700;color:#fff">${esc(currentUser.name||'–')}</div>
-              </div>
-              <div style="min-width:90px"><div style="font-size:11px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Piano</div>
-                <div style="font-size:14px;font-weight:700;color:#fff">Accesso illimitato</div>
-              </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;background:linear-gradient(135deg,#041348 0%,#0B1E5C 100%);border-radius:var(--radius);border:1px solid rgba(106,159,255,0.2);flex-wrap:wrap;row-gap:8px">
+          <div style="display:flex;align-items:center;gap:10px;min-width:0">
+            <span style="color:#6A9FFF;font-size:18px;flex-shrink:0">✦</span>
+            <div style="min-width:0">
+              <div style="font-size:11px;font-weight:700;color:#6A9FFF;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Account Amministratore</div>
+              <div style="font-size:13px;font-weight:600;color:#fff">${esc(co.name)} &nbsp;·&nbsp; <span style="color:rgba(255,255,255,0.6)">Piano Admin &nbsp;·&nbsp; Accesso illimitato</span></div>
             </div>
           </div>
-          <div style="padding:16px 20px;background:#fff">
-            <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
-              Stai accedendo come amministratore di <strong>Studio Zamboni</strong>.
-              Gestisci utenti, piani, pagamenti e documenti dal <a href="javascript:void(0)" onclick="navTo('admin')" style="color:var(--gold);font-weight:600">Pannello Admin →</a>
-            </div>
-          </div>
+          <a href="javascript:void(0)" onclick="navTo('admin')" style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--gold);white-space:nowrap;text-decoration:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+            Pannello Admin
+          </a>
         </div>`:ti.isTrial?`
         <div class="settings-section" style="padding:0;overflow:hidden">
           <div class="plan-card ${ti.isExpired?'expired':'active'}" style="border-radius:var(--radius) var(--radius) 0 0">
