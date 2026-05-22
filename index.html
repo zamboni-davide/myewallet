@@ -2773,7 +2773,7 @@ function checkSignatureReminders(){
           createNotification({
             recipientId:u.id,recipientRole:'user',
             companyId:co.id,companyName:co.name,
-            message:`⏰ <strong>Sollecito firma</strong>: il Contratto <strong>${contractNum}</strong> è in attesa della tua firma digitale da oltre 48 ore. Accedi a "Il mio Account" per completare la procedura.`,
+            message:`⏰ <strong>Sollecito firma</strong>: il Contratto <strong>${contractNum}</strong> è in attesa della tua conferma contrattuale da oltre 48 ore. Accedi a "Il mio Account" per completare la procedura.`,
             type:'warning',senderName:'Studio Zamboni',
             requiresSignature:true,purchaseId:p.id
           });
@@ -8074,13 +8074,13 @@ function showEmailTemplate(purchaseId, coId){
   const pd=new Date(purch.createdAt||Date.now());
   const contractNum='MEW-'+pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0')+'-'+purch.id.slice(-6).toUpperCase();
   const typeMap={activation:'attivazione del piano',renewal:'rinnovo del piano',trial:'accesso trial'};
-  const subject='MyEwallet \u2013 Contratto N. '+contractNum+' \u2013 Richiesta firma digitale';
+  const subject='MyEwallet \u2013 Contratto N. '+contractNum+' \u2013 Conferma accettazione contratto';
   const bodyTxt=[
     'Gentile Cliente,',
     '',
     'con la presente Vi comunichiamo che la Vostra richiesta di '+(typeMap[purch.type]||purch.type)+' '+purch.plan+' su MyEwallet \xe8 stata approvata e il Vostro account \xe8 ora attivo.',
     '',
-    'Per completare la procedura contrattuale ai sensi del D.Lgs. 82/2005 (CAD), Vi chiediamo di procedere con la firma digitale del Contratto di Fornitura N. '+contractNum+' accedendo alla piattaforma MyEwallet:',
+    'Per completare la procedura contrattuale, Vi chiediamo di confermare l\'accettazione del Contratto di Fornitura N. '+contractNum+' accedendo alla piattaforma MyEwallet:',
     '',
     '\u2022 Accedete a MyEwallet con le Vostre credenziali',
     '\u2022 Aprite la sezione "Il mio Account"',
@@ -9474,7 +9474,7 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
 
     <h2>Art. 1 – Oggetto del Contratto</h2>
     <p>Il presente contratto disciplina l'erogazione del servizio MyEwallet – Portafoglio Digitale Aziendale, piattaforma documentale SaaS (Software as a Service) sviluppata e gestita da Studio Zamboni, per il periodo indicato in intestazione, in favore del Cliente identificato sopra.</p>
-    <p>Il servizio include: archiviazione documenti digitali, scadenzario automatico, accesso multi-utente, supporto via ticket, e storage cloud pari a <strong>${storageMB} MB</strong> per il piano <strong>${esc(purch.plan)}</strong>.</p>
+    <p>Il servizio include: archiviazione documenti digitali, scadenzario automatico, accesso singolo account, supporto via ticket, e storage cloud pari a <strong>${storageMB} MB</strong> per il piano <strong>${esc(purch.plan)}</strong>.</p>
 
     <h2>Art. 2 – Obblighi del Cliente</h2>
     <ul>
@@ -9502,10 +9502,10 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
         <div class="sig-label">Per Studio Zamboni (Fornitore)</div>
         ${purch.adminSignedAt
           ? `<div style="margin-top:12px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:5px;padding:10px 13px;">
-               <div style="font-size:8pt;color:#15803D;font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> FIRMATO DIGITALMENTE</div>
+               <div style="font-size:8pt;color:#15803D;font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ACCETTAZIONE DOCUMENTATA</div>
                <div style="font-size:9pt;font-weight:700;color:#041348;margin-top:3px;font-style:italic">${esc(purch.adminSignedBy||'Davide Pasquale Zamboni')}</div>
                <div style="font-size:8pt;color:#6B7280;margin-top:2px;">Data: ${fmtD(purch.adminSignedAt)}</div>
-               <div style="font-size:7.5pt;color:#9CA3AF;margin-top:1px;">Firma elettronica semplice – D.Lgs. 82/2005 (CAD)</div>
+               <div style="font-size:7.5pt;color:#9CA3AF;margin-top:1px;">Accettazione elettronica documentata (clickwrap)</div>
              </div>`
           : `<div style="margin-top:40px;font-size:9pt;color:#6B7280;">Davide Pasquale Zamboni</div><div style="margin-top:32px;border-top:1px solid #ccc;font-size:8pt;color:#9CA3AF;padding-top:4px">Firma e timbro</div>`
         }
@@ -9514,15 +9514,15 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
         <div class="sig-label">Per ${esc(co.name||'il Cliente')}</div>
         ${purch.clientSignedAt
           ? `<div style="margin-top:12px;background:#F0FDF4;border:1.5px solid #86EFAC;border-radius:5px;padding:10px 13px;">
-               <div style="font-size:8pt;color:#15803D;font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> FIRMATO DIGITALMENTE</div>
+               <div style="font-size:8pt;color:#15803D;font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ACCETTAZIONE DOCUMENTATA</div>
                <div style="font-size:9pt;font-weight:700;color:#041348;margin-top:3px;font-style:italic">${esc(purch.clientSignedBy||user.name||'–')}</div>
                <div style="font-size:8pt;color:#6B7280;margin-top:2px;">Email: ${esc(purch.clientSignedEmail||user.email||'–')}</div>
                <div style="font-size:8pt;color:#6B7280;">Data: ${fmtD(purch.clientSignedAt)}</div>
-               ${purch.clientIpHint?`<div style="font-size:7.5pt;color:#9CA3AF;margin-top:1px;">${esc(purch.clientIpHint)}</div>`:'<div style="font-size:7.5pt;color:#9CA3AF;margin-top:1px;">Firma elettronica semplice – D.Lgs. 82/2005 (CAD)</div>'}
+               ${purch.clientIpHint?`<div style="font-size:7.5pt;color:#9CA3AF;margin-top:1px;">${esc(purch.clientIpHint)}</div>`:'<div style="font-size:7.5pt;color:#9CA3AF;margin-top:1px;">Accettazione elettronica documentata (clickwrap)</div>'}
              </div>`
           : `<div style="margin-top:12px;background:#FEF9C3;border:1.5px solid #FDE047;border-radius:5px;padding:10px 13px;">
-               <div style="font-size:8pt;color:#A16207;font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> IN ATTESA DI FIRMA</div>
-               <div style="font-size:8pt;color:#92400E;margin-top:3px;">Il cliente non ha ancora firmato digitalmente il contratto.</div>
+               <div style="font-size:8pt;color:#A16207;font-weight:700;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> IN ATTESA DI CONFERMA</div>
+               <div style="font-size:8pt;color:#92400E;margin-top:3px;">Il cliente non ha ancora ancora confermato il contratto.</div>
              </div>`
         }
       </div>
@@ -9600,7 +9600,7 @@ function showSignatureModal(purchaseId, notifId){
     <div style="padding:20px 24px;">
       <div style="font-size:13px;font-weight:600;color:#041348;margin-bottom:14px;">La tua Firma Digitale</div>
       <div style="background:#FEF8EC;border:1.5px solid #1A52D4;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:12px;color:#7C5E0A;line-height:1.6;">
-        <strong>⚠️ Attenzione:</strong> Apponendo la firma digitale dichiari di aver letto integralmente il Contratto di Fornitura N. <strong>${contractNum}</strong>, di accettarne tutti i termini e le condizioni, e di agire in nome e per conto di <strong>${esc(co.name)}</strong>. La firma digitale ha piena validità contrattuale ai sensi del D.Lgs. 82/2005 (CAD).
+        <strong>⚠️ Attenzione:</strong> Confermando l'accettazione dichiari di aver letto integralmente il Contratto di Fornitura N. <strong>${contractNum}</strong>, di accettarne tutti i termini e le condizioni, e di agire in nome e per conto di <strong>${esc(co.name)}</strong>. L'accettazione è documentata elettronicamente con timestamp e prova di accettazione tracciata.
       </div>
       <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:10px;">
         <input type="checkbox" id="sig-chk1" style="accent-color:#041348;margin-top:2px;flex-shrink:0;">
@@ -9842,7 +9842,7 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
     <ul>
       <li>Dimensione massima per file: <strong>20 MB</strong>.</li>
       <li>Formati accettati: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX, ZIP.</li>
-      <li>I dati sono archiviati localmente nel browser dell'Utilizzatore; si raccomanda di non cancellare la cache del browser senza aver precedentemente esportato/scaricato i documenti critici.</li>
+      <li>I dati sono archiviati su infrastruttura cloud certificata (data center EU-West), con cache locale temporanea nel browser per ottimizzare le prestazioni. Studio Zamboni adotta misure tecniche e organizzative adeguate per la protezione dei dati in transito e a riposo.</li>
       <li>Studio Zamboni si riserva il diritto di aggiornare le funzionalità della piattaforma, dandone comunicazione con congruo preavviso.</li>
     </ul>
 
