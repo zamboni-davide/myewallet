@@ -256,7 +256,7 @@ textarea.input{resize:vertical;min-height:80px;}
 /* ──────────────────────────────────────────
    MAIN APP LAYOUT
 ────────────────────────────────────────── */
-#app-screen{display:flex;min-height:100vh;}
+#app-screen{display:flex;height:100vh;overflow:hidden;}
 
 /* SIDEBAR */
 .sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#041348 0%,#061658 60%,#0A1E72 100%);flex-shrink:0;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:transform 0.3s ease;overflow-y:auto;}
@@ -984,7 +984,7 @@ textarea.input{resize:vertical;min-height:80px;}
   /* ── Plan card ── */
   .plan-dates-grid{grid-template-columns:1fr!important;}
   .plan-card{padding:16px;}
-.plan-card{padding:20px 24px 24px 24px;}
+
 .plan-card.active{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);}
 .plan-card.expired{background:linear-gradient(135deg,#374151 0%,#1f2937 100%);}
 .plan-card-badge{
@@ -1327,6 +1327,16 @@ textarea.input{resize:vertical;min-height:80px;}
    MOBILE BOUNCE SCROLL FIX — iOS + Android
    ═══════════════════════════════════════════ */
 @media(max-width:768px){
+  /* RC1: detail-panel full-width on mobile (was 480px → overflow orizzontale) */
+  .detail-panel{width:100%!important;left:0!important;right:0!important;border-left:none!important;}
+  /* RC4: flex elements senza min-width:0 → espansione oltre viewport */
+  .settings-section-title{min-width:0;}
+  .settings-section-title svg{flex-shrink:0;}
+  #topbar-logo-mobile{min-width:0;flex-shrink:1;}
+  .m-nav-item{min-width:0;}
+  .topbar{min-width:0;}
+  /* RC2 fix: plan-card mobile padding — evita overflow su 320px */
+  
   html{height:100%;}
   body{height:100%;overscroll-behavior:none;touch-action:pan-y;}
   /* overflow:hidden su body viene impostato via JS solo quando app è attiva */
@@ -2487,7 +2497,13 @@ async function doLogin(){
                 email, pwd:'__supabase__',
                 companyId: companyId||'co_admin',
                 role: serverRole,
+                termsAcceptedAt: meta.termsAcceptedAt||null,
                 createdAt: new Date().toISOString()};
+        // Propagate userType to company if available from metadata
+        if(meta.userType && meta.company_id){
+          const _cos=DB.getCompanies(); const _ci=_cos.findIndex(c=>c.id===meta.company_id);
+          if(_ci>=0 && !_cos[_ci].userType){ _cos[_ci].userType=meta.userType; DB.setCompanies(_cos); }
+        }
         users.push(user); DB.setUsers(users);
       } else {
         // Aggiorna ruolo dal server anche per utenti già in cache locale
@@ -2505,6 +2521,9 @@ async function doLogin(){
       // Se company non trovata ma auth Supabase ok → non mostrare errore, usa co_admin
       if(!co) co = companies.find(c=>c.id==='co_admin');
       if(user && co){
+        // Sync dati locali verso Supabase (solo se ci sono dati da sincronizzare)
+        _supaUploadAll('co_admin').catch(()=>{});
+        if(companyId && companyId !== 'co_admin') _supaUploadAll(companyId).catch(()=>{});
         if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
         else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
         currentUser=user; currentCompany=co;
@@ -2588,7 +2607,8 @@ async function doRegister(){
   try{
     const res = await _supa.auth.signUp({
       email, password: pwd,
-      options:{ data:{ company_id: coId, role:'user', name } }
+      options:{ data:{ company_id: coId, role:'user', name,
+        termsAcceptedAt, userType } }
     });
     signUpData=res.data; signUpError=res.error;
   }catch(e){ console.warn('[doRegister] Supabase signUp exception:',e); }
@@ -3005,7 +3025,7 @@ function renderDashboardMobile(main){
   const ps=getPlanStatus(currentCompany);
 
   main.innerHTML=`
-    <div style="padding:12px 12px 80px">
+    <div style="padding:12px 12px calc(var(--bottom-nav-h,64px) + 48px)">
 
       <!-- Saluto -->
       <div style="margin-bottom:16px">
@@ -3997,6 +4017,7 @@ let adminTab='companies';
 // ════════════════════════════════════════════════
 //  ADMIN — Invio Documenti / Fatture agli utenti
 // ════════════════════════════════════════════════
+let _adminDocFile = null; // Preserva file tra re-render del pannello admin
 function adminSendAdminDoc(){
   const companyId = document.getElementById('adoc-company')?.value;
   const type      = document.getElementById('adoc-type')?.value || 'fattura';
@@ -4042,10 +4063,10 @@ function adminSendAdminDoc(){
     renderAdminTab();
   };
 
-  const file = fileInput?.files?.[0];
+  const file = _adminDocFile || fileInput?.files?.[0];
   if(file){
     const reader = new FileReader();
-    reader.onload = e => doSend(e.target.result, file.name, file.size);
+    reader.onload = e => { doSend(e.target.result, file.name, file.size); _adminDocFile=null; };
     reader.readAsDataURL(file);
   } else {
     doSend(null, null, 0);
@@ -5660,6 +5681,7 @@ function renderAdminTab(){
           <td>
             <div style="font-weight:600;color:var(--navy)">${esc(u.name)}</div>
             ${u.selfRegistered?'<div style="font-size:11px;color:var(--gold)">Auto-registrato</div>':''}
+            ${co?.userType?`<div style="font-size:10px;font-weight:700;margin-top:2px;padding:1px 6px;border-radius:4px;display:inline-block;background:${co.userType==='consumer'?'#EFF6FF':'#F0FDF4'};color:${co.userType==='consumer'?'#1D4ED8':'#166534'}">${co.userType==='consumer'?'CONSUMER':co.userType==='professional'?'PROFESSIONISTA':co.userType==='sme'?'PMI':'STUDIO'}</div>`:''}
           </td>
           <td style="font-size:13px">${esc(u.email)}</td>
           <td style="font-size:13px">
@@ -6282,7 +6304,7 @@ Importo: € ${tot.toFixed(2)} IVA incl."
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
               <span id="adoc-file-label" style="font-size:13px;color:var(--text-muted)">Nessun file selezionato</span>
               <input type="file" id="adoc-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" style="display:none"
-                onchange="document.getElementById('adoc-file-label').textContent=this.files[0]?.name||'Nessun file'"/>
+                onchange="_adminDocFile=this.files[0]||null;document.getElementById('adoc-file-label').textContent=this.files[0]?.name||'Nessun file'"/>
             </label>
           </div>
           <button class="btn btn-primary" style="align-self:flex-start" onclick="adminSendAdminDoc()">
@@ -6775,7 +6797,7 @@ function renderSettingsMobile(main){
     `;
   };
 
-  main.innerHTML=`<div style="padding:12px 12px 80px"><div id="mob-settings-main" data-open="piano"></div></div>`;
+  main.innerHTML=`<div style="padding:12px 12px calc(var(--bottom-nav-h,64px) + 48px)"><div id="mob-settings-main" data-open="piano"></div></div>`;
   render();
 }
 
@@ -7801,16 +7823,20 @@ function adminSendMessage(companyId){
   const co=companies.find(c=>c.id===companyId);
   if(!co)return;
   const users=DB.getUsers().filter(u=>u.companyId===companyId);
-  users.forEach(u=>{
-    createNotification({
-      recipientId:u.id, recipientRole:'user',
-      companyId, companyName:co.name,
-      message:msg, type:'info',
-      senderName:'Studio Zamboni'
+  if(users.length===0){
+    showToast(`Nessun utente trovato per ${co.name} — il messaggio non è stato consegnato`,'error');
+  } else {
+    users.forEach(u=>{
+      createNotification({
+        recipientId:u.id, recipientRole:'user',
+        companyId, companyName:co.name,
+        message:msg, type:'info',
+        senderName:'Studio Zamboni'
+      });
     });
-  });
+    showToast(`Messaggio inviato a ${co.name}`,'success');
+  }
   document.getElementById('admin-msg-'+companyId).value='';
-  showToast(`Messaggio inviato a ${co.name}`,'success');
 }
 
 // ════════════════════════════════════════════════════════
@@ -8789,7 +8815,7 @@ function renderScadenzarioMobile(main){
     </div>`;
   }
 
-  main.innerHTML=`<div style="padding:12px 12px 80px">
+  main.innerHTML=`<div style="padding:12px 12px calc(var(--bottom-nav-h,64px) + 48px)">
     ${expired.length===0&&expiring.length===0&&ok.length===0
       ?`<div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="opacity:0.3;display:block;margin:0 auto 12px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
