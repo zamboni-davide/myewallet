@@ -2518,9 +2518,27 @@ async function doLogin(){
       }
       const companies = DB.getCompanies();
       let co = companies.find(c=>c.id===(companyId||user?.companyId));
-      // Se company non trovata ma auth Supabase ok → non mostrare errore, usa co_admin
-      if(!co) co = companies.find(c=>c.id==='co_admin');
-      if(user && co){
+      // Company non trovata in cache locale — ricostruisci da metadati Supabase
+      // NEVER fall back to co_admin for regular users: dati isolati per tenant
+      if(!co && companyId && companyId !== 'co_admin'){
+        const trialStart = authData.user.created_at || new Date().toISOString();
+        const trialEnd   = new Date(new Date(trialStart).getTime()+30*24*60*60*1000).toISOString();
+        co = {
+          id: companyId,
+          name: meta.name || email.split('@')[0],
+          email: email,
+          phone:'', vatNumber:'', address:'',
+          plan:'Trial', planStartDate:null, planEndDate:null,
+          trialMode:true, trialStartDate:trialStart, trialEndDate:trialEnd,
+          accountStatus:'trial', createdAt:trialStart,
+          userType: meta.userType||'', gdprConsent:true,
+          consentTimestamp:trialStart
+        };
+        const allCos = DB.getCompanies();
+        if(!allCos.find(c=>c.id===companyId)){ allCos.push(co); DB.setCompanies(allCos); }
+        user.companyId = companyId;
+      }
+      if(user && co && co.id !== 'co_admin' || (user && co && user.role==='admin')){
         // Sync dati locali verso Supabase (solo se ci sono dati da sincronizzare)
         _supaUploadAll('co_admin').catch(()=>{});
         if(companyId && companyId !== 'co_admin') _supaUploadAll(companyId).catch(()=>{});
@@ -2531,8 +2549,16 @@ async function doLogin(){
       }
     }
 
-    // ── Supabase auth fallito: nessun fallback locale — la beta richiede Supabase ──
-    showAuthError('login','Email o password non corretti, oppure account non confermato.');
+    // ── Supabase auth fallito — diagnosi specifica ──────────────────────────
+    const loginErrMsg = (authError?.message||'').toLowerCase();
+    const isUnconfirmed = loginErrMsg.includes('not confirmed')||loginErrMsg.includes('email not confirmed')||loginErrMsg.includes('confirmation')||authError?.status===400;
+    if(isUnconfirmed){
+      // Tenta di reinviare email di conferma
+      _supa.auth.resend({type:'signup', email}).catch(()=>{});
+      showAuthError('login','Conferma la tua email prima di accedere. Ti abbiamo reinviato il link di conferma. Controlla la casella di posta (anche spam).');
+    } else {
+      showAuthError('login','Email o password non corretti. Verifica le credenziali e riprova.');
+    }
 
   } catch(e){
     showAuthError('login','Errore di connessione. Riprova.');
@@ -2782,10 +2808,13 @@ async function doRegister(){
   switchAuthTab('login');
   document.getElementById('login-email').value=email;
   const msg = emailConfirmRequired
-    ? '✓ Account creato! Controlla la tua email e clicca il link di conferma prima di accedere.'
-    : '✓ Account creato! Accedi con le tue credenziali per iniziare il trial gratuito.';
+    ? '✓ Account creato! Abbiamo inviato un link di conferma a '+email+'. Clicca il link nell\'email per attivare l\'account, poi accedi.'
+    : '✓ Account creato! Accedi ora con le tue credenziali per iniziare il trial gratuito.';
   setTimeout(()=>{
     showAuthSuccess('login', msg);
+    // Rende il messaggio persistente (no auto-hide) per evitare che l'utente non lo veda
+    const el=document.getElementById('login-success');
+    if(el && el._hideTimer){ clearTimeout(el._hideTimer); el._hideTimer=null; }
     document.getElementById('auth-screen')?.scrollTo({top:0,behavior:'smooth'});
   }, 100);
   }catch(err){
