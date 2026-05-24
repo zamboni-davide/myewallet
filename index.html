@@ -2685,14 +2685,38 @@ async function doRegister(){
   }]);
 
   }catch(_step4Err){
-    // Rollback: rimuovi company e user scritti parzialmente
+    // ── Opzione C — rollback client-side + signOut + audit ─────────────────
+    // 1. Rimuovi dati locali parzialmente scritti
     if(_step4Written){
       try{
         const _cos=DB.getCompanies().filter(c=>c.id!==coId); DB.setCompanies(_cos);
         const _us=DB.getUsers().filter(u=>u.id!==userId); DB.setUsers(_us);
       }catch{}
     }
-    throw _step4Err; // rilancia al catch esterno → bottone re-abilitato
+    // 2. Invalida la sessione Supabase se signUp aveva già creato un auth user
+    //    (non cancella l'utente Auth — impossibile lato client — ma chiude la sessione)
+    if(signUpData?.user){
+      _supa.auth.signOut().catch(()=>{});
+    }
+    // 3. Audit log minimale per diagnostica admin (usa struttura esistente)
+    try{
+      DB.appendAuditLog({
+        action: 'registration_rollback',
+        email,
+        coId,
+        supabaseUserId: signUpData?.user?.id||null,
+        authUserCreated: !!(signUpData?.user),
+        sessionInvalidated: !!(signUpData?.user),
+        reason: _step4Err?.message||'STEP4 exception',
+        note: 'Account Auth Supabase potenzialmente orfano — verificare in Dashboard → Authentication → Users'
+      });
+    }catch{}
+    // 4. Rilancia con messaggio utente chiaro — gestito dal catch esterno
+    //    che mostra showAuthError e riabilita il bottone
+    _step4Err._userMessage = 'Registrazione non completata a causa di un errore tecnico. '
+      + 'L'email potrebbe risultare già occupata nel sistema. '
+      + 'Se il problema persiste, contatta l'assistenza a consulenzesardegna@pec.it indicando l'indirizzo email usato.';
+    throw _step4Err;
   }
   // ── STEP 5: reset sessione e UI ───────────────────────────────────────────
   DB.setSession(null);
@@ -2717,7 +2741,10 @@ async function doRegister(){
   }, 100);
   }catch(err){
     console.error('[doRegister] Errore imprevisto:',err);
-    showAuthError('register','Errore imprevisto durante la registrazione. Riprova o contatta il supporto.');
+    // Usa _userMessage se iniettato dal rollback STEP4 (Opzione C)
+    const errDisplay = err._userMessage
+      || 'Errore imprevisto durante la registrazione. Riprova o contatta il supporto.';
+    showAuthError('register', errDisplay);
     const regBtnCatch=document.getElementById('reg-submit-btn');
     if(regBtnCatch){regBtnCatch.disabled=false;regBtnCatch.textContent='Crea Account e Inizia il Trial';}
   }
