@@ -2800,6 +2800,8 @@ async function doRegister(){
   ['reg-name','reg-company','reg-email','reg-pwd'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value='';
   });
+  // Reset select tipo utilizzo e label dinamica
+  const _utSel=document.getElementById('reg-usertype'); if(_utSel){_utSel.value=''; if(typeof updateRegCompanyField==='function')updateRegCompanyField();}
   ['reg-chk1','reg-chk2','reg-chk3'].forEach(id=>{
     const el=document.getElementById(id); if(el) el.checked=false;
   });
