@@ -2615,20 +2615,46 @@ async function doRegister(){
 
   // ── STEP 3: Supabase fallito → nessuna scrittura locale, errore all'utente ─
   if(signUpError || !signUpData?.user){
-    const errMsg = signUpError?.message||'Errore durante la registrazione. Riprova.';
-    const isAlreadyRegistered = errMsg.toLowerCase().includes('already')||errMsg.toLowerCase().includes('registered')||errMsg.toLowerCase().includes('exists');
-    const userMsg = isAlreadyRegistered
-      ? 'Email già registrata. Accedi oppure usa il recupero password.'
-      : 'Errore durante la registrazione: '+errMsg;
+    const errMsg = (signUpError?.message||'').toLowerCase();
+    const is429 = signUpError?.status===429||errMsg.includes('too many')||errMsg.includes('rate')||errMsg.includes('security purposes')||errMsg.includes('once every');
+    const isAlreadyReg = errMsg.includes('already')||errMsg.includes('registered')||errMsg.includes('exists');
+    const userMsg = is429
+      ? '⏱ Troppe richieste di registrazione. Attendi almeno 60 secondi prima di riprovare, oppure usa un'altra email.'
+      : isAlreadyReg
+        ? 'Email già registrata. Accedi oppure usa il recupero password.'
+        : 'Errore durante la registrazione: '+(signUpError?.message||'Riprova tra qualche istante.');
     showAuthError('register', userMsg);
     const regBtnErr=document.getElementById('reg-submit-btn');
-    if(regBtnErr){regBtnErr.disabled=false;regBtnErr.textContent='Crea Account e Inizia il Trial';}
+    if(regBtnErr){
+      if(is429){
+        // Cooldown 60s per evitare loop di retry su rate limit
+        regBtnErr.disabled=true; let secs=60;
+        regBtnErr.textContent='Attendi '+secs+'s...';
+        const cd=setInterval(()=>{
+          secs--;
+          if(!document.getElementById('reg-submit-btn')){clearInterval(cd);return;}
+          if(secs<=0){
+            clearInterval(cd);
+            const b=document.getElementById('reg-submit-btn');
+            if(b){b.disabled=false;b.textContent='Crea Account e Inizia il Trial';}
+          } else {
+            const b=document.getElementById('reg-submit-btn');
+            if(b) b.textContent='Attendi '+secs+'s...';
+          }
+        },1000);
+      } else {
+        regBtnErr.disabled=false; regBtnErr.textContent='Crea Account e Inizia il Trial';
+      }
+    }
     return;
   }
 
-  // ── STEP 4: Supabase confermato — ora scriviamo in localStorage (cache) ────
+  // ── STEP 4: Supabase confermato — scrittura atomica con rollback su errore ──
+  let _step4Written = false; // rollback guard
+  try{
   const companies=DB.getCompanies(); companies.push(co); DB.setCompanies(companies);
   const users=DB.getUsers(); users.push(user); DB.setUsers(users);
+  _step4Written = true; // da qui in poi i dati base sono scritti
   const tosVreg  = getCurrentTermsVersion('tos');
   const privVreg = getCurrentTermsVersion('privacy');
   const gdprVreg = getCurrentTermsVersion('gdpr');
@@ -2658,6 +2684,16 @@ async function doRegister(){
     clientIpHint:'accettazione T&C in fase di registrazione'
   }]);
 
+  }catch(_step4Err){
+    // Rollback: rimuovi company e user scritti parzialmente
+    if(_step4Written){
+      try{
+        const _cos=DB.getCompanies().filter(c=>c.id!==coId); DB.setCompanies(_cos);
+        const _us=DB.getUsers().filter(u=>u.id!==userId); DB.setUsers(_us);
+      }catch{}
+    }
+    throw _step4Err; // rilancia al catch esterno → bottone re-abilitato
+  }
   // ── STEP 5: reset sessione e UI ───────────────────────────────────────────
   DB.setSession(null);
   currentUser=null; currentCompany=null;
@@ -2762,8 +2798,9 @@ function showAuthError(form,msg){
       });
     },3000);
   }
-  // Auto-hide after 6s
-  setTimeout(()=>el.classList.add('hidden'),6000);
+  // Auto-hide after 8s — clear previous timer to avoid hiding newer errors
+  if(el._hideTimer) clearTimeout(el._hideTimer);
+  el._hideTimer = setTimeout(()=>{el.classList.add('hidden');el._hideTimer=null;},8000);
 }
 
 function logout(){
