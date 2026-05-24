@@ -1462,18 +1462,18 @@ textarea.input{resize:vertical;min-height:80px;}
             <input class="input" type="text" id="reg-name" placeholder="Mario Rossi"/>
           </div>
           <div class="input-group">
-            <label class="input-label">Ragione Sociale</label>
-            <input class="input" type="text" id="reg-company" placeholder="Rossi S.r.l."/>
-          </div>
-          <div class="input-group">
             <label class="input-label">Tipo di utilizzo <span style="color:#fc8181">*</span></label>
-            <select class="input" id="reg-usertype" required style="cursor:pointer;background:rgba(255,255,255,0.08);color:#fff">
+            <select class="input" id="reg-usertype" required style="cursor:pointer;background:rgba(255,255,255,0.08);color:#fff" onchange="updateRegCompanyField()">
               <option value="" style="background:#1a1a2e;color:#fff">— Seleziona —</option>
               <option value="consumer" style="background:#1a1a2e;color:#fff">Consumatore privato</option>
               <option value="professional" style="background:#1a1a2e;color:#fff">Professionista / Freelance</option>
               <option value="sme" style="background:#1a1a2e;color:#fff">PMI / Microimpresa</option>
               <option value="studio" style="background:#1a1a2e;color:#fff">Studio professionale / Consulente</option>
             </select>
+          </div>
+          <div class="input-group" id="reg-company-group">
+            <label class="input-label" id="reg-company-label">Ragione Sociale <span id="reg-company-required" style="color:#fc8181">*</span><span id="reg-company-optional" style="color:rgba(255,255,255,0.4);font-size:11px;display:none"> (opzionale)</span></label>
+            <input class="input" type="text" id="reg-company" placeholder="Rossi S.r.l."/>
           </div>
           <div class="input-group">
             <label class="input-label">Email aziendale</label>
@@ -2549,6 +2549,29 @@ function togglePwd(inputId, btnId){
   else{inp.type='password';if(btn)btn.style.opacity='0.5';}
 }
 
+function updateRegCompanyField(){
+  const ut = document.getElementById('reg-usertype')?.value;
+  const lbl = document.getElementById('reg-company-label');
+  const req = document.getElementById('reg-company-required');
+  const opt = document.getElementById('reg-company-optional');
+  const inp = document.getElementById('reg-company');
+  const subtitle = document.querySelector('.auth-subtitle');
+  if(!inp) return;
+  if(ut === 'consumer'){
+    if(lbl) lbl.childNodes[0].textContent = 'Nome Account ';
+    if(req) req.style.display='none';
+    if(opt) opt.style.display='inline';
+    inp.placeholder = 'Es. Sara Gianino (opzionale)';
+    if(subtitle) subtitle.textContent = 'Registra il tuo account – 30 giorni gratuiti, fino a 15 documenti';
+  } else if(ut){
+    if(lbl) lbl.childNodes[0].textContent = 'Ragione Sociale ';
+    if(req) req.style.display='inline';
+    if(opt) opt.style.display='none';
+    inp.placeholder = 'Es. Rossi S.r.l.';
+    if(subtitle) subtitle.textContent = 'Registra la tua azienda – 30 giorni gratuiti, fino a 15 documenti';
+  }
+}
+
 function checkRegConsent(){
   const c1 = document.getElementById('reg-chk1')?.checked;
   const c2 = document.getElementById('reg-chk2')?.checked;
@@ -2573,7 +2596,12 @@ async function doRegister(){
   const email=document.getElementById('reg-email').value.trim();
   const pwd=document.getElementById('reg-pwd').value;
   const userTypeVal=document.getElementById('reg-usertype')?.value||'';
-  if(!name||!coName||!email||!pwd||!userTypeVal){showAuthError('register','Compila tutti i campi obbligatori, incluso il tipo di utilizzo.');return;}
+  // Per consumer, Ragione Sociale è opzionale — si usa Nome e Cognome come fallback
+  const isConsumerReg = (userTypeVal === 'consumer');
+  if(!name||(!isConsumerReg && !coName)||!email||!pwd||!userTypeVal){
+    showAuthError('register','Compila tutti i campi obbligatori.');return;
+  }
+  const coNameFinal = coName || name; // consumer senza ragione sociale: usa nome
   if(pwd.length<6){showAuthError('register','Password minimo 6 caratteri.');return;}
   const chk1=document.getElementById('reg-chk1')?.checked;
   const chk2=document.getElementById('reg-chk2')?.checked;
@@ -2591,7 +2619,7 @@ async function doRegister(){
   const _freePlan=DB.getPlansConfig()['FREE']||{trialDays:30};
   const trialEnd=new Date(today);trialEnd.setDate(trialEnd.getDate()+(_freePlan.trialDays||30));
   const userType=document.getElementById('reg-usertype')?.value||'';
-  const co={id:coId,name:coName,vatNumber:'',address:'',email:email,phone:'',userType,
+  const co={id:coId,name:coNameFinal,vatNumber:'',address:'',email:email,phone:'',userType,
     plan:'Trial',planStartDate:null,planEndDate:null,
     trialMode:true,trialStartDate:today.toISOString(),trialEndDate:trialEnd.toISOString(),
     accountStatus:'trial',createdAt:today.toISOString(),
@@ -2617,12 +2645,15 @@ async function doRegister(){
   if(signUpError || !signUpData?.user){
     const errMsg = (signUpError?.message||'').toLowerCase();
     const is429 = signUpError?.status===429||errMsg.includes('too many')||errMsg.includes('rate')||errMsg.includes('security purposes')||errMsg.includes('once every');
-    const isAlreadyReg = errMsg.includes('already')||errMsg.includes('registered')||errMsg.includes('exists');
+    const isAlreadyReg = errMsg.includes('already')||errMsg.includes('registered')||errMsg.includes('exists')||signUpError?.status===422;
+    const isWeakPwd = errMsg.includes('password')||errMsg.includes('weak')||errMsg.includes('characters');
     const userMsg = is429
-      ? `⏱ Troppe richieste. Attendi almeno 60 secondi prima di riprovare, oppure usa un indirizzo email diverso.`
+      ? `Troppe richieste. Attendi almeno 60 secondi prima di riprovare, oppure usa un indirizzo email diverso.`
       : isAlreadyReg
-        ? `Email gia registrata. Accedi oppure usa il recupero password.`
-        : `Errore durante la registrazione: ${signUpError?.message||'Riprova tra qualche istante.'}`;
+        ? `Questa email e gia registrata. Accedi oppure usa il recupero password.`
+        : isWeakPwd
+          ? `La password non rispetta i requisiti minimi. Usa almeno 6 caratteri con lettere e numeri.`
+          : `Errore durante la registrazione (${signUpError?.status||'?'}): ${signUpError?.message||'Riprova tra qualche istante.'}`;
     showAuthError('register', userMsg);
     const regBtnErr=document.getElementById('reg-submit-btn');
     if(regBtnErr){
@@ -2683,6 +2714,17 @@ async function doRegister(){
     clientSignedBy:name,clientSignedEmail:email,
     clientIpHint:'accettazione T&C in fase di registrazione'
   }]);
+
+  // ── SYNC IMMEDIATO SU SUPABASE ────────────────────────────────────────────
+  // Se signUp ha creato una sessione (email confirmation DISABILITATA su Supabase),
+  // carica tutti i dati subito — risolve KPI admin a 0 e T&C non persistiti.
+  // Se non c'è sessione (email confirmation abilitata), il sync avviene al primo login.
+  if(signUpData?.session){
+    try{
+      await _supaUploadAll('co_admin');
+      await _supaUploadAll(coId);
+    }catch(e){ console.warn('[doRegister] sync Supabase non riuscito:',e); }
+  }
 
   }catch(_step4Err){
     // ── Opzione C — rollback client-side + signOut + audit ─────────────────
