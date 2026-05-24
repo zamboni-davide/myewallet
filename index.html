@@ -2619,10 +2619,10 @@ async function doRegister(){
     const is429 = signUpError?.status===429||errMsg.includes('too many')||errMsg.includes('rate')||errMsg.includes('security purposes')||errMsg.includes('once every');
     const isAlreadyReg = errMsg.includes('already')||errMsg.includes('registered')||errMsg.includes('exists');
     const userMsg = is429
-      ? '⏱ Troppe richieste di registrazione. Attendi almeno 60 secondi prima di riprovare, oppure usa un'altra email.'
+      ? `⏱ Troppe richieste. Attendi almeno 60 secondi prima di riprovare, oppure usa un indirizzo email diverso.`
       : isAlreadyReg
-        ? 'Email già registrata. Accedi oppure usa il recupero password.'
-        : 'Errore durante la registrazione: '+(signUpError?.message||'Riprova tra qualche istante.');
+        ? `Email gia registrata. Accedi oppure usa il recupero password.`
+        : `Errore durante la registrazione: ${signUpError?.message||'Riprova tra qualche istante.'}`;
     showAuthError('register', userMsg);
     const regBtnErr=document.getElementById('reg-submit-btn');
     if(regBtnErr){
