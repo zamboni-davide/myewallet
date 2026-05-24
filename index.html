@@ -5437,6 +5437,13 @@ function renderAdmin(main){
     </div>
     <div id="admin-tab-body"></div>`;
   renderAdminTab();
+  // Refresh da Supabase — fix KPI stale, comunicazioni, badge userType
+  _supaLoadAll('co_admin').then(()=>{
+    const freshCos=DB.getCompanies().filter(c=>c.id!=='co_admin');
+    const kpiEl=document.getElementById('admin-kpi-alerts');
+    if(kpiEl) kpiEl.innerHTML=adminKpiAlerts(freshCos);
+    renderAdminTab();
+  }).catch(()=>{});
 }
 
 function setAdminTab(t){
@@ -7822,7 +7829,11 @@ function adminSendMessage(companyId){
   const companies=DB.getCompanies();
   const co=companies.find(c=>c.id===companyId);
   if(!co)return;
-  const users=DB.getUsers().filter(u=>u.companyId===companyId);
+  // Match per companyId, con fallback per email aziendale (utenti con companyId stale)
+  let users=DB.getUsers().filter(u=>u.companyId===companyId&&u.role!=='admin');
+  if(users.length===0 && co.email){
+    users=DB.getUsers().filter(u=>u.email===co.email&&u.role!=='admin');
+  }
   if(users.length===0){
     showToast(`Nessun utente trovato per ${co.name} — il messaggio non è stato consegnato`,'error');
   } else {
