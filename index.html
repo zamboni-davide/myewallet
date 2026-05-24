@@ -2713,9 +2713,7 @@ async function doRegister(){
     }catch{}
     // 4. Rilancia con messaggio utente chiaro — gestito dal catch esterno
     //    che mostra showAuthError e riabilita il bottone
-    _step4Err._userMessage = 'Registrazione non completata a causa di un errore tecnico. '
-      + 'L'email potrebbe risultare già occupata nel sistema. '
-      + 'Se il problema persiste, contatta l'assistenza a consulenzesardegna@pec.it indicando l'indirizzo email usato.';
+    _step4Err._userMessage = `Registrazione non completata a causa di un errore tecnico. La email potrebbe risultare gia occupata nel sistema. Se il problema persiste, contatta assistenza a consulenzesardegna@pec.it indicando il tuo indirizzo email.`;
     throw _step4Err;
   }
   // ── STEP 5: reset sessione e UI ───────────────────────────────────────────
