@@ -2718,30 +2718,24 @@ async function doRegister(){
   // ── STEP 4: Supabase confermato — scrittura atomica con rollback su errore ──
   let _step4Written = false; // rollback guard
   try{
-  console.log('[REG-DIAG] STEP4 start');
   const companies=DB.getCompanies(); companies.push(co); DB.setCompanies(companies);
-  console.log('[REG-DIAG] companies ok');
   const users=DB.getUsers(); users.push(user); DB.setUsers(users);
-  console.log('[REG-DIAG] users ok');
   _step4Written = true;
   const tosVreg  = getCurrentTermsVersion('tos');
   const privVreg = getCurrentTermsVersion('privacy');
   const gdprVreg = getCurrentTermsVersion('gdpr');
-  console.log('[REG-DIAG] terms versions ok');
   saveUserConsent(userId,'tos',tosVreg.version,tosVreg.contentHash,
     {label:"Ho letto e accetto le Condizioni d'Uso"});
   saveUserConsent(userId,'privacy',privVreg.version,privVreg.contentHash,
     {label:"Acconsento al trattamento dati personali"});
   saveUserConsent(userId,'gdpr',gdprVreg.version,gdprVreg.contentHash,
     {label:"Informativa GDPR letta e accettata"});
-  console.log('[REG-DIAG] consents ok');
   const freeContract = createSignedContract(coId, userId, 'FREE', null, {
     proof:{method:'registration_clickwrap', timestamp:new Date().toISOString()}
   });
-  console.log('[REG-DIAG] contract:', freeContract ? 'ok' : 'null');
   if(freeContract){
     createSubscription(coId, freeContract.id, 'FREE', 'annual', today.toISOString());
-    console.log('[REG-DIAG] subscription ok');
+    
   }
   const trialPurchId=uid();
   DB.setPurchases(coId,[{
@@ -2756,7 +2750,6 @@ async function doRegister(){
     clientSignedBy:name,clientSignedEmail:email,
     clientIpHint:'accettazione T&C in fase di registrazione'
   }]);
-  console.log('[REG-DIAG] purchases ok — STEP4 COMPLETE');
 
   // ── SYNC IMMEDIATO SU SUPABASE ────────────────────────────────────────────
   // Se signUp ha creato una sessione (email confirmation DISABILITATA su Supabase),
@@ -2770,7 +2763,7 @@ async function doRegister(){
   }
 
   }catch(_step4Err){
-    console.error('[REG-DIAG] STEP4 THREW:', _step4Err?.message, _step4Err);
+    
     // ── Opzione C — rollback client-side + signOut + audit ─────────────────
     // 1. Rimuovi dati locali parzialmente scritti
     if(_step4Written){
@@ -5020,7 +5013,7 @@ function resolveContractForNonPayment(subId, companyId){
     createNotification({
       recipientId:u.id, recipientRole:'user',
       companyId, companyName:'',
-      message:`Il tuo contratto è stato risolto per mancato pagamento di 3 mensilità consecutive. I tuoi dati saranno conservati per 60 giorni. Per assistenza contatta Studio Zamboni.`,
+      message:`Il tuo contratto è stato risolto per mancato pagamento di 3 mensilità consecutive. I tuoi dati saranno conservati per 120 giorni, dopodiché saranno cancellati definitivamente. Per assistenza contatta Studio Zamboni a consulenzesardegna@pec.it.`,
       type:'error', senderName:'Studio Zamboni'
     });
   });
