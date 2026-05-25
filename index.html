@@ -2971,8 +2971,14 @@ L'utente è responsabile del mantenimento di copie proprie dei documenti in arch
   </tbody>
 </table>
 
-<h3>2. Terze Parti</h3>
-<p>Supabase (autenticazione e storage — EU-West), Google Fonts (tipografia, caricamento font senza profilazione), jsDelivr CDN (distribuzione librerie, senza profilazione).</p>
+<h3>2. Terze Parti e Trasmissione di Dati Tecnici</h3>
+<p>Il Servizio utilizza risorse frontend distribuite da fornitori terzi. Il caricamento di tali risorse può comportare la trasmissione di dati tecnici (indirizzo IP, user-agent, metadata HTTP) ai server del fornitore:</p>
+<ul>
+  <li><strong>Supabase Inc.</strong> (autenticazione e storage) — server EU-West, Irlanda; sede legale USA.</li>
+  <li><strong>Google LLC — Google Fonts API</strong> — il caricamento dei font tipografici comporta una richiesta ai server Google con trasmissione dell'indirizzo IP del visitatore. Google LLC è soggetta alla legislazione USA. Non vengono impostati cookie di profilazione da questo servizio, ma la richiesta HTTP è registrata da Google secondo la propria Privacy Policy (<a href="https://policies.google.com/privacy" target="_blank">policies.google.com/privacy</a>).</li>
+  <li><strong>jsDelivr / Prospect One</strong> (CDN librerie) — distribuzione di librerie open source; nessun cookie di profilazione impostato.</li>
+</ul>
+<p>Nessuno dei fornitori elencati è autorizzato a utilizzare i dati tecnici trasmessi per finalità di profilazione o marketing nei confronti degli utenti di MyEwallet.</p>
 
 <h2>Parte IV — Copyright e Note Legali</h2>
 
@@ -9721,7 +9727,7 @@ p{margin-bottom:7px;}ul{margin:5px 0 8px 18px;}li{margin-bottom:3px;}
 
     <h2>Informativa GDPR (sintesi)</h2>
     <p><strong>Titolare:</strong> Studio Zamboni di Davide Pasquale Zamboni — PEC: consulenzesardegna@pec.it — P.IVA IT03065200903</p>
-    <p>Dati trattati ai sensi del Reg. UE 2016/679 per l'erogazione del Servizio (base: esecuzione del contratto — art. 6(1)(b) GDPR). Infrastruttura: Supabase Inc. (server EU-West, Irlanda) come sub-responsabile ex art. 28 GDPR. Non viene effettuata alcuna cessione a terzi per finalità di marketing o profilazione. Diritti degli artt. 15–22 GDPR esercitabili via PEC. Per il testo integrale dell'Informativa Privacy consultare myewallet.it. Foro competente per le controversie: Sassari.</p>
+    <p>Dati trattati ai sensi del Reg. UE 2016/679 per l'erogazione del Servizio (base: esecuzione del contratto — art. 6(1)(b) GDPR). Infrastruttura: Supabase Inc. (server EU-West, Irlanda) come sub-responsabile ex art. 28 GDPR; Supabase Inc. è soggetta alla legislazione USA. Eventuali trasferimenti di dati verso Paesi extra-SEE, ove presenti nella catena tecnica del servizio, sono disciplinati tramite Standard Contractual Clauses (SCC) ai sensi dell'art. 46 GDPR, ove applicabile e verificato. Non viene effettuata alcuna cessione a terzi per finalità di marketing o profilazione. Diritti artt. 15–22 GDPR esercitabili via PEC. Per l'Informativa Privacy completa: myewallet.it. Foro: Sassari.</p>
 
     <h2>Copyright</h2>
     <p>© ${year} Studio Zamboni – Tutti i diritti riservati. MyEwallet® è marchio esclusivo di Studio Zamboni.</p>
@@ -10493,14 +10499,14 @@ function showCookiePolicy(){
       </tbody>
     </table>
 
-    <h3 style="color:#041348;font-size:14px;margin:20px 0 8px">3. Servizi di terze parti</h3>
-    <p style="font-size:13px;color:#4a5568;line-height:1.6">Il Servizio integra i seguenti fornitori che possono impostare cookie tecnici propri:</p>
+    <h3 style="color:#041348;font-size:14px;margin:20px 0 8px">3. Servizi di terze parti e trasmissione dati tecnici</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6">Il Servizio carica risorse da fornitori terzi. Il caricamento di tali risorse può comportare la trasmissione di dati tecnici (es. indirizzo IP, user-agent) ai server del fornitore:</p>
     <ul style="font-size:13px;color:#4a5568;line-height:1.8;padding-left:20px">
-      <li><strong>Supabase Inc.</strong> (autenticazione e storage, EU-West) — <a href="https://supabase.com/privacy" target="_blank" style="color:#1A52D4">Privacy Policy Supabase</a></li>
-      <li><strong>Google Fonts</strong> — caricamento font tipografici, senza cookie di profilazione</li>
-      <li><strong>jsDelivr CDN</strong> — distribuzione librerie open source, senza cookie di profilazione</li>
+      <li><strong>Supabase Inc.</strong> (autenticazione e storage, server EU-West) — <a href="https://supabase.com/privacy" target="_blank" style="color:#1A52D4">Privacy Policy Supabase</a></li>
+      <li><strong>Google LLC — Google Fonts API</strong> — caricamento font; <em>il browser effettua una richiesta HTTP ai server Google trasmettendo l'indirizzo IP del visitatore</em>. Non vengono impostati cookie di profilazione. <a href="https://policies.google.com/privacy" target="_blank" style="color:#1A52D4">Privacy Policy Google</a></li>
+      <li><strong>jsDelivr / Prospect One</strong> (CDN librerie open source) — nessun cookie di profilazione impostato</li>
     </ul>
-    <p style="font-size:13px;color:#4a5568;margin-top:8px">Nessuno dei servizi di terze parti elencati è autorizzato a raccogliere dati personali degli utenti per finalità di profilazione o marketing.</p>
+    <p style="font-size:13px;color:#4a5568;margin-top:8px">Nessuno dei fornitori elencati è autorizzato a utilizzare i dati tecnici trasmessi per profilazione o marketing verso gli utenti di MyEwallet.</p>
 
     <h3 style="color:#041348;font-size:14px;margin:20px 0 8px">4. Base giuridica e consenso</h3>
     <p style="font-size:13px;color:#4a5568;line-height:1.6">I cookie tecnici elencati non richiedono il consenso dell'utente in quanto strettamente necessari all'erogazione del Servizio richiesto (art. 122 D.Lgs. 196/2003, come modificato dal D.Lgs. 101/2018). Il cookie di consenso (mew_cookie_consent) è impostato alla prima visita per registrare la preferenza dell'utente.</p>
