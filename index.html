@@ -2460,17 +2460,23 @@ L'utente è responsabile del mantenimento di copie proprie dei documenti in arch
 
 <h3>3. Comunicazione, Sub-Responsabili e Trasferimento dei Dati</h3>
 <p>I dati personali non vengono ceduti a terzi per finalità di marketing, profilazione o rivendita.</p>
-<p>Il Servizio utilizza i seguenti fornitori terzi in qualità di sub-responsabili del trattamento ai sensi dell'art. 28 GDPR:</p>
+<p>Il Servizio utilizza i seguenti fornitori in qualità di responsabili o sub-responsabili del trattamento ai sensi dell'art. 28 GDPR:</p>
 <table>
-  <thead><tr><th>Fornitore</th><th>Ruolo</th><th>Sede legale</th><th>Localizzazione server</th></tr></thead>
+  <thead><tr><th>Fornitore</th><th>Ruolo</th><th>Sede legale</th><th>Server/Localizzazione</th><th>Garanzie trasferimento</th></tr></thead>
   <tbody>
-    <tr><td><strong>Supabase Inc.</strong></td><td>Autenticazione, database, storage documenti</td><td>San Francisco, CA (USA)</td><td>EU-West — Irlanda</td></tr>
-    <tr><td><strong>Font tipografici</strong></td><td>Self-hosted — incorporati nel file della piattaforma</td><td>N/A</td><td>Server myewallet.it (GitHub Pages)</td></tr>
-    <tr><td><strong>jsDelivr / Prospect One</strong></td><td>Distribuzione librerie open source (CDN)</td><td>UE</td><td>CDN globale</td></tr>
+    <tr><td><strong>Supabase Inc.</strong></td><td>Autenticazione, database, storage</td><td>Delaware, USA</td><td>EU-West — Irlanda (AWS)</td><td>SCC Mod. 2 — Decisione CE 2021/914; TIA disponibile</td></tr>
+    <tr><td><strong>Supabase Pte. Ltd.</strong></td><td>Affiliata intra-gruppo Supabase</td><td>Singapore</td><td>Singapore</td><td>SCC Mod. 2 — Decisione CE 2021/914</td></tr>
+    <tr><td><strong>Amazon Web Services</strong></td><td>Hosting database (sub-processor Supabase)</td><td>Seattle, WA, USA</td><td>EU-West — Irlanda</td><td>EU-U.S. Data Privacy Framework + SCC</td></tr>
+    <tr><td><strong>Google LLC</strong></td><td>Log hosting BigQuery (sub-processor Supabase)</td><td>Mountain View, CA, USA</td><td>CDN globale</td><td>EU-U.S. Data Privacy Framework + SCC</td></tr>
+    <tr><td><strong>Cloudflare Inc.</strong></td><td>Hosting applicazioni (sub-processor Supabase)</td><td>San Francisco, CA, USA</td><td>CDN globale</td><td>EU-U.S. Data Privacy Framework + SCC</td></tr>
+    <tr><td><strong>Font tipografici</strong></td><td>Self-hosted — incorporati nel file della piattaforma</td><td>N/A</td><td>Server myewallet.it</td><td>Nessun trasferimento a terzi</td></tr>
+    <tr><td><strong>jsDelivr / Prospect One</strong></td><td>Distribuzione librerie open source (CDN)</td><td>UE</td><td>CDN globale</td><td>Sede UE</td></tr>
   </tbody>
 </table>
-<p><strong>Nota sui trasferimenti extra-SEE:</strong> Supabase Inc. è una società statunitense soggetta alla legislazione USA (incluso il CLOUD Act). Sebbene i server utilizzati per il presente Servizio siano localizzati in UE (Irlanda), non è possibile escludere la possibilità di accesso remoto ai dati da parte del fornitore USA nell'ambito delle proprie operazioni. Supabase pubblica un Data Processing Addendum (DPA) con Standard Contractual Clauses (SCC) ai sensi dell'art. 46 GDPR.</p>
-<p class="da-validare">[DA VALIDARE LEGALMENTE] Verificare: (a) che il DPA Supabase sia stato formalmente accettato/sottoscritto dal Titolare; (b) che le SCC pubblicate da Supabase siano aggiornate alle clausole standard approvate dalla Commissione Europea (Decisione 2021/914); (c) l'effettiva catena di sub-responsabili di Supabase Inc. e i relativi trasferimenti extra-SEE; (d) la necessità di una Transfer Impact Assessment (TIA) per i trasferimenti verso USA.</p>
+<p><strong>Trasferimenti extra-SEE — misure di garanzia:</strong><br>
+I trasferimenti verso Supabase Inc. (USA) e Supabase Pte. Ltd. (Singapore) sono disciplinati tramite Standard Contractual Clauses (SCC) — Modulo Due (controller→processor) allegato alla Decisione della Commissione Europea (UE) 2021/914. Supabase ha pubblicato una Transfer Impact Assessment (TIA) datata 14 marzo 2025, che analizza il quadro normativo USA (FISA 702, EO 12333, EO 14086) e singaporiano (PDPA) e conclude che il rischio di accesso da parte di autorità governative ai dati commerciali ordinari è basso. Con Decisione del 10 luglio 2023, la Commissione Europea ha adottato una decisione di adeguatezza per il EU-U.S. Data Privacy Framework, a cui diversi sub-processor di Supabase (AWS, Google, Cloudflare) aderiscono.<br>
+I dati sono cifrati in transito con TLS 1.2 e a riposo con AES-256 tramite HSM certificati FIPS 140-2. Supabase dichiara di non aver ricevuto, alla data della TIA, alcuna richiesta di accesso da autorità USA ai sensi di FISA 702 o EO 12333.</p>
+<p><strong>DPA firmato:</strong> Il Data Processing Addendum (DPA) tra Studio Zamboni di Davide Pasquale Zamboni e Supabase Inc. è stato formalmente sottoscritto in data 25/05/2026 tramite la piattaforma PandaDoc, versione DPA agosto 2025. Il DPA incorpora le Standard Contractual Clauses (SCC) — Modulo Due (controller→processor), Decisione CE (UE) 2021/914. La base giuridica ex art. 46 GDPR per i trasferimenti verso Supabase Inc. (USA) e Supabase Pte. Ltd. (Singapore) è pertanto perfezionata.</p>
 
 <h3>4. Periodo di Conservazione</h3>
 <p>I dati dell'account attivo sono conservati per la durata del contratto. Alla chiusura dell'account su richiesta dell'utente (diritto all'oblio ex art. 17 GDPR), i dati vengono eliminati entro 30 giorni, fatte salve le eventuali obbligazioni di conservazione previste dalla legge (es. documentazione contabile e fiscale). I documenti caricati sono soggetti alla policy di conservazione di 120 giorni post-scadenza indicata nelle Condizioni d'Uso.</p>
@@ -9250,7 +9256,7 @@ p{margin-bottom:7px;}ul{margin:5px 0 8px 18px;}li{margin-bottom:3px;}
 
     <h2>Informativa GDPR (sintesi)</h2>
     <p><strong>Titolare:</strong> Studio Zamboni di Davide Pasquale Zamboni — PEC: consulenzesardegna@pec.it — P.IVA IT03065200903</p>
-    <p>Dati trattati ai sensi del Reg. UE 2016/679 per l'erogazione del Servizio (base: esecuzione del contratto — art. 6(1)(b) GDPR). Infrastruttura: Supabase Inc. (server EU-West, Irlanda) come sub-responsabile ex art. 28 GDPR; Supabase Inc. è soggetta alla legislazione USA. Eventuali trasferimenti di dati verso Paesi extra-SEE, ove presenti nella catena tecnica del servizio, sono disciplinati tramite Standard Contractual Clauses (SCC) ai sensi dell'art. 46 GDPR, ove applicabile e verificato. Non viene effettuata alcuna cessione a terzi per finalità di marketing o profilazione. Diritti artt. 15–22 GDPR esercitabili via PEC. Per l'Informativa Privacy completa: myewallet.it. Foro: Sassari.</p>
+    <p>Dati trattati ai sensi del Reg. UE 2016/679 (base: esecuzione del contratto — art. 6(1)(b) GDPR). Infrastruttura: Supabase Inc. (Delaware, USA; server EU-West, Irlanda) come sub-responsabile ex art. 28 GDPR. Trasferimenti extra-SEE verso USA e Singapore disciplinati tramite SCC Modulo Due — Decisione CE (UE) 2021/914; TIA Supabase disponibile (14/03/2025); EU-U.S. Data Privacy Framework (adeguatezza CE: 10/07/2023). Cifratura: TLS 1.2 in transito, AES-256 a riposo. Nessuna cessione a terzi per finalità di marketing o profilazione. Diritti artt. 15–22 GDPR esercitabili via PEC. Informativa completa: myewallet.it. Foro: Sassari.</p>
 
     <h2>Copyright</h2>
     <p>© ${year} Studio Zamboni – Tutti i diritti riservati. MyEwallet® è marchio esclusivo di Studio Zamboni.</p>
