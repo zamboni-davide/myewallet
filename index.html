@@ -2259,9 +2259,12 @@ async function _supaUploadAll(companyId) {
       upserts.push({ company_id: companyId, store_key: key, store_value: raw, updated_at: new Date().toISOString() });
     } catch {}
   }
-  if (upserts.length === 0) return;
+  // Escludi chiavi device-local da sync Supabase
+  const _deviceLocalKeys = ['session','remember_email','re'];
+  const filtered = upserts.filter(u=>!_deviceLocalKeys.some(k=>u.store_key===k||u.store_key.startsWith('re')));
+  if (filtered.length === 0) return;
   const { error } = await _supa.from('company_store')
-    .upsert(upserts, { onConflict: 'company_id,store_key' });
+    .upsert(filtered, { onConflict: 'company_id,store_key' });
   if (error && !error.message?.includes('clone')) console.warn('[Supabase upload]', error.message);
   else console.log('[Supabase] Upload', upserts.length, 'record per', companyId);
 }
@@ -2492,10 +2495,17 @@ async function doLogin(){
       let user = users.find(u=>u.email===email);
       if(!user){
         const supaUid = authData.user.id;
+        // Hard fail se non-admin non ha company_id: mai co_admin come fallback
+        if(!companyId && serverRole !== 'admin'){
+          showAuthError('login','Account incompleto: company non trovata. Contatta consulenzesardegna@pec.it');
+          const _btnHf=document.getElementById('login-btn'); if(_btnHf){_btnHf.disabled=false;_btnHf.textContent=origText;}
+          return;
+        }
+        const resolvedCompanyId = companyId || (serverRole==='admin' ? 'co_admin' : null);
         user = {id:'u_'+supaUid.slice(0,8),
                 name: meta.name || email.split('@')[0],
                 email, pwd:'__supabase__',
-                companyId: companyId||'co_admin',
+                companyId: resolvedCompanyId,
                 role: serverRole,
                 termsAcceptedAt: meta.termsAcceptedAt||null,
                 createdAt: new Date().toISOString()};
@@ -2542,8 +2552,8 @@ async function doLogin(){
         // Sync dati locali verso Supabase (solo se ci sono dati da sincronizzare)
         _supaUploadAll('co_admin').catch(()=>{});
         if(companyId && companyId !== 'co_admin') _supaUploadAll(companyId).catch(()=>{});
-        if(remember){localStorage.setItem('pda_remember_email',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
-        else{localStorage.removeItem('pda_remember_email');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
+        if(remember){localStorage.setItem('mew_re',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
+        else{localStorage.removeItem('mew_re');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
         currentUser=user; currentCompany=co;
         startApp(user,co); return;
       }
@@ -2551,7 +2561,8 @@ async function doLogin(){
 
     // ── Supabase auth fallito — diagnosi specifica ──────────────────────────
     const loginErrMsg = (authError?.message||'').toLowerCase();
-    const isUnconfirmed = loginErrMsg.includes('not confirmed')||loginErrMsg.includes('email not confirmed')||loginErrMsg.includes('confirmation')||authError?.status===400;
+    // status===400 NON usato: anche password sbagliata restituisce 400
+    const isUnconfirmed = loginErrMsg.includes('not confirmed')||loginErrMsg.includes('email not confirmed')||loginErrMsg.includes('email_not_confirmed');
     if(isUnconfirmed){
       // Tenta di reinviare email di conferma
       _supa.auth.resend({type:'signup', email}).catch(()=>{});
@@ -2916,7 +2927,7 @@ function logout(){
   clearInterval(window._trialCountdownTimer);
   window._trialCountdownTimer=null;
   _supa.auth.signOut().catch(()=>{});
-  DB.clearSession(); localStorage.removeItem('pda_role');currentUser=null;currentCompany=null;
+  DB.clearSession(); localStorage.removeItem('pda_role'); localStorage.removeItem('mew_re');currentUser=null;currentCompany=null;
   // Clear memory store
   Object.keys(_mem).forEach(k=>delete _mem[k]);
   // Reset nav badges
@@ -10174,7 +10185,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(fab&&!isMobile) fab.style.display='none';
   });
   // Pre-fill remembered email
-  const rememberedEmail=localStorage.getItem('pda_remember_email');
+  const rememberedEmail=localStorage.getItem('mew_re');
   if(rememberedEmail){
     const emailInput=document.getElementById('login-email');
     if(emailInput) emailInput.value=rememberedEmail;
