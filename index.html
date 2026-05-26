@@ -19,6 +19,18 @@
    MOBILE OVERFLOW FIX — un solo blocco, niente JS
    Risolve lo scroll orizzontale su tutti gli schermi ≤768px
    ════════════════════════════════════════════ */
+/* ── CONFIRM DIALOG ── */
+.confirm-overlay{position:fixed;inset:0;background:rgba(13,27,42,0.65);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.confirm-box{background:#fff;border-radius:var(--radius);padding:28px;width:380px;box-shadow:var(--shadow-lg);}
+.confirm-title{font-size:20px;font-weight:600;color:var(--navy);margin-bottom:10px;}
+.confirm-text{font-size:14px;color:var(--text-muted);margin-bottom:24px;line-height:1.5;}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end;}
+
+@media(max-width:1024px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .dash-grid{grid-template-columns:1fr;}
+}
+
 @media(max-width:768px){
 
   /* Contenitori principali: niente overflow orizzontale */
@@ -965,6 +977,7 @@ textarea.input{resize:vertical;min-height:80px;}
   /* ── Plan card ── */
   .plan-dates-grid{grid-template-columns:1fr!important;}
   .plan-card{padding:16px;}
+.plan-card{padding:20px 24px 24px 24px;}
 
 .plan-card.active{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);}
 .plan-card.expired{background:linear-gradient(135deg,#374151 0%,#1f2937 100%);}
