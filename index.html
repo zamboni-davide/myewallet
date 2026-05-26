@@ -19,18 +19,6 @@
    MOBILE OVERFLOW FIX — un solo blocco, niente JS
    Risolve lo scroll orizzontale su tutti gli schermi ≤768px
    ════════════════════════════════════════════ */
-/* ── CONFIRM DIALOG ── */
-.confirm-overlay{position:fixed;inset:0;background:rgba(13,27,42,0.65);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
-.confirm-box{background:#fff;border-radius:var(--radius);padding:28px;width:380px;box-shadow:var(--shadow-lg);}
-.confirm-title{font-size:20px;font-weight:600;color:var(--navy);margin-bottom:10px;}
-.confirm-text{font-size:14px;color:var(--text-muted);margin-bottom:24px;line-height:1.5;}
-.confirm-actions{display:flex;gap:10px;justify-content:flex-end;}
-
-@media(max-width:1024px){
-  .stats-grid{grid-template-columns:repeat(2,1fr);}
-  .dash-grid{grid-template-columns:1fr;}
-}
-
 @media(max-width:768px){
 
   /* Contenitori principali: niente overflow orizzontale */
@@ -511,7 +499,26 @@ textarea.input{resize:vertical;min-height:80px;}
 .settings-section{background:#fff;border-radius:var(--radius);border:1px solid var(--border-light);padding:24px;}
 .settings-section-title{font-size:16px;font-weight:600;color:var(--navy);margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border-light);}
 
-:root{
+/* ── CONFIRM DIALOG ── */
+.confirm-overlay{position:fixed;inset:0;background:rgba(13,27,42,0.65);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.confirm-box{background:#fff;border-radius:var(--radius);padding:28px;width:380px;box-shadow:var(--shadow-lg);}
+.confirm-title{font-size:20px;font-weight:600;color:var(--navy);margin-bottom:10px;}
+.confirm-text{font-size:14px;color:var(--text-muted);margin-bottom:24px;line-height:1.5;}
+.confirm-actions{display:flex;gap:10px;justify-content:flex-end;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1024px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .dash-grid{grid-template-columns:1fr;}
+}
+
+/* ═══════════════════════════════════════════════
+   MOBILE LAYOUT  ≤ 768px
+   Sidebar → bottom nav bar, tabelle → card stack
+   ══════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* ─── VARIABILI MOBILE ─────────────────────── */
+  :root{
     --sidebar-w:0px;
     --bottom-nav-h:64px;
     --page-pad:14px;
@@ -955,7 +962,7 @@ textarea.input{resize:vertical;min-height:80px;}
   .req-step{min-width:60px;flex:1;}
   .req-step-label{font-size:9px;}
 
-  /* ── Accettazione contratto modal ── */
+  /* ── Firma digitale modal ── */
   #sig-modal-overlay{padding:0;align-items:flex-end;}
   #sig-modal-overlay>div{
     width:100%;max-width:100%;
@@ -979,7 +986,6 @@ textarea.input{resize:vertical;min-height:80px;}
   .plan-dates-grid{grid-template-columns:1fr!important;}
   .plan-card{padding:16px;}
 .plan-card{padding:20px 24px 24px 24px;}
-
 .plan-card.active{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-mid) 100%);}
 .plan-card.expired{background:linear-gradient(135deg,#374151 0%,#1f2937 100%);}
 .plan-card-badge{
@@ -1322,16 +1328,6 @@ textarea.input{resize:vertical;min-height:80px;}
    MOBILE BOUNCE SCROLL FIX — iOS + Android
    ═══════════════════════════════════════════ */
 @media(max-width:768px){
-  /* RC1: detail-panel full-width on mobile (was 480px → overflow orizzontale) */
-  .detail-panel{width:100%!important;left:0!important;right:0!important;border-left:none!important;}
-  /* RC4: flex elements senza min-width:0 → espansione oltre viewport */
-  .settings-section-title{min-width:0;}
-  .settings-section-title svg{flex-shrink:0;}
-  #topbar-logo-mobile{min-width:0;flex-shrink:1;}
-  .m-nav-item{min-width:0;}
-  .topbar{min-width:0;}
-  /* RC2 fix: plan-card mobile padding — evita overflow su 320px */
-  
   html{height:100%;}
   body{height:100%;overscroll-behavior:none;touch-action:pan-y;}
   /* overflow:hidden su body viene impostato via JS solo quando app è attiva */
@@ -1350,6 +1346,14 @@ textarea.input{resize:vertical;min-height:80px;}
   .main-content{padding-bottom:calc(var(--bottom-nav-h,64px) + 20px)!important;}
   /* Auth screen scrollabile su mobile */
   #auth-screen{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:none;}
+  /* RC1: detail-panel full-width on mobile */
+  .detail-panel{width:100%!important;left:0!important;right:0!important;border-left:none!important;}
+  /* RC4: flex elements min-width:0 */
+  .settings-section-title{min-width:0;}
+  .settings-section-title svg{flex-shrink:0;}
+  #topbar-logo-mobile{min-width:0;flex-shrink:1;}
+  .m-nav-item{min-width:0;}
+  .topbar{min-width:0;}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
