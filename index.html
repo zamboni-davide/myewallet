@@ -2244,7 +2244,7 @@ async function _supaLoadAll(companyId) {
         _mem[row.store_key] = val;
         try { localStorage.setItem('pda_'+row.store_key, JSON.stringify(val)); } catch {}
       });
-      console.log('[Supabase] Caricati', data.length, 'record per', companyId);
+      ;
     }
   } catch(e) { console.warn('[Supabase load exception]', e); }
 }
@@ -2270,7 +2270,7 @@ async function _supaUploadAll(companyId) {
   const { error } = await _supa.from('company_store')
     .upsert(filtered, { onConflict: 'company_id,store_key' });
   if (error && !error.message?.includes('clone')) console.warn('[Supabase upload]', error.message);
-  else console.log('[Supabase] Upload', upserts.length, 'record per', companyId);
+  else ;
 }
 
 // ════════════════════════════════════════════════
