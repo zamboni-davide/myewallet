@@ -1475,19 +1475,15 @@ textarea.input{resize:vertical;min-height:80px;}
             <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:10px">
               <input type="checkbox" id="reg-chk1" style="margin-top:2px;width:16px;height:16px;accent-color:var(--gold);flex-shrink:0;cursor:pointer" onchange="checkRegConsent()"/>
               <span style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.5">
-                Ho letto e accetto le <a href="javascript:void(0)" onclick="showRegTermsPreview()" style="color:var(--gold);text-decoration:underline">Condizioni d'Uso di MyEwallet</a>, incluse le disposizioni su: piano trial gratuito (30 giorni, max 15 documenti), piani a pagamento (durata minima 12 mesi, attivazione previa approvazione), conservazione documenti (120 giorni post-scadenza) e diritto di recesso (14 giorni per consumatori ai sensi del D.Lgs. 206/2005; le eccezioni ex art. 59 non si applicano al presente servizio SaaS).
+                Ho letto e accetto le <a href="javascript:void(0)" onclick="showRegTermsPreview()" style="color:var(--gold);text-decoration:underline">Condizioni Generali di Utilizzo (T&amp;C) — MyEwallet</a>: piano trial (30 giorni, max 15 documenti), piani a pagamento (durata minima 12 mesi), conservazione documenti (120 giorni post-scadenza), diritto di recesso (14 giorni per consumatori; artt. 52–58 D.Lgs. 206/2005).
               </span>
             </label>
 
             <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:10px">
               <input type="checkbox" id="reg-chk2" style="margin-top:2px;width:16px;height:16px;accent-color:var(--gold);flex-shrink:0;cursor:pointer" onchange="checkRegConsent()"/>
               <span style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.5">
-                Ho letto e accetto l'<a href="javascript:void(0)" onclick="showRegTermsPreview()" style="color:var(--gold);text-decoration:underline">Informativa Privacy (GDPR – Reg. UE 2016/679)</a>.
-                Titolare: Studio Zamboni di Davide Pasquale Zamboni, <strong><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="40232f2e33352c252e3a253321322425272e21003025236e2934">[email&#160;protected]</a></strong>.
-              </span>
-            </label>
-
-            <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:10px">
+                Ho letto e accetto l'<a href="javascript:void(0)" onclick="showRegTermsPreview()" style="color:var(--gold);text-decoration:underline">Informativa Privacy (GDPR &mdash; Reg. UE 2016/679)</a>: trattamento dati da parte di Studio Zamboni di Davide Pasquale Zamboni (Titolare), sub-responsabili tecnici (Supabase Inc., AWS, Cloudflare), trasferimenti extra-SEE con SCC e DPA firmato, diritti artt. 15&ndash;22 GDPR esercitabili via PEC: consulenzesardegna@pec.it.
+              </span>>
               <input type="checkbox" id="reg-chk3" style="margin-top:2px;width:16px;height:16px;accent-color:var(--gold);flex-shrink:0;cursor:pointer" onchange="checkRegConsent()"/>
               <span style="font-size:12px;color:rgba(255,255,255,0.75);line-height:1.5">
                 Sono consapevole che alla scadenza dell'abbonamento, se non rinnovato, i documenti saranno
@@ -1902,13 +1898,29 @@ textarea.input{resize:vertical;min-height:80px;}
       <div class="terms-section">
         <div class="terms-section-title">7. Legge Applicabile e Foro Competente</div>
         <div class="terms-text">
-          <p>Le presenti CGU sono regolate dalla legge italiana. Per qualsiasi controversia derivante dall'interpretazione o dall'esecuzione delle CGU, le parti eleggono come foro competente esclusivo il Tribunale di Sassari.</p>
+          <p>Le presenti CGU sono regolate dalla legge italiana. Per le controversie, è competente in via esclusiva il <strong>Tribunale di Sassari</strong>, salvo foro inderogabile del consumatore ex D.Lgs. 206/2005.</p>
         </div>
       </div>
-    </div>
-
-    <!-- PRIVACY POLICY -->
-    <div class="terms-body hidden" id="terms-body-privacy">
+      <div class="terms-section">
+        <div class="terms-section-title">8. Diritto di Recesso (Consumatori)</div>
+        <div class="terms-text">
+          <p>Il consumatore ha diritto di recedere dal contratto oneroso entro <strong>14 giorni</strong> dalla stipula (artt. 52–58 D.Lgs. 206/2005), senza motivazione e senza penali, via PEC a consulenzesardegna@pec.it. Il piano trial gratuito non genera diritti di rimborso. Le eccezioni ex art. 59 D.Lgs. 206/2005 (servizio completamente eseguito; contenuto digitale) non sono applicabili al presente servizio SaaS ad abbonamento. Per utenti professionali le norme consumeristiche sul recesso non si applicano.</p>
+        </div>
+      </div>
+      <div class="terms-section">
+        <div class="terms-section-title">9. Conservazione e Cancellazione Documenti</div>
+        <div class="terms-text">
+          <p>I documenti caricati sono conservati per tutta la durata del piano attivo e per <strong>120 giorni</strong> dopo la scadenza, poi cancellati definitivamente in modo irreversibile. Lo stesso termine si applica in caso di risoluzione per morosità. La cancellazione anticipata è disponibile nelle impostazioni account.</p>
+        </div>
+      </div>
+      <div class="terms-section">
+        <div class="terms-section-title">10. Modifiche alle Condizioni</div>
+        <div class="terms-text">
+          <p>Il Fornitore può modificare le presenti CGU con preavviso di <strong>30 giorni</strong> via email. L'utilizzo continuato del Servizio costituisce accettazione. In caso di modifiche pregiudizievoli, l'Utente può recedere entro il termine di preavviso senza penali.</p>
+        </div>
+      </div>
+      <div class="terms-section">
+     "terms-body hidden" id="terms-body-privacy">
       <div class="terms-section">
         <div class="terms-section-title">Titolare del Trattamento</div>
         <div class="terms-text">
@@ -2827,152 +2839,126 @@ function showAuthSuccess(form,msg){
 }
 
 function showRegTermsPreview(){
-  const year=new Date().getFullYear();
-  const versionDate='25/05/2026';
-  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>MyEwallet – Condizioni d'Uso, Privacy e Cookie</title>
+  const html=`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8">
 <style>
-body{font-family:Georgia,serif;max-width:820px;margin:40px auto;padding:0 24px;color:#1a1a2e;line-height:1.75;font-size:10.5pt}
-h1{background:#041348;color:#fff;padding:20px 24px;margin:-40px -24px 32px;font-size:18pt;line-height:1.3}
-h2{background:#041348;color:#C9A84C;padding:7px 14px;font-size:9.5pt;letter-spacing:0.08em;text-transform:uppercase;margin:28px 0 10px;border-radius:2px}
-h3{color:#041348;font-size:10.5pt;font-weight:700;margin:16px 0 6px}
-.box{border:2px solid #1A52D4;background:#EFF6FF;border-radius:6px;padding:12px 16px;margin:12px 0;font-size:10pt}
-.box.warn{border-color:#B45309;background:#FFFBEB}
-.box.danger{border-color:#C0392B;background:#FEF2F2}
-ul{margin:6px 0 10px 20px}li{margin-bottom:5px}
-table{width:100%;border-collapse:collapse;font-size:9.5pt;margin:10px 0}
-th{background:#041348;color:#fff;padding:7px 10px;text-align:left}
-td{padding:7px 10px;border-bottom:1px solid #e2e8f0;vertical-align:top}
-.da-validare{background:#FEF9C3;border-left:4px solid #CA8A04;padding:6px 12px;font-size:9.5pt;margin:8px 0}
-p{margin:6px 0 10px;font-size:10pt}
-footer{margin-top:40px;padding:12px;background:#F4F3EF;font-size:8pt;color:#9CA3AF;text-align:center;border-top:1px solid #E5E0D5}
+body{font-family:'DM Sans',Arial,sans-serif;max-width:860px;margin:0 auto;padding:32px 28px;color:#1a1a2e;line-height:1.7;font-size:10pt;background:#fff}
+h1{background:#041348;color:#fff;padding:18px 24px;margin:0 0 0 0;font-size:14pt;letter-spacing:0.04em}
+h2{background:#0d2060;color:#fff;padding:12px 20px;margin:36px 0 16px;font-size:12pt;border-left:4px solid #C9A84C}
+h3{font-size:10.5pt;color:#041348;margin:18px 0 8px;font-weight:600}
+p{margin:6px 0 12px}ul{padding-left:20px;margin:6px 0 12px}li{margin-bottom:5px}
+table{border-collapse:collapse;width:100%;font-size:9pt;margin:12px 0}
+th{background:#041348;color:#fff;padding:8px 10px;text-align:left}
+td{border:1px solid #ccc;padding:7px 10px;vertical-align:top}
+.doc-index{background:#f0f4ff;border:1px solid #c0ccee;border-radius:6px;padding:16px 20px;margin:20px 0 32px}
+.doc-index p{margin:8px 0 0;font-size:9pt;color:#555}
+.separator{border:none;border-top:3px solid #041348;margin:40px 0}
+.box{background:#fffbe6;border:1px solid #e0c44a;border-radius:4px;padding:12px 16px;margin:12px 0;font-size:9.5pt}
+footer{margin-top:40px;padding-top:16px;border-top:1px solid #ccc;font-size:8.5pt;color:#666;text-align:center}
 </style></head><body>
-<div style="margin-bottom:12px">${LOGO_PDF}</div>
-<h1>MyEwallet® — Condizioni d'Uso, Informativa Privacy e Cookie Policy<br>
-<span style="font-size:11pt;font-weight:400;opacity:0.8">Versione ${versionDate} — Studio Zamboni di Davide Pasquale Zamboni</span></h1>
+<h1>Documenti Legali — MyEwallet</h1>
+<div class="doc-index">
+  <p><strong>Questo documento raccoglie quattro atti distinti:</strong> (I) Condizioni Generali di Utilizzo &bull; (II) Informativa Privacy (GDPR) &bull; (III) Cookie Policy &bull; (IV) Note Legali. Ciascuna sezione costituisce un documento autonomo. Pubblicati da Studio Zamboni di Davide Pasquale Zamboni — P.IVA IT03065200903 — Versione 25/05/2026.</p>
+</div>
 
-<p><strong>Titolare del Servizio:</strong> Studio Zamboni di Davide Pasquale Zamboni, con sede in Via Perantoni Satta 14, 07100 Sassari (SS) — P.IVA IT03065200903 — PEC: consulenzesardegna@pec.it<br>
-MyEwallet® è un marchio di proprietà esclusiva dello Studio Zamboni. Il Servizio è accessibile esclusivamente via browser (desktop e mobile) all'indirizzo myewallet.it.</p>
+<h2>I &mdash; Condizioni Generali di Utilizzo</h2>
+<h3>1. Oggetto e Fornitore del Servizio</h3>
+<p>MyEwallet (www.myewallet.it) è una piattaforma SaaS per la gestione e l'archiviazione digitale di documenti aziendali. Il Servizio è erogato da <strong>Studio Zamboni di Davide Pasquale Zamboni</strong>, Via Perantoni Gavino Satta 14, 07100 Sassari (SS), P.IVA IT03065200903, PEC: consulenzesardegna@pec.it. Il Servizio non comprende consulenza legale, fiscale o professionale.</p>
 
-<h2>Parte I — Condizioni d'Uso</h2>
-
-<h3>1. Descrizione del Servizio</h3>
-<p>MyEwallet è una piattaforma di gestione documentale digitale erogata da Studio Zamboni come Software as a Service (SaaS). Il Servizio consente agli utenti registrati di caricare, organizzare e consultare documenti aziendali tramite browser. L'accesso è nominale e personale: le credenziali non possono essere condivise con terzi.</p>
-
-<h3>2. Accesso Trial Gratuito</h3>
-<div class="box">Gli utenti che completano la registrazione e confermano il proprio indirizzo email ottengono un periodo di prova gratuito della durata di <strong>30 giorni</strong>, con limite massimo di <strong>15 documenti</strong> caricabili. Allo scadere del periodo trial, l'accesso alle funzioni principali viene sospeso. L'utente può accedere alle sole Impostazioni per selezionare un piano a pagamento. I documenti caricati durante il trial rimangono disponibili fino alla scadenza del periodo di conservazione di cui all'art. 5.</div>
+<h3>2. Piano Trial Gratuito</h3>
+<p>Il piano di prova gratuita ha durata di <strong>30 giorni</strong> e limite di <strong>15 documenti</strong>. Non comporta alcun corrispettivo economico e non richiede dati di pagamento. Al termine, l'accesso alle funzionalità avanzate è sospeso; i documenti restano disponibili per 120 giorni salvo rinnovo o cancellazione anticipata.</p>
 
 <h3>3. Piani a Pagamento</h3>
-<p>I piani a pagamento sono soggetti alle seguenti condizioni:</p>
-<ul>
-  <li>Durata contrattuale minima: <strong>12 mesi</strong> dalla data di attivazione</li>
-  <li>Attivazione previa approvazione da parte di Studio Zamboni e verifica dell'avvenuto pagamento</li>
-  <li>Fatturazione gestita direttamente da Studio Zamboni</li>
-  <li>Il rinnovo del piano è su richiesta dell'utente e non avviene automaticamente</li>
-</ul>
+<p>I piani a pagamento hanno durata minima di <strong>12 mesi</strong> e si attivano previa approvazione del Fornitore. Il corrispettivo è quello indicato nella proposta commerciale. Il rinnovo è automatico salvo disdetta via PEC almeno <strong>60 giorni</strong> prima della scadenza.</p>
 
 <h3>4. Diritto di Recesso</h3>
-<div class="box warn"><strong>Utenti consumatori — regime applicabile:</strong><br>
-Ai sensi degli artt. 52–58 del D.Lgs. 206/2005 (Codice del Consumo), il consumatore ha diritto di recedere dal contratto di servizio entro <strong>14 giorni</strong> dalla data di conclusione del contratto, senza necessità di fornire motivazioni e senza penali. Il recesso si esercita mediante dichiarazione esplicita inviata prima della scadenza del termine a: <strong>consulenzesardegna@pec.it</strong>.<br><br>
-<strong>Piano trial gratuito:</strong> il periodo di prova non comporta alcun corrispettivo economico. Le norme sul diritto di recesso disciplinano contratti onerosi: per il trial gratuito non vi è importo da rimborsare né obbligo formale di comunicazione di recesso.<br><br>
-<strong>Piani a pagamento — esclusioni dell'art. 59 non applicabili:</strong><br>
-MyEwallet è un contratto di <em>servizio SaaS</em> ad abbonamento periodico. Le principali eccezioni al recesso previste dall'art. 59 D.Lgs. 206/2005 <strong>non trovano applicazione</strong> al presente Servizio per le seguenti ragioni:<br>
-— Art. 59, co. 1, lett. a) (servizio completamente eseguito): si applica solo quando la prestazione del professionista è stata <em>integralmente eseguita</em> prima della scadenza del periodo di recesso, previo consenso espresso del consumatore. Per un abbonamento di durata minima annuale, la prestazione non è mai completamente eseguita entro 14 giorni: la fattispecie non è integrata.<br>
-— Art. 59, co. 1, lett. o) (contenuto digitale): si applica a download, streaming e distribuzione di contenuto digitale. MyEwallet è un servizio di accesso a piattaforma, non la fornitura di contenuto digitale da acquisire: la fattispecie non è integrata.<br><br>
-Il diritto di recesso di <strong>14 giorni</strong> si applica pertanto integralmente ai contratti onerosi conclusi con consumatori, senza eccezioni operative attualmente applicabili.<br><br>
-<strong>Utenti professionali e imprese:</strong> le disposizioni del Codice del Consumo in materia di recesso non trovano applicazione ai soggetti che agiscono nell'esercizio della propria attività professionale o imprenditoriale. Le condizioni di recesso anticipato sono quelle indicate nel contratto individuale.</div>
+<div class="box"><strong>Consumatori &mdash; regime ordinario:</strong> diritto di recesso entro <strong>14 giorni</strong> dalla stipula del contratto oneroso (artt. 52&ndash;58 D.Lgs. 206/2005), senza motivazione e senza penali, comunicando a mezzo PEC.<br><br>
+<strong>Trial gratuito:</strong> non comportando transazione economica, non vi &egrave; importo da rimborsare n&eacute; obbligo di comunicazione di recesso.<br><br>
+<strong>Inapplicabilit&agrave; art. 59 D.Lgs. 206/2005:</strong> MyEwallet &egrave; un contratto di servizio SaaS ad abbonamento continuativo. L&rsquo;eccezione lett. a) (servizio completamente eseguito) non si integra per un abbonamento annuale; l&rsquo;eccezione lett. o) (contenuto digitale da scaricare) non &egrave; applicabile a un servizio di accesso a piattaforma web. Il recesso di 14 giorni si applica pertanto integralmente.<br><br>
+<strong>Utenti professionali:</strong> le disposizioni del Codice del Consumo sul recesso non si applicano a chi agisce nell&rsquo;esercizio di attivit&agrave; professionale o imprenditoriale.</div>
 
 <h3>5. Conservazione e Cancellazione Documenti</h3>
-<div class="box danger">⚠️ <strong>Avviso importante:</strong> alla scadenza del piano, se non rinnovato, i documenti caricati sono conservati per un periodo di <strong>120 giorni</strong> dalla data di scadenza. Trascorso tale termine, i documenti vengono <strong>cancellati definitivamente</strong> dall'infrastruttura del Servizio. Studio Zamboni non è in grado di recuperarli.<br><br>
-L'utente è responsabile del mantenimento di copie proprie dei documenti in archivi separati e indipendenti da MyEwallet.</div>
+<p>I documenti caricati sono conservati per tutta la durata del piano attivo e per <strong>120 giorni</strong> dopo la scadenza, trascorsi i quali vengono cancellati definitivamente. Lo stesso termine si applica in caso di risoluzione per morosit&agrave;. La cancellazione anticipata &egrave; disponibile nelle impostazioni dell&rsquo;account.</p>
 
-<h3>6. Limitazione di Responsabilità</h3>
-<p>Studio Zamboni si impegna a garantire la disponibilità del Servizio, ma non ne garantisce la continuità ininterrotta. In nessun caso Studio Zamboni è responsabile per danni derivanti da: perdita di dati imputabile a eventi di forza maggiore, interruzioni di servizio dei provider di infrastruttura, accesso non autorizzato di terzi ottenuto tramite credenziali dell'utente, o utilizzo del Servizio non conforme alle presenti Condizioni.</p>
+<h3>6. Limitazione di Responsabilit&agrave;</h3>
+<p>Il Fornitore non &egrave; responsabile per: perdita di dati imputabile all&rsquo;Utente; interruzioni per cause di forza maggiore; danni indiretti o consequenziali. La responsabilit&agrave; complessiva non eccede il corrispettivo annuale pagato.</p>
 
-<h3>7. Obblighi dell'Utente e Usi Vietati</h3>
-<p>L'utente si impegna a non caricare documenti contenenti materiale illegale, a non condividere le credenziali di accesso con terzi, a non tentare di accedere a dati di altri utenti, a non utilizzare il Servizio per attività fraudolente o contrarie alla legge. Studio Zamboni si riserva il diritto di sospendere o terminare l'accesso in caso di violazione accertata di tali obblighi.</p>
+<h3>7. Obblighi dell&rsquo;Utente e Usi Vietati</h3>
+<p>L&rsquo;Utente &egrave; obbligato a: fornire dati veritieri; mantenere riservate le credenziali; non cedere l&rsquo;accesso a terzi; rispettare la normativa vigente. Sono vietati: accesso non autorizzato ai sistemi; caricamento di contenuti illeciti; reverse engineering della piattaforma; qualsiasi uso in violazione di legge.</p>
 
-<h3>8. Modifiche alle Condizioni e Note Legali</h3>
-<p>Studio Zamboni si riserva il diritto di modificare le presenti Condizioni d'Uso. Le modifiche vengono comunicate agli utenti tramite notifica nella piattaforma con almeno 30 giorni di anticipo. I contratti già stipulati mantengono i termini originali sino alla loro naturale scadenza, salvo consenso scritto dell'utente alla nuova versione.</p>
+<h3>8. Modifiche alle Condizioni</h3>
+<p>Il Fornitore pu&ograve; modificare le presenti Condizioni con preavviso di <strong>30 giorni</strong> via email. L&rsquo;utilizzo continuato del Servizio dopo tale termine costituisce accettazione. In caso di modifiche sostanzialmente pregiudizievoli, l&rsquo;Utente pu&ograve; recedere entro il termine di preavviso senza penali.</p>
 
-<h2>Parte II — Informativa sul Trattamento dei Dati Personali (Reg. UE 2016/679 — GDPR)</h2>
+<hr class="separator">
+
+<h2>II &mdash; Informativa sul Trattamento dei Dati Personali (GDPR)</h2>
+<p style="font-size:9pt;color:#555">Ai sensi degli artt. 13&ndash;14 Reg. UE 2016/679 e D.Lgs. 196/2003 come modificato dal D.Lgs. 101/2018.</p>
 
 <h3>1. Titolare del Trattamento</h3>
-<p>Studio Zamboni di Davide Pasquale Zamboni — Via Perantoni Satta 14, 07100 Sassari (SS) — P.IVA IT03065200903 — PEC: consulenzesardegna@pec.it</p>
+<p><strong>Studio Zamboni di Davide Pasquale Zamboni</strong> &mdash; Via Perantoni Gavino Satta 14, 07100 Sassari &mdash; P.IVA IT03065200903 &mdash; PEC: consulenzesardegna@pec.it</p>
 
-<h3>2. Dati Trattati e Finalità</h3>
+<h3>2. Categorie di Dati, Finalit&agrave; e Basi Giuridiche</h3>
 <table>
-  <thead><tr><th>Categoria di dati</th><th>Finalità</th><th>Base giuridica (art. 6 GDPR)</th></tr></thead>
+  <thead><tr><th>Dati</th><th>Finalit&agrave;</th><th>Base giuridica</th></tr></thead>
   <tbody>
-    <tr><td>Email, password (hash), nome</td><td>Registrazione e autenticazione all'account</td><td>Esecuzione del contratto — art. 6(1)(b)</td></tr>
-    <tr><td>Dati aziendali (ragione sociale, P.IVA, indirizzo)</td><td>Erogazione del servizio, fatturazione</td><td>Esecuzione del contratto — art. 6(1)(b)</td></tr>
-    <tr><td>Documenti caricati dall'utente</td><td>Archiviazione digitale secondo le istruzioni dell'utente</td><td>Esecuzione del contratto — art. 6(1)(b)</td></tr>
-    <tr><td>Log di attività, timestamp di accesso</td><td>Sicurezza, audit, supporto tecnico</td><td>Legittimo interesse — art. 6(1)(f)</td></tr>
-    <tr><td>Consensi registrati (T&C, privacy, cookie)</td><td>Documentazione degli adempimenti</td><td>Obbligo legale / legittimo interesse — art. 6(1)(c)(f)</td></tr>
+    <tr><td>Dati anagrafici, email, credenziali</td><td>Registrazione ed erogazione del Servizio</td><td>Art. 6(1)(b) GDPR &mdash; esecuzione contratto</td></tr>
+    <tr><td>Documenti caricati</td><td>Archiviazione e gestione documentale</td><td>Art. 6(1)(b) GDPR</td></tr>
+    <tr><td>Dati di navigazione, log tecnici, IP</td><td>Sicurezza, prevenzione frodi</td><td>Art. 6(1)(f) GDPR &mdash; interesse legittimo</td></tr>
+    <tr><td>Dati di fatturazione</td><td>Adempimenti fiscali e contabili</td><td>Art. 6(1)(c) GDPR &mdash; obbligo legale</td></tr>
   </tbody>
 </table>
+<p>Nessun dato &egrave; utilizzato per profilazione o marketing.</p>
 
-<h3>3. Comunicazione, Sub-Responsabili e Trasferimento dei Dati</h3>
-<p>I dati personali non vengono ceduti a terzi per finalità di marketing, profilazione o rivendita.</p>
-<p>Il Servizio utilizza i seguenti fornitori in qualità di responsabili o sub-responsabili del trattamento ai sensi dell'art. 28 GDPR:</p>
+<h3>3. Sub-Responsabili e Trasferimenti Extra-SEE</h3>
 <table>
-  <thead><tr><th>Fornitore</th><th>Ruolo</th><th>Sede legale</th><th>Server/Localizzazione</th><th>Garanzie trasferimento</th></tr></thead>
+  <thead><tr><th>Fornitore</th><th>Ruolo</th><th>Sede</th><th>Garanzia</th></tr></thead>
   <tbody>
-    <tr><td><strong>Supabase Inc.</strong></td><td>Autenticazione, database, storage</td><td>Delaware, USA</td><td>EU-West — Irlanda (AWS)</td><td>SCC Mod. 2 — Decisione CE 2021/914; TIA disponibile</td></tr>
-    <tr><td><strong>Supabase Pte. Ltd.</strong></td><td>Affiliata intra-gruppo Supabase</td><td>Singapore</td><td>Singapore</td><td>SCC Mod. 2 — Decisione CE 2021/914</td></tr>
-    <tr><td><strong>Amazon Web Services</strong></td><td>Hosting database (sub-processor Supabase)</td><td>Seattle, WA, USA</td><td>EU-West — Irlanda</td><td>EU-U.S. Data Privacy Framework + SCC</td></tr>
-    <tr><td><strong>Google LLC</strong></td><td>Log hosting BigQuery (sub-processor Supabase)</td><td>Mountain View, CA, USA</td><td>CDN globale</td><td>EU-U.S. Data Privacy Framework + SCC</td></tr>
-    <tr><td><strong>Cloudflare Inc.</strong></td><td>Hosting applicazioni (sub-processor Supabase)</td><td>San Francisco, CA, USA</td><td>CDN globale</td><td>EU-U.S. Data Privacy Framework + SCC</td></tr>
-    <tr><td><strong>Font tipografici</strong></td><td>Self-hosted — incorporati nel file della piattaforma</td><td>N/A</td><td>Server myewallet.it</td><td>Nessun trasferimento a terzi</td></tr>
-    <tr><td><strong>jsDelivr / Prospect One</strong></td><td>Distribuzione librerie open source (CDN)</td><td>UE</td><td>CDN globale</td><td>Sede UE</td></tr>
+    <tr><td><strong>Supabase Inc.</strong></td><td>Database, auth, storage</td><td>Delaware, USA &mdash; server EU-West (Irlanda)</td><td>SCC Mod.2 Dec.CE 2021/914; DPA firmato 25/05/2026; TIA 14/03/2025; EU-US DPF</td></tr>
+    <tr><td><strong>Amazon Web Services</strong></td><td>Hosting (sub-processor Supabase)</td><td>USA &mdash; server EU-West</td><td>EU-US Data Privacy Framework + SCC</td></tr>
+    <tr><td><strong>Cloudflare Inc.</strong></td><td>Rete distribuzione applicazioni</td><td>USA</td><td>EU-US Data Privacy Framework + SCC</td></tr>
+    <tr><td><strong>GitHub Inc.</strong></td><td>Hosting file statici</td><td>USA</td><td>SCC</td></tr>
   </tbody>
 </table>
-<p><strong>Trasferimenti extra-SEE — misure di garanzia:</strong><br>
-I trasferimenti verso Supabase Inc. (USA) e Supabase Pte. Ltd. (Singapore) sono disciplinati tramite Standard Contractual Clauses (SCC) — Modulo Due (controller→processor) allegato alla Decisione della Commissione Europea (UE) 2021/914. Supabase ha pubblicato una Transfer Impact Assessment (TIA) datata 14 marzo 2025, che analizza il quadro normativo USA (FISA 702, EO 12333, EO 14086) e singaporiano (PDPA) e conclude che il rischio di accesso da parte di autorità governative ai dati commerciali ordinari è basso. Con Decisione del 10 luglio 2023, la Commissione Europea ha adottato una decisione di adeguatezza per il EU-U.S. Data Privacy Framework, a cui diversi sub-processor di Supabase (AWS, Google, Cloudflare) aderiscono.<br>
-I dati sono cifrati in transito con TLS 1.2 e a riposo con AES-256 tramite HSM certificati FIPS 140-2. Supabase dichiara di non aver ricevuto, alla data della TIA, alcuna richiesta di accesso da autorità USA ai sensi di FISA 702 o EO 12333.</p>
-<p><strong>DPA firmato:</strong> Il Data Processing Addendum (DPA) tra Studio Zamboni di Davide Pasquale Zamboni e Supabase Inc. è stato formalmente sottoscritto in data 25/05/2026 tramite la piattaforma PandaDoc, versione DPA agosto 2025. Il DPA incorpora le Standard Contractual Clauses (SCC) — Modulo Due (controller→processor), Decisione CE (UE) 2021/914. La base giuridica ex art. 46 GDPR per i trasferimenti verso Supabase Inc. (USA) e Supabase Pte. Ltd. (Singapore) è pertanto perfezionata.</p>
+<p>Cifratura: TLS 1.2 in transito, AES-256 a riposo (FIPS 140-2). Supabase ha dichiarato di non aver ricevuto richieste di accesso ai dati da autorit&agrave; USA alla data della TIA (14/03/2025).</p>
 
 <h3>4. Periodo di Conservazione</h3>
-<p>I dati dell'account attivo sono conservati per la durata del contratto. Alla chiusura dell'account su richiesta dell'utente (diritto all'oblio ex art. 17 GDPR), i dati vengono eliminati entro 30 giorni, fatte salve le eventuali obbligazioni di conservazione previste dalla legge (es. documentazione contabile e fiscale). I documenti caricati sono soggetti alla policy di conservazione di 120 giorni post-scadenza indicata nelle Condizioni d'Uso.</p>
+<p>Dati di account: durata del contratto + 10 anni (obblighi fiscali). Documenti caricati: 120 giorni post-scadenza del piano. Log tecnici: 30 giorni. Dati di fatturazione: 10 anni (D.P.R. 633/1972).</p>
 
-<h3>5. Diritti dell'Interessato</h3>
-<p>Ai sensi degli artt. 15–22 GDPR, l'utente ha diritto di accedere ai propri dati, rettificarli, ottenerne la cancellazione, limitarne il trattamento, opporsi al trattamento basato su legittimo interesse, richiedere la portabilità dei dati in formato strutturato. Le richieste possono essere inviate a: <strong>consulenzesardegna@pec.it</strong>. In caso di risposta ritenuta insoddisfacente, è possibile proporre reclamo all'Autorità Garante per la Protezione dei Dati Personali (www.garanteprivacy.it).</p>
+<h3>5. Diritti dell&rsquo;Interessato</h3>
+<p>Ai sensi degli artt. 15&ndash;22 GDPR: diritti di accesso, rettifica, cancellazione, limitazione, portabilit&agrave; e opposizione. Esercizio tramite PEC: consulenzesardegna@pec.it. Reclamo al Garante per la Protezione dei Dati Personali: www.garanteprivacy.it.</p>
 
-<h3>6. Foro Competente</h3>
-<p>Per le controversie relative al trattamento dei dati personali, è competente il Foro di Sassari, salvo diversa previsione di legge applicabile.</p>
+<hr class="separator">
 
-<h2>Parte III — Cookie Policy</h2>
+<h2>III &mdash; Cookie Policy</h2>
+<p style="font-size:9pt;color:#555">Ai sensi dell&rsquo;art. 122 D.Lgs. 196/2003 e Linee guida cookies Garante 10/06/2021.</p>
 
-<h3>1. Tipologie di Cookie Utilizzati</h3>
-<p>MyEwallet utilizza esclusivamente cookie tecnici necessari al funzionamento del Servizio. Non vengono utilizzati cookie di profilazione, di marketing, né strumenti di tracciamento comportamentale di terze parti (Google Analytics, Meta Pixel o simili).</p>
+<h3>Cookie e Storage Tecnici Utilizzati</h3>
+<p>Il Servizio utilizza <strong>esclusivamente</strong> cookie e storage tecnici necessari al funzionamento. Non sono utilizzati cookie di profilazione, tracciamento comportamentale o advertising.</p>
 <table>
-  <thead><tr><th>Cookie / chiave</th><th>Tipo</th><th>Scopo</th><th>Durata</th></tr></thead>
+  <thead><tr><th>Chiave</th><th>Tipo</th><th>Scopo</th><th>Durata</th></tr></thead>
   <tbody>
-    <tr><td>sb-* (Supabase Auth)</td><td>Tecnico necessario</td><td>Autenticazione e gestione sessione utente</td><td>Sessione / 7 giorni</td></tr>
-    <tr><td>mew_cookie_consent</td><td>Tecnico necessario</td><td>Salvataggio preferenza consenso cookie</td><td>12 mesi</td></tr>
-    <tr><td>pda_* (localStorage)</td><td>Tecnico necessario</td><td>Dati sessione locale e preferenze applicazione (localStorage, non cookie HTTP)</td><td>Persistente fino a logout</td></tr>
+    <tr><td>sb-[project]-auth-token</td><td>Cookie tecnico &mdash; auth</td><td>Gestione sessione (Supabase)</td><td>Sessione / 7 giorni</td></tr>
+    <tr><td>mew_re</td><td>localStorage &mdash; tecnico</td><td>Funzione &ldquo;Ricordami&rdquo; (solo locale, rimosso al logout)</td><td>Persistente fino a logout</td></tr>
+    <tr><td>pda_*</td><td>localStorage &mdash; tecnico</td><td>Dati operativi applicazione (documenti, impostazioni)</td><td>Sessione / sync account</td></tr>
   </tbody>
 </table>
+<p><strong>Font tipografici:</strong> incorporati direttamente nel file della piattaforma (self-hosted). Nessuna richiesta esterna. <strong>Librerie JavaScript:</strong> caricate via jsDelivr CDN; il browser trasmette l&rsquo;IP ai server jsDelivr; nessun cookie di profilazione. Non &egrave; richiesto consenso preventivo per cookie tecnici (art. 122 co. 1 D.Lgs. 196/2003). Gestione: impostazioni browser. Per reclami: consulenzesardegna@pec.it.</p>
 
-<h3>2. Terze Parti e Trasmissione di Dati Tecnici</h3>
-<p>Il Servizio utilizza risorse frontend distribuite da fornitori terzi. Il caricamento di tali risorse può comportare la trasmissione di dati tecnici (indirizzo IP, user-agent, metadata HTTP) ai server del fornitore:</p>
-<ul>
-  <li><strong>Supabase Inc.</strong> (autenticazione e storage) — server EU-West, Irlanda; sede legale USA.</li>
-  <li><strong>Font tipografici</strong> — incorporati direttamente nel file della piattaforma (self-hosted). Nessuna richiesta esterna viene effettuata verso Google o altri server terzi per il caricamento dei font.</li>
-  <li><strong>jsDelivr / Prospect One</strong> (CDN librerie) — distribuzione di librerie open source; nessun cookie di profilazione impostato.</li>
-</ul>
-<p>Nessuno dei fornitori elencati è autorizzato a utilizzare i dati tecnici trasmessi per finalità di profilazione o marketing nei confronti degli utenti di MyEwallet.</p>
+<hr class="separator">
 
-<h2>Parte IV — Copyright e Note Legali</h2>
+<h2>IV &mdash; Note Legali e Copyright</h2>
 
-<h3>Copyright</h3>
-<p>© ${year} Studio Zamboni — Tutti i diritti riservati. MyEwallet® è marchio registrato di proprietà esclusiva di Studio Zamboni. È vietata la riproduzione, distribuzione, modifica o utilizzo commerciale non autorizzati di qualsiasi elemento del Servizio.</p>
+<h3>Identificazione del Fornitore</h3>
+<p><strong>Studio Zamboni di Davide Pasquale Zamboni</strong> &mdash; Ditta individuale &mdash; Via Perantoni Gavino Satta 14, 07100 Sassari (SS) &mdash; P.IVA IT03065200903 &mdash; PEC: consulenzesardegna@pec.it &mdash; Web: www.consulenzesardegna.com</p>
 
-<h3>Note Legali</h3>
-<p>Le presenti Condizioni, unitamente all'Informativa Privacy e alla Cookie Policy, costituiscono l'integrale accordo tra l'utente e Studio Zamboni in relazione all'utilizzo di MyEwallet. Il contratto individuale stipulato al momento dell'attivazione del piano a pagamento prevale sulle presenti Condizioni in caso di conflitto. Legge applicabile: diritto italiano. Foro esclusivo per controversie tra professionisti e imprese: Sassari. Per i consumatori si applicano le disposizioni del D.Lgs. 206/2005.</p>
+<h3>Copyright e Propriet&agrave; Intellettuale</h3>
+<p>&copy; 2024&ndash;2026 Studio Zamboni di Davide Pasquale Zamboni. Tutti i diritti riservati. Il marchio <strong>MyEwallet&reg;</strong>, il codice sorgente, il design e tutti i contenuti della piattaforma sono protetti da L. 633/1941 e normativa UE. &Egrave; vietata qualsiasi riproduzione o utilizzo commerciale non autorizzato.</p>
 
-<footer>© ${year} Studio Zamboni · MyEwallet® · Via Perantoni Satta 14, 07100 Sassari (SS) · P.IVA IT03065200903 · consulenzesardegna@pec.it · Versione ${versionDate}</footer>
+<h3>Legge Applicabile e Foro Competente</h3>
+<p>Legge italiana. Foro esclusivo: <strong>Tribunale di Sassari</strong>. Per i consumatori, restano ferme le norme inderogabili del D.Lgs. 206/2005 sul foro del consumatore. Normativa di riferimento: Reg. UE 2016/679 (GDPR); D.Lgs. 196/2003; D.Lgs. 206/2005; L. 633/1941; D.Lgs. 70/2003.</p>
+
+<footer>Studio Zamboni &mdash; P.IVA IT03065200903 &mdash; consulenzesardegna@pec.it &mdash; www.myewallet.it &mdash; Versione 25/05/2026</footer>
 </body></html>`;
-  openDocModal(html,"Condizioni d'Uso, Privacy e Cookie — MyEwallet");
+  openDocModal(html,"Documenti Legali — MyEwallet");
 }
 
 function showAuthError(form,msg){
@@ -10481,14 +10467,13 @@ function showCookiePolicy(){
       </tbody>
     </table>
 
-    <h3 style="color:#041348;font-size:14px;margin:20px 0 8px">3. Servizi di terze parti e trasmissione dati tecnici</h3>
-    <p style="font-size:13px;color:#4a5568;line-height:1.6">Il Servizio carica risorse da fornitori terzi. Il caricamento di tali risorse può comportare la trasmissione di dati tecnici (es. indirizzo IP, user-agent) ai server del fornitore:</p>
+    <h3 style="color:#041348;font-size:14px;margin:20px 0 8px">3. Risorse tecniche di terze parti</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6">Il caricamento della piattaforma utilizza le seguenti risorse:</p>
     <ul style="font-size:13px;color:#4a5568;line-height:1.8;padding-left:20px">
-      <li><strong>Supabase Inc.</strong> (autenticazione e storage, server EU-West) — <a href="https://supabase.com/privacy" target="_blank" style="color:#1A52D4">Privacy Policy Supabase</a></li>
-      <li><strong>Font tipografici</strong> — caricati direttamente dal server del Servizio (self-hosted); nessuna richiesta esterna a Google o ad altri terzi per il rendering dei font.</li>
-      <li><strong>jsDelivr / Prospect One</strong> (CDN librerie open source) — nessun cookie di profilazione impostato</li>
+      <li><strong>Font tipografici</strong> — incorporati direttamente nel file della piattaforma (self-hosted). Nessuna richiesta HTTP verso server esterni per il rendering dei font. Nessun dato trasmesso a terzi.</li>
+      <li><strong>jsDelivr CDN</strong> — librerie JavaScript open source. Il browser trasmette l&rsquo;indirizzo IP ai server jsDelivr. Nessun cookie di profilazione. <a href="https://www.jsdelivr.com/privacy-policy-jsdelivr-net" target="_blank" style="color:#1A52D4">Privacy Policy jsDelivr</a></li>
     </ul>
-    <p style="font-size:13px;color:#4a5568;margin-top:8px">Nessuno dei fornitori elencati è autorizzato a utilizzare i dati tecnici trasmessi per profilazione o marketing verso gli utenti di MyEwallet.</p>
+    <p style="font-size:13px;color:#4a5568;margin-top:8px">Per i dettagli sul trattamento dei dati personali da parte di Supabase Inc. (autenticazione e storage) e sulle garanzie per i trasferimenti extra-SEE (SCC, DPA, TIA), consultare l&rsquo;<strong>Informativa Privacy</strong> disponibile nelle impostazioni dell&rsquo;account.</p>
 
     <h3 style="color:#041348;font-size:14px;margin:20px 0 8px">4. Base giuridica e consenso</h3>
     <p style="font-size:13px;color:#4a5568;line-height:1.6">I cookie tecnici elencati non richiedono il consenso dell'utente in quanto strettamente necessari all'erogazione del Servizio richiesto (art. 122 D.Lgs. 196/2003, come modificato dal D.Lgs. 101/2018). Il cookie di consenso (mew_cookie_consent) è impostato alla prima visita per registrare la preferenza dell'utente.</p>
