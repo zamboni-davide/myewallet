@@ -2225,7 +2225,7 @@ function _supaSync(companyId, key, value) {
       .upsert([{company_id:companyId,store_key:key,store_value:JSON.stringify(value),updated_at:new Date().toISOString()}],
               {onConflict:'company_id,store_key'})
       .then(({error})=>{
-        if(error && !error.message?.includes('clone')) console.warn('[Supabase sync]',key,error.message);
+        if(error && !error.message?.includes('clone')) console.warn('[Supabase sync] error:',error.message);
       });
   }).catch(()=>{});
 }
@@ -2251,7 +2251,7 @@ async function _supaLoadAll(companyId) {
       });
       ;
     }
-  } catch(e) { console.warn('[Supabase load exception]', e); }
+  } catch(e) { console.warn('[Supabase load exception]', e?.message); }
 }
 
 // Upload all current localStorage data for a company to Supabase
@@ -2425,7 +2425,7 @@ function patchAdminCompany(){
       // Aggiorna solo in _mem e localStorage — NON sync su Supabase senza auth
       _mem['companies']=companies;
       try{localStorage.setItem('pda_companies',JSON.stringify(companies));}catch{}
-      console.log('[MyEwallet] co_admin patched in memoria');
+      /* co_admin patch applied */
     }
   }
 }
@@ -2472,6 +2472,9 @@ async function requireRole(){
   const role = await _resolveRole();
   if(role === null) throw new Error('AUTH_UNAVAILABLE');
   return role;
+}
+function isTrustedAdmin(){
+  return !!(currentUser && currentUser.role === 'admin');
 }
 
 
@@ -2563,7 +2566,7 @@ async function doLogin(){
         if(companyId && companyId !== 'co_admin') _supaUploadAll(companyId).catch(()=>{});
         if(remember){localStorage.setItem('mew_re',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
         else{localStorage.removeItem('mew_re');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
-        currentUser=user; currentCompany=co;
+        currentUser=user; Object.freeze(currentUser); currentCompany=co;
         startApp(user,co); return;
       }
     }
@@ -2685,7 +2688,7 @@ async function doRegister(){
         termsAcceptedAt, userType } }
     });
     signUpData=res.data; signUpError=res.error;
-  }catch(e){ console.warn('[doRegister] Supabase signUp exception:',e); }
+  }catch(e){ console.warn('[doRegister] signUp error:',e?.message); }
 
   // ── STEP 3: Supabase fallito → nessuna scrittura locale, errore all'utente ─
   if(signUpError || !signUpData?.user){
@@ -2770,7 +2773,7 @@ async function doRegister(){
     try{
       await _supaUploadAll('co_admin');
       await _supaUploadAll(coId);
-    }catch(e){ console.warn('[doRegister] sync Supabase non riuscito:',e); }
+    }catch(e){ console.warn('[doRegister] sync error:',e?.message); }
   }
 
   }catch(_step4Err){
@@ -3110,7 +3113,7 @@ function checkSignatureReminders(){
 function startApp(user,co){
   document.body.style.overflow='hidden';
   document.documentElement.style.overflow='hidden';
-  currentUser=user;currentCompany=co;
+  currentUser=user; Object.freeze(currentUser); currentCompany=co;
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
   // Sidebar
@@ -4012,7 +4015,7 @@ async function downloadDoc(docId){
         const a=document.createElement('a');a.href=data.signedUrl;a.download=doc.name;a.click();
         return;
       }
-    }catch(e){console.warn('[Storage] signed URL error:',e);}
+    }catch(e){console.warn('[Storage] signed URL error:',e?.message);}
   }
   if(doc.fileData){const a=document.createElement('a');a.href=doc.fileData;a.download=doc.name;a.click();return;}
   showToast('File non disponibile per il download','error');
@@ -4120,7 +4123,7 @@ async function doUpload(){
       const{error}=await _supa.storage.from('documents').upload(storagePath,f,{upsert:true});
       if(!error) uploadOk=true;
       else console.warn('[Storage] upload error:',error.message);
-    }catch(e){console.warn('[Storage] upload exception:',e);}
+    }catch(e){console.warn('[Storage] upload exception:',e?.message);}
     const doc={
       id:docId,name:f.name,category:cat,subcategory:sub,description:desc,tags,
       fileType:getExt(f.name),fileSize:f.size,
@@ -5649,7 +5652,7 @@ function _doCreatePaymentRequest(planName,billingCycle,paymentMethod,consents,bi
 }
 
 function renderAdmin(main){
-  if(currentUser.role!=='admin'){main.innerHTML='<div class="empty-state"><div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="empty-state-title">Accesso non autorizzato</div></div>';return;}
+  if(!isTrustedAdmin()){main.innerHTML='<div class="empty-state"><div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="empty-state-title">Accesso non autorizzato</div></div>';return;}
   const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
   const users=DB.getUsers().filter(u=>u.role!=='admin');
   const allDocs=DB.getAllDocs();
@@ -6838,7 +6841,13 @@ function adminDeleteCompany(coId){
 //  SETTINGS
 // ════════════════════════════════════════════════
 function getPlanStatus(co){
-  if(!co.planEndDate) return {status:'admin',label:'Admin',daysLeft:null,pct:100};
+  if(!co.planEndDate){
+    if(co.trialMode) return {status:'trial',label:'Trial',daysLeft:null,pct:100};
+    if(isTrustedAdmin())                     return {status:'admin',   label:'Admin',   daysLeft:null,pct:100};
+    /* co_admin: _resolveRole never returns co_admin — dead branch kept for safety */
+    if(false)                                return {status:'co_admin',label:'Co-Admin',daysLeft:null,pct:100};
+    return {status:'free',label:'Free',daysLeft:null,pct:100};
+  }
   const now=new Date();
   const end=new Date(co.planEndDate);
   const start=new Date(co.planStartDate||co.createdAt||co.planEndDate);
@@ -7173,7 +7182,7 @@ function renderSettings(main){
           <div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="set-addr" value="${esc(co.address||'')}"/></div>
           <button class="btn btn-primary" onclick="saveSettings()">Salva Modifiche</button>
         </div>
-        ${ps.status==='admin'?`
+        ${isTrustedAdmin()?`
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:20px;padding:14px 16px;background:linear-gradient(135deg,#041348 0%,#0B1E5C 100%);border-radius:var(--radius);border:1px solid rgba(106,159,255,0.2);flex-wrap:wrap;row-gap:8px">
           <div style="display:flex;align-items:center;gap:10px;min-width:0">
             <span style="color:#6A9FFF;font-size:16px;flex-shrink:0">✦</span>
@@ -7255,7 +7264,7 @@ function renderSettings(main){
           </div>
         </div>
 
-        ${ps.status==='admin'?``:  ti.isTrial?`
+        ${isTrustedAdmin()?``:  ti.isTrial?`
         <div class="settings-section" style="padding:0;overflow:hidden">
           <div class="plan-card ${ti.isExpired?'expired':'active'}" style="border-radius:var(--radius) var(--radius) 0 0">
             <div class="plan-card-badge">
@@ -7492,7 +7501,7 @@ function renderSettings(main){
       <!-- Ticket list -->
       ${(()=>{
         const myTickets = DB.getTickets().filter(t=>t.companyId===co.id).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
-        if(!myTickets.length) return '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">'+(currentUser.role==='admin'?'Nessun ticket ricevuto.':'Nessun ticket aperto. Usa il modulo sopra per contattare Studio Zamboni.')+'</div>';
+        if(!myTickets.length) return '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">'+(isTrustedAdmin()?'Nessun ticket ricevuto.':'Nessun ticket aperto. Usa il modulo sopra per contattare Studio Zamboni.')+'</div>';
         return '<div class="flex-col gap-3">'+myTickets.map(t=>{
           const cat=getCatTicket(t.category);
           const statusTag=t.status==='open'?'tag-open':t.status==='pending'?'tag-pending':'tag-closed';
@@ -7954,7 +7963,7 @@ function createNotification({recipientId, recipientRole, companyId, companyName,
 function getMyNotifications(){
   const all=DB.getNotifications();
   if(!currentUser) return [];
-  if(currentUser.role==='admin'){
+  if(isTrustedAdmin()){
     return all.filter(n=>n.recipientRole==='admin').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   }
   return all.filter(n=>n.recipientId===currentUser.id||
@@ -10333,7 +10342,7 @@ window.addEventListener('DOMContentLoaded',()=>{
         if(user&&co){
           const srRole = await requireRole();
           user = {...user, role: srRole};
-          currentUser=user; currentCompany=co;
+          currentUser=user; Object.freeze(currentUser); currentCompany=co;
           if(needsTermsAcceptance(user)){
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('app-screen').classList.remove('hidden');
@@ -10429,7 +10438,7 @@ async function saveNewPassword(){
       let user = users.find(u=>u.email===email);
       if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:spRole,createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
       const co = DB.getCompanies().find(c=>c.id===user.companyId);
-      if(user&&co){ currentUser=user; currentCompany=co; startApp(user,co); }
+      if(user&&co){ currentUser=user; Object.freeze(currentUser); currentCompany=co; startApp(user,co); }
     }
   });
 }
