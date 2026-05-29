@@ -2230,9 +2230,35 @@ function _supaSync(companyId, key, value) {
   }).catch(()=>{});
 }
 
+// Awaitable version for critical writes — guarantees upsert completes before caller continues.
+// Stores its Promise in window._pendingCritSync so logout() can await it.
+async function _supaSyncAwait(companyId, key, value) {
+  if (!companyId) return;
+  const p = (async () => {
+    try {
+      const { data } = await _supa.auth.getSession();
+      if (!data?.session) return;
+      const { error } = await _supa.from('company_store')
+        .upsert([{company_id:companyId, store_key:key,
+                  store_value:JSON.stringify(value),
+                  updated_at:new Date().toISOString()}],
+                {onConflict:'company_id,store_key'});
+      if (error && !error.message?.includes('clone'))
+        console.warn('[Supabase sync] error:', error.message);
+    } catch {}
+  })();
+  window._pendingCritSync = p;
+  return p;
+}
+
+
 // Load all data for a company from Supabase into _mem + localStorage cache
 async function _supaLoadAll(companyId) {
   if (!companyId) return;
+  // Keys whose arrays must be MERGED (not replaced) with localStorage.
+  // Prevents losing records written locally when Supabase sync was blocked
+  // (e.g. non-admin RLS write rejection) or lost due to logout race condition.
+  const _MERGE_KEYS = new Set(['users','companies','notifications']);
   try {
     const { data, error } = await _supa.from('company_store')
       .select('store_key,store_value')
@@ -2240,16 +2266,23 @@ async function _supaLoadAll(companyId) {
     if (error) { console.warn('[Supabase load]', error.message); return; }
     if (data && data.length > 0) {
       data.forEach(row => {
-        // store_value può essere stringa JSON o oggetto diretto
         let val = row.store_value;
         if(typeof val === 'string'){try{val=JSON.parse(val);}catch{}}
-        // Non scrivere null in _mem: causerebbe DB.get() a restituire null
-        // ignorando il default [] su getSignedContracts e simili
         if(val === null || val === undefined) return;
+        // Merge arrays: keep any local record not yet in Supabase
+        if(Array.isArray(val) && _MERGE_KEYS.has(row.store_key)){
+          try {
+            const lsRaw = localStorage.getItem('pda_'+row.store_key);
+            const lsArr = lsRaw ? JSON.parse(lsRaw) : [];
+            if(Array.isArray(lsArr) && lsArr.length > 0){
+              const inSupa = new Set(val.map(x=>x?.id).filter(Boolean));
+              lsArr.forEach(x=>{ if(x?.id && !inSupa.has(x.id)) val.push(x); });
+            }
+          } catch {}
+        }
         _mem[row.store_key] = val;
         try { localStorage.setItem('pda_'+row.store_key, JSON.stringify(val)); } catch {}
       });
-      ;
     }
   } catch(e) { console.warn('[Supabase load exception]', e?.message); }
 }
@@ -2735,6 +2768,9 @@ async function doRegister(){
   try{
   const companies=DB.getCompanies(); companies.push(co); DB.setCompanies(companies);
   const users=DB.getUsers(); users.push(user); DB.setUsers(users);
+  // Persist users + companies to Supabase immediately (awaited — source of truth)
+  await _supaSyncAwait('co_admin', 'users', users);
+  await _supaSyncAwait('co_admin', 'companies', companies);
   _step4Written = true;
   const tosVreg  = getCurrentTermsVersion('tos');
   const privVreg = getCurrentTermsVersion('privacy');
@@ -3047,11 +3083,15 @@ function showAuthError(form,msg){
   el._hideTimer = setTimeout(()=>{el.classList.add('hidden');el._hideTimer=null;},8000);
 }
 
-function logout(){
+async function logout(){
   document.body.style.overflow='auto';
   document.documentElement.style.overflow='auto';
   clearInterval(window._trialCountdownTimer);
   window._trialCountdownTimer=null;
+  // Flush any pending critical Supabase sync BEFORE invalidating session
+  // This prevents the race where signOut fires before the upsert completes
+  try { if(window._pendingCritSync) await window._pendingCritSync; } catch {}
+  window._pendingCritSync = null;
   _supa.auth.signOut().catch(()=>{});
   DB.clearSession(); localStorage.removeItem('pda_role'); localStorage.removeItem('mew_re');currentUser=null;currentCompany=null;
   // Clear memory store
@@ -7973,7 +8013,7 @@ function renderTicketThread(t, fromRole){
 // NOTIFICATION SYSTEM
 // ════════════════════════════════════════════════════════
 
-function createNotification({recipientId, recipientRole, companyId, companyName, message, type='info', relatedRequestId=null, senderName='Studio Zamboni'}){
+async function createNotification({recipientId, recipientRole, companyId, companyName, message, type='info', relatedRequestId=null, senderName='Studio Zamboni'}){
   const notifs=DB.getNotifications();
   notifs.push({
     id:uid(),
@@ -7989,6 +8029,8 @@ function createNotification({recipientId, recipientRole, companyId, companyName,
     relatedRequestId
   });
   DB.setNotifications(notifs);
+  // Persist to Supabase immediately (awaited — prevents race with logout)
+  await _supaSyncAwait('co_admin', 'notifications', notifs);
   // Update badge if current user is recipient
   updateNotifBadge();
 }
