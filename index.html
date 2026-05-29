@@ -5798,6 +5798,22 @@ function renderAdminTab(){
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> Invia
                 </button>
               </div>
+              <details style="margin-top:10px">
+                <summary style="font-size:12px;font-weight:600;color:var(--navy);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+                  Dati fatturazione
+                </summary>
+                <div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px">
+                  ${co.vatNumber?`<span style="color:var(--text-muted)">P.IVA / C.F.</span><span>${esc(co.vatNumber)}</span>`:''}
+                  ${co.pec?`<span style="color:var(--text-muted)">PEC</span><span>${esc(co.pec)}</span>`:''}
+                  ${co.codiceSDI?`<span style="color:var(--text-muted)">SDI</span><span>${esc(co.codiceSDI)}</span>`:''}
+                  ${co.legalRep?`<span style="color:var(--text-muted)">Legale Rapp.</span><span>${esc(co.legalRep)}</span>`:''}
+                  ${co.delegate?`<span style="color:var(--text-muted)">Delegato</span><span>${esc(co.delegate)}</span>`:''}
+                  ${(co.address||co.city||co.province||co.cap)?`<span style="color:var(--text-muted)">Sede legale</span><span>${[co.address,co.city,co.province,co.cap].filter(Boolean).join(', ')}</span>`:''}
+                  ${co.email?`<span style="color:var(--text-muted)">Email</span><span>${esc(co.email)}</span>`:''}
+                  ${(!co.pec&&!co.codiceSDI&&!co.legalRep)?`<span style="grid-column:1/-1;color:var(--text-muted);font-style:italic">Nessun dato di fatturazione inserito</span>`:''}
+                </div>
+              </details>
             </div>`).join('')}
         </div>
       </div>
@@ -7180,6 +7196,13 @@ function renderSettings(main){
           <div class="input-group"><label class="input-label">Email</label><input class="input" type="email" id="set-email" value="${esc(co.email||'')}"/></div>
           <div class="input-group"><label class="input-label">Telefono</label><input class="input" id="set-phone" value="${esc(co.phone||'')}"/></div>
           <div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="set-addr" value="${esc(co.address||'')}"/></div>
+          <div class="input-group"><label class="input-label">PEC</label><input class="input" id="set-pec" placeholder="pec@example.it" value="${esc(co.pec||'')}"/></div>
+          <div class="input-group"><label class="input-label">Codice SDI</label><input class="input" id="set-sdi" placeholder="es. XXXXXXX" maxlength="7" value="${esc(co.codiceSDI||'')}"/></div>
+          <div class="input-group"><label class="input-label">Legale Rappresentante / Titolare</label><input class="input" id="set-legalrep" placeholder="Nome e Cognome" value="${esc(co.legalRep||'')}"/></div>
+          <div class="input-group"><label class="input-label">Delegato (se diverso dal titolare)</label><input class="input" id="set-delegate" placeholder="Nome e Cognome delegato" value="${esc(co.delegate||'')}"/></div>
+          <div class="input-group"><label class="input-label">Comune sede legale</label><input class="input" id="set-city" value="${esc(co.city||'')}"/></div>
+          <div class="input-group"><label class="input-label">Provincia</label><input class="input" id="set-province" placeholder="es. SS" maxlength="2" value="${esc(co.province||'')}"/></div>
+          <div class="input-group"><label class="input-label">CAP</label><input class="input" id="set-cap" placeholder="es. 07100" maxlength="5" value="${esc(co.cap||'')}"/></div>
           <button class="btn btn-primary" onclick="saveSettings()">Salva Modifiche</button>
         </div>
         ${isTrustedAdmin()?`
@@ -7445,9 +7468,18 @@ function renderSettings(main){
           :'<span style=\"color:#9CA3AF;font-size:10px;\">–<\/span>');
       return '<div class=\"settings-section\" style=\"margin-top:0\"><div class=\"settings-section-title\"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Storico Acquisti &amp; Contratti<\/div><div style=\"overflow-x:auto\"><table style=\"width:100%;border-collapse:collapse;font-size:13px\"><thead><tr style=\"background:var(--navy);color:#fff\"><th style=\"padding:8px 12px;text-align:left\">Data<\/th><th style=\"padding:8px 12px;text-align:left\">Tipo<\/th><th style=\"padding:8px 12px;text-align:left\">Piano<\/th><th style=\"padding:8px 12px;text-align:right\">Imponibile<\/th><th style=\"padding:8px 12px;text-align:right\">IVA<\/th><th style=\"padding:8px 12px;text-align:right\">Totale<\/th><th style=\"padding:8px 12px;text-align:center\">Firma<\/th><th style=\"padding:8px 12px;text-align:center\">Contratto<\/th><\/tr><\/thead><tbody>'+
       purchases.slice().reverse().map((p,i)=>'<tr style=\"background:'+(i%2===0?'#fff':'#F9F8F6')+';border-bottom:1px solid var(--border-light)\"><td style=\"padding:8px 12px\">'+(p.createdAt?new Date(p.createdAt).toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}):'–')+'<\/td><td style=\"padding:8px 12px\"><span class=\"badge '+(p.type==='activation'?'badge-gold':p.type==='trial'?'badge-gray':'badge-navy')+'\">'+( typeLabel[p.type]||p.type)+'<\/span><\/td><td style=\"padding:8px 12px;font-weight:600\">'+esc(p.plan||'Standard')+'<\/td><td style=\"padding:8px 12px;text-align:right\">€ '+(p.price||0).toFixed(2)+'<\/td><td style=\"padding:8px 12px;text-align:right\">€ '+(p.iva||0).toFixed(2)+'<\/td><td style=\"padding:8px 12px;text-align:right;font-weight:700;color:var(--navy)\">€ '+(p.total||0).toFixed(2)+'<\/td><td style=\"padding:8px 12px;text-align:center\">'+sigBadge(p)+(p.pendingClientSignature?'<br><button onclick=\"showSignatureModal(\''+p.id+'\',\'\')\" style=\"margin-top:4px;background:#041348;color:#fff;border:none;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer;\"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19.5v.5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h.5"/><path d="M18 1l4 4-9.5 9.5-5 1 1-5z"/></svg> Firma<\/button>':'')+'<\/td><td style=\"padding:8px 12px;text-align:center\"><button onclick=\"openPurchaseContract(\''+p.id+'\')\" style=\"background:var(--navy);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;cursor:pointer;white-space:nowrap\"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF<\/button><\/td><\/tr>').join('')+
-      '<\/tbody><tfoot><tr style=\"background:var(--bg);font-weight:700;border-top:2px solid var(--navy)\"><td colspan=\"7\" style=\"padding:8px 12px;text-align:right;color:var(--text-muted)\">Totale complessivo:<\/td><td style=\"padding:8px 12px;text-align:right;color:var(--navy);font-size:14px\">€ '+purchases.reduce((s,p)=>s+(p.total||0),0).toFixed(2)+'<\/td><\/tr><\/tfoot><\/table><\/div><div style=\"display:flex;gap:8px;margin-top:12px;flex-wrap:wrap\"><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"showTermsReadOnly()\">Condizioni d\'Uso<\/button><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"downloadTermsPDF()\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/></svg> Privacy PDF<\/button><button class=\"btn btn-secondary\" style=\"font-size:12px;padding:6px 12px\" onclick=\"downloadContractPDF()\">Contratto generico<\/button><button class=\"btn\" style=\"font-size:12px;padding:6px 12px;background:#FEF2F2;border:1px solid #FCA5A5;color:#DC2626;\" onclick=\"openDeleteAccountModal()\">⚠ Richiedi cancellazione account (art.17 GDPR)<\/button><\/div><\/div>';
+      '<\/tbody><tfoot><tr style=\"background:var(--bg);font-weight:700;border-top:2px solid var(--navy)\"><td colspan=\"7\" style=\"padding:8px 12px;text-align:right;color:var(--text-muted)\">Totale complessivo:<\/td><td style=\"padding:8px 12px;text-align:right;color:var(--navy);font-size:14px\">€ '+purchases.reduce((s,p)=>s+(p.total||0),0).toFixed(2)+'<\/td><\/tr><\/tfoot><\/table><\/div><\/div>';
     })():''}
-    ${renderSettingsNotifBlock(co)}
+     <div class="settings-section" style="margin-top:0">
+      <div class="settings-section-title">Documenti Legali</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="showTermsReadOnly()">Condizioni d'Uso</button>
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="downloadTermsPDF()">Privacy PDF</button>
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="downloadContractPDF()">Contratto generico</button>
+        <button class="btn" style="font-size:12px;padding:6px 12px;background:#FEF2F2;border:1px solid #FCA5A5;color:#DC2626" onclick="openDeleteAccountModal()">&#x26A0; Richiedi cancellazione account (art.17 GDPR)</button>
+      </div>
+    </div>
+   ${renderSettingsNotifBlock(co)}
 
     <!-- BACKUP -->
     <div class="settings-section" style="margin-top:0">
@@ -8131,6 +8163,13 @@ function adminSendMessage(companyId){
         senderName:'Studio Zamboni'
       });
     });
+    // Copia per l'admin: visibile nel pannello Notifiche lato admin
+    createNotification({
+      recipientId:currentUser.id, recipientRole:'admin',
+      companyId, companyName:co.name,
+      message:'📤 Inviato a '+co.name+': '+msg,
+      type:'info', senderName:'Tu'
+    });
     showToast(`Messaggio inviato a ${co.name}`,'success');
   }
   document.getElementById('admin-msg-'+companyId).value='';
@@ -8797,6 +8836,13 @@ function saveSettings(){
   companies[idx].email=document.getElementById('set-email').value.trim();
   companies[idx].phone=document.getElementById('set-phone').value.trim();
   companies[idx].address=document.getElementById('set-addr').value.trim();
+  companies[idx].pec=document.getElementById('set-pec').value.trim();
+  companies[idx].codiceSDI=document.getElementById('set-sdi').value.trim().toUpperCase();
+  companies[idx].legalRep=document.getElementById('set-legalrep').value.trim();
+  companies[idx].delegate=document.getElementById('set-delegate').value.trim();
+  companies[idx].city=document.getElementById('set-city').value.trim();
+  companies[idx].province=document.getElementById('set-province').value.trim().toUpperCase();
+  companies[idx].cap=document.getElementById('set-cap').value.trim();
   DB.setCompanies(companies);
   currentCompany=companies[idx];
   document.getElementById('sidebar-company-name').textContent=currentCompany.name;
