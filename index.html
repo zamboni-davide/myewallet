@@ -6930,14 +6930,29 @@ function renderSettingsNotifBlock(co){
       const p=DB.getPurchases(currentCompany.id).find(x=>x.id===n.purchaseId);
       return p&&p.pendingClientSignature;
     })();
-    return `<div class="notif-item ${n.read&&!needsSig?'':'unread'}" onclick="markNotifRead('${n.id}')${needsSig?`;showSignatureModal('${n.purchaseId}','${n.id}')`:''}" style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-light);${!n.read||needsSig?'background:rgba(26,82,212,0.04)':''}">
-      <div class="notif-icon" style="background:${typeBg[n.type]||'#EFF6FF'};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">${typeIcon[n.type]||typeIcon.info}</div>
-      <div class="notif-body" style="flex:1">
-        <div class="notif-msg">${n.message}</div>
-        <div class="notif-meta">${formatDate(n.createdAt)}${!n.read?' <span style="color:var(--gold);font-weight:700">● Nuovo</span>':''}</div>
-        ${needsSig?`<button onclick="event.stopPropagation();showSignatureModal('${n.purchaseId}','${n.id}')" class="btn btn-primary btn-sm" style="margin-top:6px">✍ Firma il contratto</button>`:''}
+    const fromAdmin = n.senderName && n.senderName !== currentUser?.name;
+    const replyId = 'notif-reply-'+n.id;
+    return `<div class="notif-item ${n.read&&!needsSig?'':'unread'}" style="padding:12px 14px;border-bottom:1px solid var(--border-light);${!n.read||needsSig?'background:rgba(26,82,212,0.04)':''}">
+      <div style="display:flex;align-items:flex-start;gap:10px;cursor:pointer" onclick="markNotifRead('${n.id}')${needsSig?`;showSignatureModal('${n.purchaseId}','${n.id}')`:''}">
+        <div class="notif-icon" style="background:${typeBg[n.type]||'#EFF6FF'};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">${typeIcon[n.type]||typeIcon.info}</div>
+        <div class="notif-body" style="flex:1;min-width:0">
+          ${fromAdmin?`<div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:3px;opacity:0.7">Da: ${n.senderName||'Studio Zamboni'}</div>`:''}
+          <div class="notif-msg" style="word-break:break-word">${n.message}</div>
+          <div class="notif-meta" style="margin-top:4px">${formatDate(n.createdAt)}${!n.read?' <span style="color:var(--gold);font-weight:700">● Nuovo</span>':''}</div>
+          ${needsSig?`<button onclick="event.stopPropagation();showSignatureModal('${n.purchaseId}','${n.id}')" class="btn btn-primary btn-sm" style="margin-top:6px">✍ Firma il contratto</button>`:''}
+        </div>
+        ${n.read&&!needsSig?`<button class="notif-del" style="opacity:1;position:relative;right:0;top:0;flex-shrink:0" onclick="event.stopPropagation();deleteNotif('${n.id}')">×</button>`:''}
       </div>
-      ${n.read&&!needsSig?`<button class="notif-del" style="opacity:1;position:relative;right:0;top:0" onclick="event.stopPropagation();deleteNotif('${n.id}')">×</button>`:''}
+      ${fromAdmin?`<div style="margin-top:8px;padding-left:38px">
+        <div id="${replyId}" style="display:none;margin-top:4px">
+          <textarea id="${replyId}-txt" rows="2" placeholder="Scrivi una risposta a Studio Zamboni…" style="width:100%;font-size:12px;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;resize:none;font-family:inherit;box-sizing:border-box"></textarea>
+          <div style="display:flex;gap:6px;margin-top:4px;justify-content:flex-end">
+            <button onclick="document.getElementById('${replyId}').style.display='none'" style="font-size:11px;padding:4px 10px;border:1px solid var(--border-light);border-radius:4px;background:#fff;cursor:pointer">Annulla</button>
+            <button onclick="userSendReply('${replyId}-txt')" style="font-size:11px;padding:4px 12px;border-radius:4px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-weight:600">Invia risposta</button>
+          </div>
+        </div>
+        <button onclick="document.getElementById('${replyId}').style.display='block';document.getElementById('${replyId}-txt').focus()" style="font-size:11px;color:var(--navy);background:none;border:1px solid var(--border-light);border-radius:4px;padding:3px 10px;cursor:pointer;margin-top:2px">↩ Rispondi</button>
+      </div>`:''}
     </div>`;
   }).join('');
   return `<div class="settings-section" style="margin-top:0;padding:0;overflow:hidden">
@@ -8034,6 +8049,31 @@ async function createNotification({recipientId, recipientRole, companyId, compan
   // Update badge if current user is recipient
   updateNotifBadge();
 }
+
+function userSendReply(textareaId){
+  const ta=document.getElementById(textareaId);
+  if(!ta) return;
+  const msg=ta.value.trim();
+  if(!msg){showToast('Scrivi un messaggio prima di inviare','error');return;}
+  if(!currentUser||!currentCompany){showToast('Sessione non valida','error');return;}
+  createNotification({
+    recipientId:'co_admin',
+    recipientRole:'admin',
+    companyId:currentCompany.id,
+    companyName:currentCompany.name,
+    message:'↩ Risposta da '+currentUser.name+': '+msg,
+    type:'info',
+    senderName:currentUser.name
+  }).then(()=>{
+    ta.value='';
+    const panel=ta.closest('[id^="notif-reply-"]');
+    if(panel) panel.style.display='none';
+    showToast('Risposta inviata a Studio Zamboni','success');
+    const main=document.getElementById('main-page');
+    if(main) renderSettings(main);
+  });
+}
+
 
 function getMyNotifications(){
   const all=DB.getNotifications();
