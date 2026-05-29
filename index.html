@@ -7999,8 +7999,9 @@ function getMyNotifications(){
   if(isTrustedAdmin()){
     return all.filter(n=>n.recipientRole==='admin').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   }
-  return all.filter(n=>n.recipientId===currentUser.id||
-    (n.recipientRole==='user'&&n.companyId===currentCompany.id&&n.recipientId===currentUser.id))
+  return all.filter(n=>
+    n.recipientId===currentUser.id||
+    (n.recipientRole==='user'&&n.companyId===currentCompany.id))
     .sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
 }
 
@@ -8172,6 +8173,8 @@ function adminSendMessage(companyId){
       type:'info', senderName:'Tu'
     });
     showToast(`Messaggio inviato a ${co.name}`,'success');
+    // Refresh inbox immediately so admin sees the sent message
+    if(adminTab==='notifs') renderAdminTab();
   }
   document.getElementById('admin-msg-'+companyId).value='';
 }
