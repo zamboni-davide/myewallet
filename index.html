@@ -257,7 +257,7 @@ textarea.input{resize:vertical;min-height:80px;}
 /* ──────────────────────────────────────────
    MAIN APP LAYOUT
 ────────────────────────────────────────── */
-#app-screen{display:flex;min-height:100vh;}
+#app-screen{display:flex;height:100vh;}
 
 /* SIDEBAR */
 .sidebar{width:var(--sidebar-w);background:linear-gradient(180deg,#041348 0%,#061658 60%,#0A1E72 100%);flex-shrink:0;display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:transform 0.3s ease;overflow-y:auto;}
@@ -2290,7 +2290,8 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const cid = currentCompany?.id || (k==='companies'||k==='users'||k==='plans_config'||k==='admin_docs'||k==='payment_requests'||k==='invoices'||k==='subscriptions'||k==='notifications'||k==='tickets'||k==='signed_contracts'||k==='terms_versions'||k==='user_consents'||k==='audit_log'||k==='purchase_requests'||k==='renewal_requests'||k==='suspension_events'||k==='recurring_schedule'||k==='billing_profiles'||k==='plan_changelog'||k==='plan_snapshots' ? 'co_admin' : null);
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots'];
+    const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
   getUsers(){const v=this.get('users',[]); return Array.isArray(v)?v:[];},
