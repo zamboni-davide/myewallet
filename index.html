@@ -2285,6 +2285,26 @@ async function _supaLoadAll(companyId) {
       });
     }
   } catch(e) { console.warn('[Supabase load exception]', e?.message); }
+  // For admin: load users from ALL company partitions (handles RLS-blocked cross-company writes)
+  if(companyId==='co_admin'){
+    try{
+      const {data:allU}=await _supa.from('company_store')
+        .select('store_value').eq('store_key','users');
+      if(allU&&allU.length>0){
+        let merged=Array.isArray(_mem['users'])?[..._mem['users']]:[];
+        const knownIds=new Set(merged.map(u=>u?.id).filter(Boolean));
+        allU.forEach(row=>{
+          let arr=row.store_value;
+          if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+          if(Array.isArray(arr))arr.forEach(u=>{if(u?.id&&!knownIds.has(u.id)){merged.push(u);knownIds.add(u.id);}});
+        });
+        if(merged.length>(_mem['users']||[]).length){
+          _mem['users']=merged;
+          try{localStorage.setItem('pda_users',JSON.stringify(merged));}catch{}
+        }
+      }
+    }catch{}
+  }
 }
 
 // Upload all current localStorage data for a company to Supabase
@@ -2323,7 +2343,7 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots'];
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations'];
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
@@ -2401,7 +2421,9 @@ const DB = {
   getNotifications(){const v=this.get('notifications',[]); return Array.isArray(v)?v:[];},
   setNotifications(n){this.set('notifications',n);},
   getTickets(){const v=this.get('tickets',[]); return Array.isArray(v)?v:[];},
-  setTickets(t){this.set('tickets',t);}
+  setTickets(t){this.set('tickets',t);},
+  getConversations(){const v=this.get('conversations',[]); return Array.isArray(v)?v:[];},
+  setConversations(v){this.set('conversations',v);}
 };
 
 // Seed admin
@@ -5820,73 +5842,46 @@ function renderAdminTab(){
       </div>
 
       <!-- Invia messaggio a un'azienda -->
-      <div class="card" style="padding:20px">
-        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> Invia comunicazione a un'azienda</div>
-        <div class="flex-col gap-4">
-          ${companies.map(co=>`
-            <div style="border:1px solid var(--border-light);border-radius:var(--radius-sm);padding:14px 16px">
-              <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:10px">
-                ${esc(co.name)}
-                <span class="badge badge-gray" style="margin-left:6px;font-size:10px">${esc(co.plan||'–')}</span>
-              </div>
-              <div class="flex gap-2" style="align-items:flex-end">
-                <div class="input-group" style="flex:1;margin-bottom:0">
-                  <textarea class="input" id="admin-msg-${co.id}" rows="2"
-                    placeholder="Es. Il tuo abbonamento è in scadenza tra 30 giorni. Contattaci per il rinnovo..."
-                    style="min-height:60px;font-size:13px;resize:vertical"></textarea>
-                </div>
-                <button class="btn btn-primary" style="flex-shrink:0;font-size:13px;align-self:flex-end" onclick="adminSendMessage('${co.id}')">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> Invia
-                </button>
-              </div>
-              <details style="margin-top:10px">
-                <summary style="font-size:12px;font-weight:600;color:var(--navy);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
-                  Dati fatturazione
-                </summary>
-                <div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:var(--radius-sm);font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 12px">
-                  ${co.vatNumber?`<span style="color:var(--text-muted)">P.IVA / C.F.</span><span>${esc(co.vatNumber)}</span>`:''}
-                  ${co.pec?`<span style="color:var(--text-muted)">PEC</span><span>${esc(co.pec)}</span>`:''}
-                  ${co.codiceSDI?`<span style="color:var(--text-muted)">SDI</span><span>${esc(co.codiceSDI)}</span>`:''}
-                  ${co.legalRep?`<span style="color:var(--text-muted)">Legale Rapp.</span><span>${esc(co.legalRep)}</span>`:''}
-                  ${co.delegate?`<span style="color:var(--text-muted)">Delegato</span><span>${esc(co.delegate)}</span>`:''}
-                  ${(co.address||co.city||co.province||co.cap)?`<span style="color:var(--text-muted)">Sede legale</span><span>${[co.address,co.city,co.province,co.cap].filter(Boolean).join(', ')}</span>`:''}
-                  ${co.email?`<span style="color:var(--text-muted)">Email</span><span>${esc(co.email)}</span>`:''}
-                  ${(!co.pec&&!co.codiceSDI&&!co.legalRep)?`<span style="grid-column:1/-1;color:var(--text-muted);font-style:italic">Nessun dato di fatturazione inserito</span>`:''}
-                </div>
-              </details>
-            </div>`).join('')}
+            <div class="card" style="overflow:hidden">
+        <div style="padding:14px 20px;border-bottom:1px solid var(--border-light);background:var(--navy);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Comunicazioni
         </div>
-      </div>
-    </div>`;
-  } else if(adminTab==='tickets'){
-    const allTickets=DB.getTickets().sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
-    const openCount=allTickets.filter(t=>t.status!=='closed').length;
-    body.innerHTML=`<div class="flex-col gap-3">
-      ${allTickets.length===0
-        ?`<div class="empty-state"><div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg></div><div class="empty-state-title">Nessun ticket</div><div class="empty-state-text">I ticket degli utenti appariranno qui</div></div>`
-        :allTickets.map(t=>{
-          const cat=getCatTicket(t.category);
-          const statusTag=t.status==='open'?'tag-open':t.status==='pending'?'tag-pending':'tag-closed';
-          const statusLabel=t.status==='open'?'<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#16A34A"/></svg> Aperto':t.status==='pending'?'<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#D97706"/></svg> In risposta':'<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#6B7280"/></svg> Chiuso';
-          const tid='ticket-body-admin-'+t.id;
-          return`<div class="ticket-card">
-            <div class="ticket-header" onclick="document.getElementById('${tid}').classList.toggle('open')">
-              <span style="font-size:16px">${getCatIcon(cat.id)}</span>
-              <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:600;color:var(--navy);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.subject)}</div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
-                  <strong>${esc(t.companyName)}</strong> · ${esc(t.userName)} · ${cat.label} · ${formatDate(t.updatedAt)}
+        ${companies.length===0
+          ?`<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nessuna azienda registrata.</div>`
+          :`<div style="display:grid;grid-template-columns:240px 1fr;min-height:320px">
+            <!-- Left: company list -->
+            <div style="border-right:1px solid var(--border-light);overflow-y:auto">
+              ${companies.map(co=>{
+                const convs=DB.getConversations();
+                const conv=convs.find(c=>c.companyId===co.id);
+                const unread=conv?conv.messages.filter(m=>m.senderRole==='user'&&!m.read).length:0;
+                const lastMsg=conv&&conv.messages.length?conv.messages[conv.messages.length-1]:null;
+                return `<div id="conv-item-${co.id}" onclick="document.querySelectorAll('[id^=conv-item-]').forEach(el=>el.style.background='');this.style.background='rgba(26,82,212,0.06)';document.querySelectorAll('[id^=conv-panel-]').forEach(el=>el.style.display='none');document.getElementById('conv-panel-${co.id}').style.display='flex';renderAdminConvThread('${co.id}')" style="padding:12px 14px;cursor:pointer;border-bottom:1px solid var(--border-light);background:transparent">
+                  <div style="font-size:13px;font-weight:600;color:var(--navy);display:flex;justify-content:space-between;align-items:center">
+                    <span>${esc(co.name)}</span>
+                    ${unread>0?`<span style="background:#DC2626;color:#fff;border-radius:999px;padding:1px 6px;font-size:10px;font-weight:700">${unread}</span>`:''}
+                  </div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${lastMsg?esc(lastMsg.text.substring(0,45))+'…':'Nessun messaggio'}</div>
+                </div>`;
+              }).join('')}
+            </div>
+            <!-- Right: thread panels (one per company) -->
+            <div style="position:relative">
+              ${companies.map(co=>`
+                <div id="conv-panel-${co.id}" style="display:none;flex-direction:column;height:100%;min-height:320px">
+                  <div style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border-light);background:#fafafa">${esc(co.name)}</div>
+                  <div id="conv-thread-${co.id}" style="flex:1;overflow-y:auto;padding:14px 16px;background:#fff;max-height:240px"></div>
+                  <div style="padding:10px 14px;border-top:1px solid var(--border-light);display:flex;gap:8px;background:#f8fafc">
+                    <textarea id="conv-ta-${co.id}" rows="2" placeholder="Scrivi a ${esc(co.name)}…" style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;resize:none;font-family:inherit" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();adminSendConversation('${co.id}')}"></textarea>
+                    <button onclick="adminSendConversation('${co.id}')" style="background:var(--navy);color:#fff;border:none;border-radius:6px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg> Invia</button>
+                  </div>
                 </div>
-              </div>
-              <span class="ticket-tag ${statusTag}" style="flex-shrink:0">${statusLabel}</span>
-              <span style="color:var(--text-muted);font-size:12px;flex-shrink:0">▾</span>
+              `).join('')}
+              <div style="display:flex;align-items:center;justify-content:center;height:100%;min-height:280px;color:var(--text-muted);font-size:13px" id="conv-placeholder">← Seleziona un'azienda per aprire la conversazione</div>
             </div>
-            <div id="${tid}" class="ticket-body">
-              ${renderTicketThread(t,'admin')}
-            </div>
-          </div>`;
-        }).join('')}
+          </div>`}
+    </div>
     </div>`;
   } else if(adminTab==='companies'){
     // KPI counts
@@ -6953,7 +6948,7 @@ function renderSettingsNotifBlock(co){
         </div>
         <button onclick="document.getElementById('${replyId}').style.display='block';document.getElementById('${replyId}-txt').focus()" style="font-size:11px;color:var(--navy);background:none;border:1px solid var(--border-light);border-radius:4px;padding:3px 10px;cursor:pointer;margin-top:2px">↩ Rispondi</button>
       </div>`:''}
-    </div>`;
+    </div>`+renderUserConvSection(co);
   }).join('');
   return `<div class="settings-section" style="margin-top:0;padding:0;overflow:hidden">
     <div style="padding:14px 20px;border-bottom:1px solid var(--border-light);background:var(--navy);display:flex;align-items:center;justify-content:space-between">
@@ -8074,6 +8069,140 @@ function userSendReply(textareaId){
   });
 }
 
+// ── Conversation system ──────────────────────────────────────────────────────
+
+function _getOrCreateConv(companyId, companyName){
+  const convs=DB.getConversations();
+  let c=convs.find(x=>x.companyId===companyId);
+  if(!c){
+    c={id:'cv_'+uid(),companyId,companyName,messages:[],
+       createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    convs.push(c);
+    DB.setConversations(convs);
+  }
+  return c;
+}
+
+async function adminSendConversation(companyId){
+  const ta=document.getElementById('conv-ta-'+companyId);
+  if(!ta) return;
+  const text=ta.value.trim();
+  if(!text){showToast('Scrivi un messaggio','error');return;}
+  const companies=DB.getCompanies();
+  const co=companies.find(c=>c.id===companyId);
+  if(!co) return;
+  const convs=DB.getConversations();
+  let conv=convs.find(x=>x.companyId===companyId);
+  if(!conv){
+    conv={id:'cv_'+uid(),companyId,companyName:co.name,messages:[],
+          createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    convs.push(conv);
+  }
+  conv.messages.push({id:'m_'+uid(),text,senderRole:'admin',senderName:'Studio Zamboni',
+                      ts:new Date().toISOString(),read:false});
+  conv.updatedAt=new Date().toISOString();
+  DB.setConversations(convs);
+  await _supaSyncAwait('co_admin','conversations',convs);
+  ta.value='';
+  showToast('Messaggio inviato a '+co.name,'success');
+  renderAdminConvThread(companyId);
+}
+
+async function userSendConversation(){
+  const ta=document.getElementById('user-conv-ta');
+  if(!ta) return;
+  const text=ta.value.trim();
+  if(!text){showToast('Scrivi un messaggio','error');return;}
+  if(!currentUser||!currentCompany){showToast('Sessione non valida','error');return;}
+  const convs=DB.getConversations();
+  let conv=convs.find(x=>x.companyId===currentCompany.id);
+  if(!conv){
+    conv={id:'cv_'+uid(),companyId:currentCompany.id,companyName:currentCompany.name,messages:[],
+          createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    convs.push(conv);
+  }
+  conv.messages.push({id:'m_'+uid(),text,senderRole:'user',senderName:currentUser.name,
+                      ts:new Date().toISOString(),read:false});
+  conv.updatedAt=new Date().toISOString();
+  DB.setConversations(convs);
+  await _supaSyncAwait('co_admin','conversations',convs);
+  ta.value='';
+  showToast('Risposta inviata a Studio Zamboni','success');
+  const main=document.getElementById('main-page');
+  if(main) renderSettings(main);
+}
+
+function markConvRead(companyId, readerRole){
+  const convs=DB.getConversations();
+  const conv=convs.find(c=>c.companyId===companyId);
+  if(!conv) return;
+  let changed=false;
+  conv.messages.forEach(m=>{
+    if(!m.read && m.senderRole!==readerRole){m.read=true;changed=true;}
+  });
+  if(changed){DB.setConversations(convs); updateNotifBadge();}
+}
+
+function countUnreadConvMsgs(){
+  const convs=DB.getConversations();
+  if(isTrustedAdmin()){
+    return convs.filter(c=>c.messages.some(m=>m.senderRole==='user'&&!m.read)).length;
+  }
+  if(!currentCompany) return 0;
+  const conv=convs.find(c=>c.companyId===currentCompany.id);
+  return (conv && conv.messages.some(m=>m.senderRole==='admin'&&!m.read)) ? 1 : 0;
+}
+
+function renderAdminConvThread(companyId){
+  const threadEl=document.getElementById('conv-thread-'+companyId);
+  if(!threadEl) return;
+  const convs=DB.getConversations();
+  const conv=convs.find(c=>c.companyId===companyId);
+  markConvRead(companyId,'admin');
+  if(!conv||!conv.messages.length){
+    threadEl.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nessun messaggio. Inizia la conversazione.</div>';
+    return;
+  }
+  threadEl.innerHTML=conv.messages.map(m=>{
+    const isAdmin=m.senderRole==='admin';
+    return `<div style="display:flex;flex-direction:column;align-items:${isAdmin?'flex-end':'flex-start'};margin-bottom:10px">
+      <div style="max-width:75%;background:${isAdmin?'var(--navy)':'#F1F5F9'};color:${isAdmin?'#fff':'var(--text)'};padding:8px 12px;border-radius:${isAdmin?'12px 12px 2px 12px':'12px 12px 12px 2px'};font-size:13px;word-break:break-word">${esc(m.text)}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${esc(m.senderName)} · ${formatDate(m.ts)}</div>
+    </div>`;
+  }).join('');
+  threadEl.scrollTop=threadEl.scrollHeight;
+}
+
+function renderUserConvSection(co){
+  const convs=DB.getConversations();
+  const conv=convs.find(c=>c.companyId===co.id);
+  const msgs=conv?conv.messages:[];
+  markConvRead(co.id,'user');
+  const unread=conv?conv.messages.filter(m=>m.senderRole==='admin'&&!m.read).length:0;
+  const thread=msgs.map(m=>{
+    const isAdmin=m.senderRole==='admin';
+    return `<div style="display:flex;flex-direction:column;align-items:${isAdmin?'flex-start':'flex-end'};margin-bottom:10px">
+      <div style="max-width:75%;background:${isAdmin?'var(--navy)':'#1A52D4'};color:#fff;padding:8px 12px;border-radius:${isAdmin?'12px 12px 12px 2px':'12px 12px 2px 12px'};font-size:13px;word-break:break-word">${esc(m.text)}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${esc(isAdmin?'Studio Zamboni':m.senderName)} · ${formatDate(m.ts)}</div>
+    </div>`;
+  }).join('');
+  return `<div class="settings-section" style="margin-top:0;padding:0;overflow:hidden">
+    <div style="padding:12px 18px;background:var(--navy);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;font-weight:700;color:#fff">💬 Comunicazioni con Studio Zamboni${unread>0?` <span style="background:#DC2626;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:6px">${unread}</span>`:''}</span>
+    </div>
+    <div style="max-height:320px;overflow-y:auto;padding:14px 16px;background:#fff">
+      ${thread||'<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:16px 0">Nessun messaggio da Studio Zamboni.</div>'}
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border-light);background:#f8fafc">
+      <div style="display:flex;gap:8px">
+        <textarea id="user-conv-ta" rows="2" placeholder="Scrivi a Studio Zamboni…" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--border-light);border-radius:6px;resize:none;font-family:inherit"></textarea>
+        <button onclick="userSendConversation()" style="background:var(--navy);color:#fff;border:none;border-radius:6px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0">Invia</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+
 
 function getMyNotifications(){
   const all=DB.getNotifications();
@@ -8088,7 +8217,7 @@ function getMyNotifications(){
 }
 
 function countUnreadNotifs(){
-  return getMyNotifications().filter(n=>!n.read).length;
+  return getMyNotifications().filter(n=>!n.read).length + countUnreadConvMsgs();
 }
 
 function updateNotifBadge(){
