@@ -6808,6 +6808,14 @@ function adminEditUserProfile(userId){
         <input type="checkbox" id="edit-ut-gdpr" ${currentGdpr?'checked':''} style="width:15px;height:15px;cursor:pointer">
         <label for="edit-ut-gdpr" style="font-size:13px;cursor:pointer">Consenso GDPR accettato</label>
       </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Piano account</label>
+        <select id="edit-ut-plan" style="width:100%;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;font-size:13px">
+          <option value="" ${!(co?.trialMode||co?.plan)?'selected':''}>— Non modificare —</option>
+          <option value="trial" ${co?.trialMode?'selected':''}>TRIAL (30 giorni da oggi)</option>
+          <option value="active" ${!co?.trialMode&&co?.plan&&co.plan!=='Trial'?'selected':''}>ATTIVO (piano in corso)</option>
+        </select>
+      </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="closeConfirm()" style="padding:6px 14px;border:1px solid var(--border-light);border-radius:6px;background:#fff;font-size:13px;cursor:pointer">Annulla</button>
         <button onclick="adminSaveUserProfile('${userId}')" style="padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Salva</button>
@@ -6834,9 +6842,14 @@ function adminSaveUserProfile(userId){
   // If user has no company, create a minimal one and link it
   if(coIdx<0){
     const newCoId=u.companyId||('co_'+uid());
+    const _trialStart=new Date();
+    const _trialEnd=new Date(_trialStart); _trialEnd.setDate(_trialEnd.getDate()+30);
     const newCo={id:newCoId,name:u.name,email:u.email,
-                 plan:'Free',trialMode:false,
-                 createdAt:u.createdAt||new Date().toISOString()};
+                 plan:'Trial',trialMode:true,
+                 trialStartDate:_trialStart.toISOString(),
+                 trialEndDate:_trialEnd.toISOString(),
+                 accountStatus:'trial',
+                 createdAt:u.createdAt||_trialStart.toISOString()};
     companies.push(newCo);
     coIdx=companies.length-1;
     // Link user to new company
@@ -6850,6 +6863,22 @@ function adminSaveUserProfile(userId){
   } else {
     companies[coIdx].gdprConsent=false;
     companies[coIdx].consentTimestamp=null;
+  }
+  // Apply plan change if requested
+  const planEl=document.getElementById('edit-ut-plan');
+  if(planEl && planEl.value==='trial'){
+    const ts=new Date(); const te=new Date(ts); te.setDate(te.getDate()+30);
+    companies[coIdx].plan='Trial';
+    companies[coIdx].trialMode=true;
+    companies[coIdx].trialStartDate=ts.toISOString();
+    companies[coIdx].trialEndDate=te.toISOString();
+    companies[coIdx].accountStatus='trial';
+    companies[coIdx].planStartDate=null;
+    companies[coIdx].planEndDate=null;
+  } else if(planEl && planEl.value==='active'){
+    companies[coIdx].trialMode=false;
+    companies[coIdx].accountStatus='active';
+    if(!companies[coIdx].plan||companies[coIdx].plan==='Trial') companies[coIdx].plan='Standard';
   }
   DB.setCompanies(companies);
   closeConfirm();
