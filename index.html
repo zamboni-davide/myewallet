@@ -6826,18 +6826,28 @@ function adminSaveUserProfile(userId){
   const users=DB.getUsers();
   const u=users.find(x=>x.id===userId);
   if(!u){closeConfirm();return;}
-  const coIdx=companies.findIndex(c=>c.id===u.companyId);
-  if(coIdx>=0){
-    companies[coIdx].userType=newType||undefined;
-    if(newGdpr){
-      companies[coIdx].gdprConsent=true;
-      companies[coIdx].consentTimestamp=companies[coIdx].consentTimestamp||new Date().toISOString();
-    } else {
-      companies[coIdx].gdprConsent=false;
-      companies[coIdx].consentTimestamp=null;
-    }
-    DB.setCompanies(companies);
+  let coIdx=companies.findIndex(c=>c.id===u.companyId);
+  // If user has no company, create a minimal one and link it
+  if(coIdx<0){
+    const newCoId=u.companyId||('co_'+uid());
+    const newCo={id:newCoId,name:u.name,email:u.email,
+                 plan:'Free',trialMode:false,
+                 createdAt:u.createdAt||new Date().toISOString()};
+    companies.push(newCo);
+    coIdx=companies.length-1;
+    // Link user to new company
+    const uIdx=users.findIndex(x=>x.id===u.id);
+    if(uIdx>=0){users[uIdx].companyId=newCoId;DB.setUsers(users);}
   }
+  companies[coIdx].userType=newType||undefined;
+  if(newGdpr){
+    companies[coIdx].gdprConsent=true;
+    companies[coIdx].consentTimestamp=companies[coIdx].consentTimestamp||new Date().toISOString();
+  } else {
+    companies[coIdx].gdprConsent=false;
+    companies[coIdx].consentTimestamp=null;
+  }
+  DB.setCompanies(companies);
   closeConfirm();
   showToast('Profilo aggiornato','success');
   renderAdminTab();
@@ -6992,7 +7002,7 @@ function renderSettingsNotifBlock(co){
   const myNotifs = DB.getNotifications().filter(n=>
     n.recipientRole==='user' && n.companyId===co.id
   ).sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,20);
-  if(!myNotifs.length) return '';
+  if(!myNotifs.length) return renderUserConvSection(co);
   const typeIcon={info:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>',success:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',warning:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',error:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',payment:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>'};
   const typeBg={info:'#EFF6FF',success:'#DCFCE7',warning:'#FEF9C3',error:'#FEE2E2',payment:'#EDE9FE'};
   const hasRead=myNotifs.some(n=>n.read);
