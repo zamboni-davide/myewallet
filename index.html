@@ -2269,12 +2269,17 @@ async function _supaLoadAll(companyId) {
         let val = row.store_value;
         if(typeof val === 'string'){try{val=JSON.parse(val);}catch{}}
         if(val === null || val === undefined) return;
-        // Merge arrays: keep any local record not yet in Supabase
+        // Merge arrays: keep any local record not yet in Supabase,
+        // but also remove items deleted locally (honor deletions).
         if(Array.isArray(val) && _MERGE_KEYS.has(row.store_key)){
           try {
             const lsRaw = localStorage.getItem('pda_'+row.store_key);
             const lsArr = lsRaw ? JSON.parse(lsRaw) : [];
             if(Array.isArray(lsArr) && lsArr.length > 0){
+              // Remove items deleted locally (in Supabase but not in localStorage)
+              const lsIds = new Set(lsArr.map(x=>x?.id).filter(Boolean));
+              val = val.filter(x => !x?.id || lsIds.has(x.id));
+              // Add items created locally but not yet in Supabase
               const inSupa = new Set(val.map(x=>x?.id).filter(Boolean));
               lsArr.forEach(x=>{ if(x?.id && !inSupa.has(x.id)) val.push(x); });
             }
@@ -2489,7 +2494,7 @@ function patchAdminCompany(){
 // ════════════════════════════════════════════════
 //  AUTH
 // ════════════════════════════════════════════════
-let currentUser=null, currentCompany=null;
+let currentUser=null, currentCompany=null, currentPage=null;
 
 function switchAuthTab(tab){
   document.getElementById('tab-login').classList.toggle('active',tab==='login');
@@ -3335,6 +3340,7 @@ function navTo(page){
     document.getElementById('topbar-title').textContent='Il mio Account';
   }
 
+  currentPage=page;
   if(page==='dashboard') renderDashboard(main);
   else if(page==='all-docs') renderDocList(main,null,null,'Tutti i Documenti');
   else if(page.startsWith('cat-')) {
@@ -4283,7 +4289,11 @@ function confirmDelete(docId){
   document.getElementById('confirm-overlay').classList.remove('hidden');
 }
 
-function closeConfirm(){document.getElementById('confirm-overlay').classList.add('hidden');confirmCallback=null;}
+function closeConfirm(){
+  document.getElementById('confirm-overlay').classList.add('hidden');
+  document.getElementById('confirm-ok-btn').style.display='';
+  confirmCallback=null;
+}
 function executeConfirm(){if(confirmCallback)confirmCallback();closeConfirm();}
 
 function refreshCurrentPage(){
@@ -6038,6 +6048,7 @@ function renderAdminTab(){
           </td>
           <td style="font-size:12px;color:var(--text-muted)">${formatDate(u.createdAt||'')}</td>
           <td>
+            <button class="btn btn-ghost btn-sm" style="color:var(--navy);margin-right:4px" onclick="adminEditUserProfile('${u.id}')" title="Modifica profilo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="adminDeleteUser('${u.id}')" title="Elimina"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></button>
           </td>
         </tr>`;}).join('')}
@@ -6768,6 +6779,71 @@ function adminDeleteUser(userId){
   document.getElementById('confirm-modal').classList.remove('hidden');
 }
 
+function adminEditUserProfile(userId){
+  const users=DB.getUsers();
+  const u=users.find(x=>x.id===userId);
+  if(!u){showToast('Utente non trovato','error');return;}
+  const companies=DB.getCompanies();
+  const co=companies.find(c=>c.id===u.companyId);
+  const currentType=co?.userType||'';
+  const currentGdpr=co?.gdprConsent?true:false;
+  const html=`
+    <div style="padding:16px">
+      <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:12px">Modifica profilo — ${esc(u.name)}</div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Tipo utilizzo</label>
+        <select id="edit-ut-type" style="width:100%;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;font-size:13px">
+          <option value="" ${!currentType?'selected':''}>— Non specificato —</option>
+          <option value="consumer" ${currentType==='consumer'?'selected':''}>CONSUMER</option>
+          <option value="professional" ${currentType==='professional'?'selected':''}>PROFESSIONISTA</option>
+          <option value="sme" ${currentType==='sme'?'selected':''}>PMI</option>
+          <option value="studio" ${currentType==='studio'?'selected':''}>STUDIO</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px;display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="edit-ut-gdpr" ${currentGdpr?'checked':''} style="width:15px;height:15px;cursor:pointer">
+        <label for="edit-ut-gdpr" style="font-size:13px;cursor:pointer">Consenso GDPR accettato</label>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button onclick="closeConfirm()" style="padding:6px 14px;border:1px solid var(--border-light);border-radius:6px;background:#fff;font-size:13px;cursor:pointer">Annulla</button>
+        <button onclick="adminSaveUserProfile('${userId}')" style="padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Salva</button>
+      </div>
+    </div>`;
+  // Use confirm overlay with custom HTML content
+  document.getElementById('confirm-title').textContent='Modifica Profilo Utente';
+  document.getElementById('confirm-text').innerHTML=html;
+  document.getElementById('confirm-ok-btn').style.display='none';
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
+function adminSaveUserProfile(userId){
+  const typeEl=document.getElementById('edit-ut-type');
+  const gdprEl=document.getElementById('edit-ut-gdpr');
+  if(!typeEl||!gdprEl){showToast('Errore form','error');return;}
+  const newType=typeEl.value;
+  const newGdpr=gdprEl.checked;
+  const companies=DB.getCompanies();
+  const users=DB.getUsers();
+  const u=users.find(x=>x.id===userId);
+  if(!u){closeConfirm();return;}
+  const coIdx=companies.findIndex(c=>c.id===u.companyId);
+  if(coIdx>=0){
+    companies[coIdx].userType=newType||undefined;
+    if(newGdpr){
+      companies[coIdx].gdprConsent=true;
+      companies[coIdx].consentTimestamp=companies[coIdx].consentTimestamp||new Date().toISOString();
+    } else {
+      companies[coIdx].gdprConsent=false;
+      companies[coIdx].consentTimestamp=null;
+    }
+    DB.setCompanies(companies);
+  }
+  closeConfirm();
+  showToast('Profilo aggiornato','success');
+  renderAdminTab();
+}
+
+
 function adminEditCompany(coId){
   const companies=DB.getCompanies();
   const co=companies.find(c=>c.id===coId);
@@ -6948,7 +7024,7 @@ function renderSettingsNotifBlock(co){
         </div>
         <button onclick="document.getElementById('${replyId}').style.display='block';document.getElementById('${replyId}-txt').focus()" style="font-size:11px;color:var(--navy);background:none;border:1px solid var(--border-light);border-radius:4px;padding:3px 10px;cursor:pointer;margin-top:2px">↩ Rispondi</button>
       </div>`:''}
-    </div>`+renderUserConvSection(co);
+    </div>`;
   }).join('');
   return `<div class="settings-section" style="margin-top:0;padding:0;overflow:hidden">
     <div style="padding:14px 20px;border-bottom:1px solid var(--border-light);background:var(--navy);display:flex;align-items:center;justify-content:space-between">
@@ -6959,7 +7035,7 @@ function renderSettingsNotifBlock(co){
       </div>
     </div>
     ${items}
-  </div>`;
+  </div>`+renderUserConvSection(co);
 }
 
 
