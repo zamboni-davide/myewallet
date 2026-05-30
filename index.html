@@ -1937,8 +1937,10 @@ textarea.input{resize:vertical;min-height:80px;}
           <p>Il Fornitore può modificare le presenti CGU con preavviso di <strong>30 giorni</strong> via email. L'utilizzo continuato del Servizio costituisce accettazione. In caso di modifiche pregiudizievoli, l'Utente può recedere entro il termine di preavviso senza penali.</p>
         </div>
       </div>
-      <div class="terms-section">
-     "terms-body hidden" id="terms-body-privacy">
+    </div>
+
+    <!-- PRIVACY POLICY -->
+    <div class="terms-body hidden" id="terms-body-privacy">
       <div class="terms-section">
         <div class="terms-section-title">Titolare del Trattamento</div>
         <div class="terms-text">
@@ -2733,7 +2735,9 @@ async function doRegister(){
     plan:'Trial',planStartDate:null,planEndDate:null,
     trialMode:true,trialStartDate:today.toISOString(),trialEndDate:trialEnd.toISOString(),
     accountStatus:'trial',createdAt:today.toISOString(),
-    consentTimestamp:today.toISOString(),gdprConsent:true};
+    consentTimestamp:today.toISOString(),
+    gdprConsent:!!chk2,
+    gdprConsentTimestamp:chk2?today.toISOString():null};
   const termsAcceptedAt=new Date().toISOString();
   const userId='u_'+uid();
   const user={id:userId,name,email,pwd,companyId:coId,role:'user',
@@ -6044,7 +6048,7 @@ function renderAdminTab(){
                 ?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> T&C · '+formatDate(u.termsAcceptedAt)
                 :'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Non accettate'}
             </div>
-            ${co?.gdprConsent?`<div style="color:#16A34A;margin-top:2px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> GDPR · ${formatDate(co.consentTimestamp||u.termsAcceptedAt||'')}</div>`:''}
+            ${co?.gdprConsent?`<div style="color:#16A34A;margin-top:2px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> GDPR · ${formatDate(co.gdprConsentTimestamp||co.consentTimestamp||u.termsAcceptedAt||'')}</div>`:''}
           </td>
           <td style="font-size:12px;color:var(--text-muted)">${formatDate(u.createdAt||'')}</td>
           <td>
@@ -8264,26 +8268,54 @@ function renderUserConvSection(co){
   const conv=convs.find(c=>c.companyId===co.id);
   const msgs=conv?conv.messages:[];
   markConvRead(co.id,'user');
-  const unread=conv?conv.messages.filter(m=>m.senderRole==='admin'&&!m.read).length:0;
+  const unread=msgs.filter(m=>m.senderRole==='admin'&&!m.read).length;
+  const lastMsg=msgs.length?msgs[msgs.length-1]:null;
+  const threadId='uconv-thread-'+co.id;
   const thread=msgs.map(m=>{
-    const isAdmin=m.senderRole==='admin';
-    return `<div style="display:flex;flex-direction:column;align-items:${isAdmin?'flex-start':'flex-end'};margin-bottom:10px">
-      <div style="max-width:75%;background:${isAdmin?'var(--navy)':'#1A52D4'};color:#fff;padding:8px 12px;border-radius:${isAdmin?'12px 12px 12px 2px':'12px 12px 2px 12px'};font-size:13px;word-break:break-word">${esc(m.text)}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${esc(isAdmin?'Studio Zamboni':m.senderName)} · ${formatDate(m.ts)}</div>
+    const fromAdmin=m.senderRole==='admin';
+    return `<div style="display:flex;flex-direction:column;align-items:${fromAdmin?'flex-start':'flex-end'};margin-bottom:12px">
+      <div style="max-width:75%;background:${fromAdmin?'var(--navy)':'#1A52D4'};color:#fff;
+          padding:9px 14px;border-radius:${fromAdmin?'14px 14px 14px 2px':'14px 14px 2px 14px'};
+          font-size:13px;line-height:1.5;word-break:break-word;box-shadow:0 1px 3px rgba(0,0,0,.12)">
+        ${esc(m.text)}
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px;padding:0 4px">
+        ${esc(fromAdmin?'Studio Zamboni':m.senderName)} &middot; ${formatDate(m.ts)}
+        ${m.read?'':' <span style="color:#1A52D4;font-weight:600">&#9679; Nuovo</span>'}
+      </div>
     </div>`;
   }).join('');
-  return `<div class="settings-section" style="margin-top:0;padding:0;overflow:hidden">
-    <div style="padding:12px 18px;background:var(--navy);display:flex;align-items:center;justify-content:space-between">
-      <span style="font-size:13px;font-weight:700;color:#fff">💬 Comunicazioni con Studio Zamboni${unread>0?` <span style="background:#DC2626;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;margin-left:6px">${unread}</span>`:''}</span>
+  return `<div class="settings-section" style="margin-top:0;padding:0;overflow:hidden;border:1px solid var(--border-light);border-radius:var(--radius);margin-bottom:16px">
+    <!-- Header -->
+    <div style="padding:13px 18px;background:var(--navy);display:flex;align-items:center;justify-content:space-between">
+      <span style="font-size:13px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Comunicazioni con Studio Zamboni
+        ${unread>0?`<span style="background:#DC2626;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700">${unread}</span>`:''}
+      </span>
+      ${lastMsg?`<span style="font-size:11px;color:rgba(255,255,255,0.55)">Ultimo: ${formatDate(lastMsg.ts)}</span>`:''}
     </div>
-    <div style="max-height:320px;overflow-y:auto;padding:14px 16px;background:#fff">
-      ${thread||'<div style="text-align:center;color:var(--text-muted);font-size:13px;padding:16px 0">Nessun messaggio da Studio Zamboni.</div>'}
+    <!-- Thread -->
+    <div id="${threadId}" style="min-height:120px;max-height:360px;overflow-y:auto;padding:16px;background:#f8fafc">
+      ${thread||`<div style="text-align:center;padding:24px 0;color:var(--text-muted);font-size:13px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:8px;display:block;margin-left:auto;margin-right:auto"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Nessun messaggio da Studio Zamboni.</div>`}
     </div>
-    <div style="padding:12px 16px;border-top:1px solid var(--border-light);background:#f8fafc">
-      <div style="display:flex;gap:8px">
-        <textarea id="user-conv-ta" rows="2" placeholder="Scrivi a Studio Zamboni…" style="flex:1;font-size:13px;padding:8px 10px;border:1px solid var(--border-light);border-radius:6px;resize:none;font-family:inherit"></textarea>
-        <button onclick="userSendConversation()" style="background:var(--navy);color:#fff;border:none;border-radius:6px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0">Invia</button>
+    <!-- Reply area -->
+    <div style="padding:12px 16px;border-top:1px solid var(--border-light);background:#fff">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <textarea id="user-conv-ta" rows="2"
+          placeholder="Scrivi a Studio Zamboni…"
+          style="flex:1;font-size:13px;padding:8px 12px;border:1px solid var(--border-light);border-radius:8px;resize:none;font-family:inherit;line-height:1.5;transition:border-color .2s"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();userSendConversation()}"
+          onfocus="this.style.borderColor='var(--navy)'" onblur="this.style.borderColor='var(--border-light)'"></textarea>
+        <button onclick="userSendConversation()"
+          style="background:var(--navy);color:#fff;border:none;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;flex-shrink:0;white-space:nowrap">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+          Invia
+        </button>
       </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Premi Invio per inviare · Shift+Invio per andare a capo</div>
     </div>
   </div>`;
 }
