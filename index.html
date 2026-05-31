@@ -2540,6 +2540,41 @@ function isTrustedAdmin(){
   return !!(currentUser && currentUser.role === 'admin');
 }
 
+// Account access gate — checked at every startApp entry point
+function isAccountBlocked(co){
+  if(!co) return false;
+  return co.accountStatus==='billing_suspended' || co.accountStatus==='disabled';
+}
+
+function showBlockedScreen(co){
+  logout();
+  const reason = co?.accountStatus==='billing_suspended'
+    ? 'Account sospeso per problemi di fatturazione'
+    : 'Account disattivato';
+  const detail = co?.accountStatus==='billing_suspended'
+    ? 'Il tuo account è stato sospeso per mancato pagamento. Contatta Studio Zamboni per ripristinare l\u2019accesso.'
+    : 'Il tuo account è stato disattivato. Contatta Studio Zamboni per maggiori informazioni.';
+  document.getElementById('auth-screen').innerHTML+=`
+    <div id="blocked-overlay" style="position:fixed;inset:0;background:var(--navy);z-index:9999;
+         display:flex;align-items:center;justify-content:center;padding:24px">
+      <div style="background:#fff;border-radius:16px;padding:40px 36px;max-width:460px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+        <div style="width:56px;height:56px;background:#FEF2F2;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        </div>
+        <div style="font-size:17px;font-weight:700;color:var(--navy);margin-bottom:10px">${esc(reason)}</div>
+        <div style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:28px">${esc(detail)}</div>
+        <div style="font-size:12px;color:var(--text-muted);background:#f8fafc;border-radius:8px;padding:12px;text-align:left">
+          <strong>Studio Zamboni</strong><br>
+          direzione@consulenzesardegna.com<br>
+          Via Perantoni Gavino Satta 14 — Sassari
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('app-screen').classList.add('hidden');
+}
+
+
 
 
 async function doLogin(){
@@ -2630,6 +2665,7 @@ async function doLogin(){
         if(remember){localStorage.setItem('mew_re',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
         else{localStorage.removeItem('mew_re');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
         currentUser=user; Object.freeze(currentUser); currentCompany=co;
+        if(isAccountBlocked(co)){showBlockedScreen(co);return;}
         startApp(user,co); return;
       }
     }
@@ -6026,8 +6062,11 @@ function renderAdminTab(){
       <tbody>${users.map(u=>{
         const co=DB.getCompanies().find(c=>c.id===u.companyId);
         const ti=co?getTrialInfo(co):{isTrial:false};
-        const accBadge=ti.isTrial
-          ?(ti.isExpired?'<span class="badge badge-gray">Trial Scaduto</span>'
+        const _accStatus = co?.accountStatus;
+        const accBadge=
+          _accStatus==='billing_suspended'?'<span class="badge" style="background:#FEE2E2;color:#DC2626">🔴 Sospeso</span>':
+          _accStatus==='disabled'?'<span class="badge badge-gray">⛔ Disattivato</span>':
+          ti.isTrial?(ti.isExpired?'<span class="badge badge-gray">Trial Scaduto</span>'
             :`<span class="badge badge-gold">Trial · ${ti.daysLeft}gg</span>`)
           :'<span class="badge badge-green">Attivo</span>';
         return`<tr>
@@ -6816,6 +6855,17 @@ function adminEditUserProfile(userId){
           <option value="active" ${!co?.trialMode&&co?.plan&&co.plan!=='Trial'?'selected':''}>ATTIVO (piano in corso)</option>
         </select>
       </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Stato account</label>
+        <select id="edit-ut-status" style="width:100%;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;font-size:13px">
+          <option value="" ${!co?.accountStatus?'selected':''}>— Non modificare —</option>
+          <option value="trial" ${co?.accountStatus==='trial'?'selected':''}>✅ Trial attivo</option>
+          <option value="active" ${co?.accountStatus==='active'?'selected':''}>✅ Attivo</option>
+          <option value="billing_suspended" ${co?.accountStatus==='billing_suspended'?'selected':''}>🔴 Sospeso — problemi di fatturazione</option>
+          <option value="disabled" ${co?.accountStatus==='disabled'?'selected':''}>⛔ Disattivato</option>
+        </select>
+
+      </div>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button onclick="closeConfirm()" style="padding:6px 14px;border:1px solid var(--border-light);border-radius:6px;background:#fff;font-size:13px;cursor:pointer">Annulla</button>
         <button onclick="adminSaveUserProfile('${userId}')" style="padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Salva</button>
@@ -6863,6 +6913,11 @@ function adminSaveUserProfile(userId){
   } else {
     companies[coIdx].gdprConsent=false;
     companies[coIdx].consentTimestamp=null;
+  }
+  // Apply account status change if requested
+  const statusEl=document.getElementById('edit-ut-status');
+  if(statusEl && statusEl.value){
+    companies[coIdx].accountStatus=statusEl.value;
   }
   // Apply plan change if requested
   const planEl=document.getElementById('edit-ut-plan');
@@ -8355,7 +8410,8 @@ function getMyNotifications(){
   const all=DB.getNotifications();
   if(!currentUser) return [];
   if(isTrustedAdmin()){
-    return all.filter(n=>n.recipientRole==='admin').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    // Exclude manual-comm copies (senderName='Tu') — those live in the Comunicazioni thread panel
+    return all.filter(n=>n.recipientRole==='admin' && n.senderName!=='Tu').sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
   }
   return all.filter(n=>
     n.recipientId===currentUser.id||
@@ -10751,11 +10807,13 @@ window.addEventListener('DOMContentLoaded',()=>{
           const srRole = await requireRole();
           user = {...user, role: srRole};
           currentUser=user; Object.freeze(currentUser); currentCompany=co;
+          if(isAccountBlocked(co)){showBlockedScreen(co);return;}
           if(needsTermsAcceptance(user)){
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('app-screen').classList.remove('hidden');
-            showTermsModal(()=>startApp(user,co));
+            showTermsModal(()=>{if(isAccountBlocked(co)){showBlockedScreen(co);return;}startApp(user,co);});
           } else {
+            if(isAccountBlocked(co)){showBlockedScreen(co);return;}
             startApp(user,co);
           }
           return;
@@ -10846,7 +10904,7 @@ async function saveNewPassword(){
       let user = users.find(u=>u.email===email);
       if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:spRole,createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
       const co = DB.getCompanies().find(c=>c.id===user.companyId);
-      if(user&&co){ currentUser=user; Object.freeze(currentUser); currentCompany=co; startApp(user,co); }
+      if(user&&co){ currentUser=user; Object.freeze(currentUser); currentCompany=co; if(isAccountBlocked(co)){showBlockedScreen(co);return;} startApp(user,co); }
     }
   });
 }
