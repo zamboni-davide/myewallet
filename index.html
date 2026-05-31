@@ -2260,7 +2260,7 @@ async function _supaLoadAll(companyId) {
   // Keys whose arrays must be MERGED (not replaced) with localStorage.
   // Prevents losing records written locally when Supabase sync was blocked
   // (e.g. non-admin RLS write rejection) or lost due to logout race condition.
-  const _MERGE_KEYS = new Set(['users','companies','notifications']);
+  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations']);
   try {
     const { data, error } = await _supa.from('company_store')
       .select('store_key,store_value')
@@ -2278,12 +2278,37 @@ async function _supaLoadAll(companyId) {
             const lsRaw = localStorage.getItem('pda_'+row.store_key);
             const lsArr = lsRaw ? JSON.parse(lsRaw) : [];
             if(Array.isArray(lsArr) && lsArr.length > 0){
-              // Remove items deleted locally (in Supabase but not in localStorage)
-              const lsIds = new Set(lsArr.map(x=>x?.id).filter(Boolean));
-              val = val.filter(x => !x?.id || lsIds.has(x.id));
-              // Add items created locally but not yet in Supabase
-              const inSupa = new Set(val.map(x=>x?.id).filter(Boolean));
-              lsArr.forEach(x=>{ if(x?.id && !inSupa.has(x.id)) val.push(x); });
+              if(row.store_key === 'conversations'){
+                // Conversation merge: operate at message level (not just at conv level)
+                // A conversation in localStorage may have MORE messages than Supabase
+                // (e.g. user's reply not synced to Supabase due to RLS) — preserve them all
+                const supaConvMap = new Map(val.map(c=>[c.id,c]));
+                lsArr.forEach(lsConv=>{
+                  const supaConv = supaConvMap.get(lsConv.id);
+                  if(!supaConv){
+                    // Conversation only local → add it
+                    val.push(lsConv);
+                    supaConvMap.set(lsConv.id, lsConv);
+                  } else {
+                    // Same conversation → merge messages by id
+                    const supaIds = new Set((supaConv.messages||[]).map(m=>m.id));
+                    const extra = (lsConv.messages||[]).filter(m=>m.id&&!supaIds.has(m.id));
+                    if(extra.length){
+                      supaConv.messages=[...(supaConv.messages||[]),...extra]
+                        .sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+                      supaConv.updatedAt=supaConv.messages[supaConv.messages.length-1].ts;
+                    }
+                  }
+                });
+              } else {
+                // Standard merge for users/companies/notifications
+                // Remove items deleted locally (in Supabase but not in localStorage)
+                const lsIds = new Set(lsArr.map(x=>x?.id).filter(Boolean));
+                val = val.filter(x => !x?.id || lsIds.has(x.id));
+                // Add items created locally but not yet in Supabase
+                const inSupa = new Set(val.map(x=>x?.id).filter(Boolean));
+                lsArr.forEach(x=>{ if(x?.id && !inSupa.has(x.id)) val.push(x); });
+              }
             }
           } catch {}
         }
@@ -2308,6 +2333,40 @@ async function _supaLoadAll(companyId) {
         if(merged.length>(_mem['users']||[]).length){
           _mem['users']=merged;
           try{localStorage.setItem('pda_users',JSON.stringify(merged));}catch{}
+        }
+      }
+    }catch{}
+  }
+  // For admin: also load conversations from ALL company partitions
+  // This recovers reply messages written to user-partition when co_admin RLS blocked
+  if(companyId==='co_admin'){
+    try{
+      const {data:allCR}=await _supa.from('company_store')
+        .select('store_value').eq('store_key','conversations');
+      if(allCR&&allCR.length>0){
+        const merged=Array.isArray(_mem['conversations'])?[..._mem['conversations']]:[];
+        const convMap=new Map(merged.map(c=>[c.id,c]));
+        allCR.forEach(row=>{
+          let arr=row.store_value;
+          if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+          if(!Array.isArray(arr))return;
+          arr.forEach(conv=>{
+            const ex=convMap.get(conv.id);
+            if(!ex){merged.push(conv);convMap.set(conv.id,conv);}
+            else{
+              // Merge messages from this partition into existing conv
+              const exIds=new Set((ex.messages||[]).map(m=>m.id));
+              const extras=(conv.messages||[]).filter(m=>m.id&&!exIds.has(m.id));
+              if(extras.length){
+                ex.messages=[...(ex.messages||[]),...extras].sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+                ex.updatedAt=ex.messages[ex.messages.length-1].ts;
+              }
+            }
+          });
+        });
+        if(merged.length>0){
+          _mem['conversations']=merged;
+          try{localStorage.setItem('pda_conversations',JSON.stringify(merged));}catch{}
         }
       }
     }catch{}
@@ -8299,7 +8358,11 @@ async function userSendConversation(){
                       ts:new Date().toISOString(),read:false});
   conv.updatedAt=new Date().toISOString();
   DB.setConversations(convs);
+  // Write to co_admin (may fail silently if RLS blocks non-admin writes)
   await _supaSyncAwait('co_admin','conversations',convs);
+  // Also write to user's own partition — Sara's JWT can always write here
+  // This guarantees the reply survives even if the co_admin write is blocked
+  try { await _supaSyncAwait(currentCompany.id,'conversations',convs); } catch {}
   ta.value='';
   showToast('Risposta inviata a Studio Zamboni','success');
   const main=document.getElementById('main-page');
