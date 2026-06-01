@@ -1556,6 +1556,21 @@ textarea.input{resize:vertical;min-height:80px;}
         Scadenzario
         <span class="nav-badge hidden" id="nav-scad-badge" style="background:var(--danger)">0</span>
       </div>
+      <!-- Fase 2 nav items: hidden by default, shown for non-admin users -->
+      <div class="nav-item nav-f2" data-page="contacts" id="nav-contacts" onclick="navTo('contacts')" style="display:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Contatti
+        <span class="nav-badge hidden" id="nav-contact-badge" style="background:var(--danger)">0</span>
+      </div>
+      <div class="nav-item nav-f2" data-page="messages" id="nav-messages" onclick="navTo('messages')" style="display:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Messaggi
+        <span class="nav-badge hidden" id="nav-p2p-badge" style="background:var(--danger)">0</span>
+      </div>
+      <div class="nav-item nav-f2" data-page="shared" id="nav-shared" onclick="navTo('shared')" style="display:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+        Condivisi con me
+      </div>
       <div class="nav-item" data-page="settings" onclick="navTo('settings')" style="margin-top:4px;border:1px solid rgba(26,82,212,0.25);border-radius:var(--radius-sm)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span style="flex:1">Il mio Account</span>
@@ -2260,7 +2275,7 @@ async function _supaLoadAll(companyId) {
   // Keys whose arrays must be MERGED (not replaced) with localStorage.
   // Prevents losing records written locally when Supabase sync was blocked
   // (e.g. non-admin RLS write rejection) or lost due to logout race condition.
-  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations']);
+  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations','p2p_convs']);
   try {
     const { data, error } = await _supa.from('company_store')
       .select('store_key,store_value')
@@ -2278,7 +2293,7 @@ async function _supaLoadAll(companyId) {
             const lsRaw = localStorage.getItem('pda_'+row.store_key);
             const lsArr = lsRaw ? JSON.parse(lsRaw) : [];
             if(Array.isArray(lsArr) && lsArr.length > 0){
-              if(row.store_key === 'conversations'){
+              if(row.store_key === 'conversations' || row.store_key === 'p2p_convs'){
                 // Conversation merge: operate at message level (not just at conv level)
                 // A conversation in localStorage may have MORE messages than Supabase
                 // (e.g. user's reply not synced to Supabase due to RLS) — preserve them all
@@ -2371,6 +2386,27 @@ async function _supaLoadAll(companyId) {
       }
     }catch{}
   }
+  // For non-admin users: also load doc_shares from own company partition
+  // (handles case where RLS blocked write to co_admin when sharing was initiated)
+  if(companyId !== 'co_admin' && companyId){
+    try{
+      const{data:ownShares}=await _supa.from('company_store')
+        .select('store_value').eq('store_key','doc_shares').eq('company_id',companyId);
+      if(ownShares&&ownShares.length>0){
+        let arr=ownShares[0].store_value;
+        if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+        if(Array.isArray(arr)&&arr.length>0){
+          const existing=Array.isArray(_mem['doc_shares'])?[..._mem['doc_shares']]:[];
+          const exIds=new Set(existing.map(s=>s.id));
+          arr.forEach(s=>{if(s.id&&!exIds.has(s.id))existing.push(s);});
+          if(existing.length>(_mem['doc_shares']||[]).length){
+            _mem['doc_shares']=existing;
+            try{localStorage.setItem('pda_doc_shares',JSON.stringify(existing));}catch{}
+          }
+        }
+      }
+    }catch{}
+  }
 }
 
 // Upload all current localStorage data for a company to Supabase
@@ -2409,7 +2445,7 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations'];
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares'];
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
@@ -2489,7 +2525,16 @@ const DB = {
   getTickets(){const v=this.get('tickets',[]); return Array.isArray(v)?v:[];},
   setTickets(t){this.set('tickets',t);},
   getConversations(){const v=this.get('conversations',[]); return Array.isArray(v)?v:[];},
-  setConversations(v){this.set('conversations',v);}
+  setConversations(v){this.set('conversations',v);},
+  // ── FASE 2 ─────────────────────────────────────────────
+  getContacts(){const v=this.get('contacts',[]); return Array.isArray(v)?v:[];},
+  setContacts(v){this.set('contacts',v);},
+  getP2PConvs(){const v=this.get('p2p_convs',[]); return Array.isArray(v)?v:[];},
+  setP2PConvs(v){this.set('p2p_convs',v);},
+  getDocShares(){const v=this.get('doc_shares',[]); return Array.isArray(v)?v:[];},
+  setDocShares(v){this.set('doc_shares',v);},
+  getDocActivity(cid){const v=this.get('doc_activity_'+cid,[]); return Array.isArray(v)?v:[];},
+  setDocActivity(cid,v){this.set('doc_activity_'+cid,v);}
 };
 
 // Seed admin
@@ -3318,7 +3363,24 @@ function startApp(user,co){
   if(bnav) bnav.style.display=window.innerWidth<=768?'flex':'none';
   const fab=document.getElementById('mobile-fab');
   if(fab) fab.style.display='none'; // navTo will set it
+  showPhase2Nav();
   navTo('dashboard');
+}
+
+function showPhase2Nav(){
+  const isAdmin = isTrustedAdmin();
+  ['nav-contacts','nav-messages','nav-shared'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=isAdmin?'none':'';
+  });
+  // Update pending contact badge for non-admin users
+  if(!isAdmin && currentUser){
+    const pending=DB.getContacts().filter(c=>c.recipientId===currentUser.id&&c.status==='pending').length;
+    const badge=document.getElementById('nav-contact-badge');
+    if(badge){badge.textContent=pending;badge.classList.toggle('hidden',pending===0);}
+    const p2pBadge=document.getElementById('nav-p2p-badge');
+    if(p2pBadge){const u=countUnreadP2P();p2pBadge.textContent=u;p2pBadge.classList.toggle('hidden',u===0);}
+  }
 }
 
 function renderTrialBanner(){
@@ -3416,7 +3478,7 @@ function updateDocCount(){
 // ════════════════════════════════════════════════
 //  NAVIGATION
 // ════════════════════════════════════════════════
-const pageTitles={dashboard:'Panoramica','all-docs':'Tutti i Documenti',search:'Ricerca',scadenzario:'Scadenzario',admin:'Pannello Amministratore',settings:'Il mio Account'};
+const pageTitles={dashboard:'Panoramica','all-docs':'Tutti i Documenti',search:'Ricerca',scadenzario:'Scadenzario',admin:'Pannello Amministratore',settings:'Il mio Account',contacts:'Rete Contatti',messages:'Messaggi',shared:'Condivisi con me'};
 CATEGORIES.forEach(c=>{pageTitles['cat-'+c.id]=c.name;});
 
 function navTo(page){
@@ -3451,6 +3513,9 @@ function navTo(page){
   else if(page==='scadenzario') renderScadenzario(main);
   else if(page==='admin') renderAdmin(main);
   else if(page==='settings') renderSettings(main);
+  else if(page==='contacts') renderContacts(main);
+  else if(page==='messages') renderMessages(main);
+  else if(page==='shared') renderSharedDocs(main);
 }
 
 // ════════════════════════════════════════════════
@@ -4131,6 +4196,7 @@ async function openDetail(docId){
   const docs=DB.getDocs(currentCompany.id);
   const doc=docs.find(d=>d.id===docId);
   if(!doc) return;
+  logDocActivity(docId,'view',{});
   currentDocId=docId;
   // Mobile: usa bottom sheet invece del pannello laterale
   if(window.innerWidth<=768){ openDocMobileSheet(doc); return; }
@@ -4176,6 +4242,7 @@ async function downloadDoc(docId){
   const docs=DB.getDocs(currentCompany.id);
   const doc=docs.find(d=>d.id===docId);
   if(!doc){showToast('Documento non trovato','error');return;}
+  logDocActivity(docId,'download',{fileName:doc.name,fileSize:doc.fileSize});
   if(doc.storagePath){
     try{
       const{data,error}=await _supa.storage.from('documents').createSignedUrl(doc.storagePath,3600);
@@ -4304,6 +4371,7 @@ async function doUpload(){
   }
   DB.setDocs(currentCompany.id,docs);
   _supaSync(currentCompany.id,'docs_'+currentCompany.id,docs);
+  docs.slice(-processed).forEach(d=>logDocActivity(d.id,'upload',{size:d.fileSize}));
   closeUploadModal();
   updateDocCount();
   updateTrialDocCounters();
@@ -4348,6 +4416,7 @@ function saveEdit(){
   const docs=DB.getDocs(currentCompany.id);
   const idx=docs.findIndex(d=>d.id===editingDocId);
   if(idx<0) return;
+  logDocActivity(editingDocId,'edit',{});
   docs[idx].name=document.getElementById('edit-name').value.trim()||docs[idx].name;
   docs[idx].category=document.getElementById('edit-category').value||docs[idx].category;
   docs[idx].subcategory=document.getElementById('edit-subcategory').value||'';
@@ -8468,6 +8537,464 @@ function renderUserConvSection(co){
 }
 
 
+
+
+// ════════════════════════════════════════════════════════
+// FASE 2
+// ════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════
+// FASE 2 — BACKEND FUNCTIONS
+// ════════════════════════════════════════════════════════
+
+// ── helpers ──────────────────────────────────────────────
+function p2pConvId(uid1, uid2){
+  return [uid1,uid2].sort().join('_');
+}
+
+// ── 1) CONTACT SYSTEM ────────────────────────────────────
+
+function sendContactRequest(email){
+  if(!currentUser) return;
+  const users = DB.getUsers();
+  const target = users.find(u=>u.email===email.trim().toLowerCase() && u.role!=='admin');
+  if(!target){ showToast('Utente non trovato','error'); return; }
+  if(target.id===currentUser.id){ showToast('Non puoi aggiungere te stesso','error'); return; }
+  const contacts = DB.getContacts();
+  const existing = contacts.find(c=>
+    (c.requesterId===currentUser.id&&c.recipientId===target.id)||
+    (c.requesterId===target.id&&c.recipientId===currentUser.id)
+  );
+  if(existing && (existing.status==='pending'||existing.status==='accepted')){
+    showToast('Richiesta già inviata o contatto già presente','info'); return;
+  }
+  if(existing && existing.status==='blocked'){
+    showToast('Impossibile contattare questo utente','error'); return;
+  }
+  const req = {
+    id: 'ct_'+uid(), requesterId:currentUser.id, requesterName:currentUser.name,
+    requesterEmail:currentUser.email, recipientId:target.id, recipientName:target.name,
+    recipientEmail:target.email, status:'pending',
+    createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()
+  };
+  contacts.push(req);
+  DB.setContacts(contacts);
+  createNotification({recipientId:target.id, recipientRole:'user',
+    companyId:target.companyId||'', companyName:target.name,
+    message:'👤 <strong>'+esc(currentUser.name)+'</strong> ti ha inviato una richiesta di contatto.',
+    type:'info', senderName:currentUser.name});
+  showToast('Richiesta inviata a '+target.name,'success');
+  renderContacts(document.getElementById('main-page'));
+}
+
+function respondContactRequest(contactId, accept){
+  const contacts = DB.getContacts();
+  const ct = contacts.find(c=>c.id===contactId);
+  if(!ct||ct.recipientId!==currentUser?.id) return;
+  ct.status = accept ? 'accepted' : 'removed';
+  ct.updatedAt = new Date().toISOString();
+  DB.setContacts(contacts);
+  if(accept){
+    createNotification({recipientId:ct.requesterId, recipientRole:'user',
+      companyId:'', companyName:ct.requesterName,
+      message:'✅ <strong>'+esc(ct.recipientName)+'</strong> ha accettato la tua richiesta di contatto.',
+      type:'success', senderName:ct.recipientName});
+    showToast('Contatto accettato','success');
+  } else {
+    showToast('Richiesta rifiutata','info');
+  }
+  renderContacts(document.getElementById('main-page'));
+}
+
+function removeContact(contactId){
+  const contacts = DB.getContacts();
+  const idx = contacts.findIndex(c=>c.id===contactId);
+  if(idx<0) return;
+  contacts[idx].status='removed'; contacts[idx].updatedAt=new Date().toISOString();
+  DB.setContacts(contacts);
+  showToast('Contatto rimosso','info');
+  renderContacts(document.getElementById('main-page'));
+}
+
+function blockContact(userId){
+  const contacts = DB.getContacts();
+  const ct = contacts.find(c=>
+    (c.requesterId===currentUser?.id&&c.recipientId===userId)||
+    (c.recipientId===currentUser?.id&&c.requesterId===userId)
+  );
+  if(ct){ ct.status='blocked'; ct.updatedAt=new Date().toISOString(); }
+  else {
+    contacts.push({id:'ct_'+uid(),requesterId:currentUser.id,requesteeName:currentUser.name,
+      requesterEmail:currentUser.email,recipientId:userId,recipientName:'',recipientEmail:'',
+      status:'blocked',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+  }
+  DB.setContacts(contacts);
+  showToast('Utente bloccato','info');
+  renderContacts(document.getElementById('main-page'));
+}
+
+function getMyContacts(status){
+  if(!currentUser) return [];
+  const all = DB.getContacts();
+  const mine = all.filter(c=>
+    (c.requesterId===currentUser.id||c.recipientId===currentUser.id) &&
+    (!status || c.status===status)
+  );
+  return mine;
+}
+
+function getContactPeer(ct){
+  // returns the user object for the other side of the contact
+  const peerId = ct.requesterId===currentUser?.id ? ct.recipientId : ct.requesterId;
+  const peerName = ct.requesterId===currentUser?.id ? ct.recipientName : ct.requesterName;
+  const peerEmail = ct.requesterId===currentUser?.id ? ct.recipientEmail : ct.requesterEmail;
+  return {id:peerId, name:peerName, email:peerEmail};
+}
+
+// ── 2) P2P MESSAGING ──────────────────────────────────────
+
+function getOrCreateP2PConv(peerId, peerName){
+  const convs = DB.getP2PConvs();
+  const participants = [currentUser.id, peerId].sort();
+  let conv = convs.find(c=>c.participants[0]===participants[0]&&c.participants[1]===participants[1]);
+  if(!conv){
+    conv = {id:'p2p_'+uid(), participants, messages:[],
+      participantNames:{[currentUser.id]:currentUser.name,[peerId]:peerName},
+      createdAt:new Date().toISOString(), updatedAt:new Date().toISOString()};
+    convs.push(conv);
+    DB.setP2PConvs(convs);
+  }
+  return conv;
+}
+
+async function sendP2PMessage(peerId, peerName){
+  const ta = document.getElementById('p2p-ta-'+peerId);
+  if(!ta||!ta.value.trim()) return;
+  const text = ta.value.trim();
+  // Block check: do not allow messaging if either party has blocked the other
+  const _ctP2P = DB.getContacts().find(c=>
+    (c.requesterId===currentUser?.id&&c.recipientId===peerId)||
+    (c.recipientId===currentUser?.id&&c.requesterId===peerId)
+  );
+  if(_ctP2P?.status==='blocked'){showToast('Non puoi inviare messaggi a questo utente','error');return;}
+  const convs = DB.getP2PConvs();
+  const participants = [currentUser.id, peerId].sort();
+  let conv = convs.find(c=>c.participants[0]===participants[0]&&c.participants[1]===participants[1]);
+  if(!conv){
+    conv={id:'p2p_'+uid(),participants,messages:[],
+      participantNames:{[currentUser.id]:currentUser.name,[peerId]:peerName},
+      createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+    convs.push(conv);
+  }
+  const msg = {id:'m_'+uid(), senderId:currentUser.id, senderName:currentUser.name,
+    text, ts:new Date().toISOString(), readBy:[currentUser.id]};
+  conv.messages.push(msg); conv.updatedAt=msg.ts;
+  DB.setP2PConvs(convs);
+  await _supaSyncAwait('co_admin','p2p_convs',convs);
+  try{ await _supaSyncAwait(currentCompany.id,'p2p_convs',convs); }catch{}
+  ta.value='';
+  // Notify recipient
+  const users = DB.getUsers();
+  const peer = users.find(u=>u.id===peerId);
+  if(peer){
+    createNotification({recipientId:peerId, recipientRole:'user',
+      companyId:peer.companyId||'', companyName:peer.name,
+      message:'✉️ <strong>'+esc(currentUser.name)+'</strong>: '+esc(text.substring(0,60))+(text.length>60?'…':''),
+      type:'info', senderName:currentUser.name});
+  }
+  renderP2PThread(document.getElementById('p2p-thread-'+peerId), conv, peerId);
+  updateNotifBadge();
+}
+
+function markP2PMsgsRead(conv){
+  if(!conv||!currentUser) return;
+  let changed=false;
+  conv.messages.forEach(m=>{
+    if(!m.readBy.includes(currentUser.id)){m.readBy.push(currentUser.id);changed=true;}
+  });
+  if(changed){DB.setP2PConvs(DB.getP2PConvs());updateNotifBadge();}
+}
+
+function countUnreadP2P(){
+  if(!currentUser||isTrustedAdmin()) return 0;
+  const convs = DB.getP2PConvs();
+  return convs.filter(c=>
+    c.participants.includes(currentUser.id)&&
+    c.messages.some(m=>m.senderId!==currentUser.id&&!m.readBy.includes(currentUser.id))
+  ).length;
+}
+
+function renderP2PThread(container, conv, peerId){
+  if(!container) return;
+  markP2PMsgsRead(conv);
+  if(!conv||!conv.messages.length){
+    container.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Inizia la conversazione.</div>';
+    return;
+  }
+  container.innerHTML = conv.messages.map(m=>{
+    const isMine = m.senderId===currentUser?.id;
+    return `<div style="display:flex;flex-direction:column;align-items:${isMine?'flex-end':'flex-start'};margin-bottom:10px">
+      <div style="max-width:75%;background:${isMine?'var(--navy)':'#F1F5F9'};color:${isMine?'#fff':'var(--text)'};padding:8px 12px;border-radius:${isMine?'14px 14px 2px 14px':'14px 14px 14px 2px'};font-size:13px;word-break:break-word">${esc(m.text)}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:3px">${esc(m.senderName)} &middot; ${formatDate(m.ts)}</div>
+    </div>`;
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+// ── 3) DOCUMENT SHARING ───────────────────────────────────
+
+function shareDocument(docId, recipientUserId, recipientName, permission){
+  if(!currentUser||!currentCompany) return;
+  // Block check: prevent sharing with blocked users
+  const _ctSh = DB.getContacts().find(c=>
+    (c.requesterId===currentUser.id&&c.recipientId===recipientUserId)||
+    (c.recipientId===currentUser.id&&c.requesterId===recipientUserId)
+  );
+  if(_ctSh?.status==='blocked'){showToast('Non puoi condividere documenti con questo utente','error');return;}
+  const docs = DB.getDocs(currentCompany.id);
+  const doc = docs.find(d=>d.id===docId);
+  if(!doc){ showToast('Documento non trovato','error'); return; }
+  const shares = DB.getDocShares();
+  const existing = shares.find(s=>s.docId===docId&&s.recipientUserId===recipientUserId&&s.active);
+  if(existing){ showToast('Documento già condiviso con questo utente','info'); return; }
+  const share = {
+    id:'ds_'+uid(), docId, docName:doc.name, storagePath:doc.storagePath||null,
+    ownerUserId:currentUser.id, ownerCompanyId:currentCompany.id, ownerName:currentUser.name,
+    recipientUserId, recipientName, permission, grantedAt:new Date().toISOString(), active:true
+  };
+  shares.push(share);
+  DB.setDocShares(shares);
+  // Also write to own partition so non-admin user's JWT can succeed
+  try { _supaSyncAwait(currentCompany.id,'doc_shares',shares).catch(()=>{}); } catch {}
+  logDocActivity(docId, 'share', {recipientName, permission});
+  const users = DB.getUsers();
+  const peer = users.find(u=>u.id===recipientUserId);
+  if(peer){
+    createNotification({recipientId:recipientUserId, recipientRole:'user',
+      companyId:peer.companyId||'', companyName:peer.name,
+      message:'📄 <strong>'+esc(currentUser.name)+'</strong> ha condiviso il documento <strong>'+esc(doc.name)+'</strong> con te.',
+      type:'info', senderName:currentUser.name});
+  }
+  showToast('Documento condiviso con '+recipientName,'success');
+}
+
+function revokeDocShare(shareId){
+  const shares = DB.getDocShares();
+  const s = shares.find(x=>x.id===shareId);
+  if(!s||s.ownerUserId!==currentUser?.id) return;
+  s.active=false;
+  DB.setDocShares(shares);
+  logDocActivity(s.docId, 'revoke', {recipientName:s.recipientName});
+  showToast('Condivisione revocata','info');
+  renderSharedDocs(document.getElementById('main-page'));
+}
+
+function getDocsSharedWithMe(){
+  if(!currentUser) return [];
+  return DB.getDocShares().filter(s=>s.recipientUserId===currentUser.id&&s.active);
+}
+
+// ── 4) DOCUMENT ACTIVITY LOG ─────────────────────────────
+
+function logDocActivity(docId, action, meta){
+  if(!currentUser||!currentCompany) return;
+  const activity = DB.getDocActivity(currentCompany.id);
+  const docs = DB.getDocs(currentCompany.id);
+  const doc = docs.find(d=>d.id===docId);
+  activity.push({
+    id:'da_'+uid(), docId, docName:doc?.name||docId,
+    userId:currentUser.id, userName:currentUser.name,
+    action, ts:new Date().toISOString(), meta:meta||{}
+  });
+  // Keep last 200 entries per company to limit storage
+  if(activity.length>200) activity.splice(0, activity.length-200);
+  DB.setDocActivity(currentCompany.id, activity);
+}
+
+// ── Hook into existing badge count ────────────────────────
+const _origCountUnreadNotifs = countUnreadNotifs;
+function countUnreadNotifs(){
+  return _origCountUnreadNotifs() + countUnreadP2P();
+}
+
+// ── RENDER: CONTACTS PAGE ─────────────────────────────────
+function renderContacts(main){
+  if(!main||!currentUser) return;
+  const pending = getMyContacts('pending').filter(c=>c.recipientId===currentUser.id);
+  const accepted = getMyContacts('accepted');
+  const convs = DB.getP2PConvs();
+
+  const acceptedHtml = accepted.length ? accepted.map(ct=>{
+    const peer = getContactPeer(ct);
+    const conv = convs.find(c=>c.participants.includes(peer.id)&&c.participants.includes(currentUser.id));
+    const unread = conv ? conv.messages.filter(m=>m.senderId!==currentUser.id&&!m.readBy.includes(currentUser.id)).length : 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border-light)">
+      <div>
+        <div style="font-weight:600;color:var(--navy);font-size:14px">${esc(peer.name)}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${esc(peer.email)}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${unread>0?`<span style="background:#DC2626;color:#fff;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:700">${unread}</span>`:''}
+        <button onclick="openP2PChat('${peer.id}','${esc(peer.name).replace(/'/g,"\\'")}',this)" style="font-size:12px;padding:5px 12px;background:var(--navy);color:#fff;border:none;border-radius:6px;cursor:pointer">✉ Messaggio</button>
+        <button onclick="shareDocToContact('${peer.id}','${esc(peer.name).replace(/'/g,"\\'")}',this)" style="font-size:12px;padding:5px 12px;background:#f1f5f9;color:var(--navy);border:1px solid var(--border-light);border-radius:6px;cursor:pointer">📄 Condividi</button>
+        <button onclick="removeContact('${ct.id}')" style="font-size:11px;padding:4px 8px;background:none;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;color:var(--text-muted)">×</button>
+      </div>
+    </div>`;
+  }).join('') : '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">Nessun contatto ancora. Cerca un utente per aggiungere il primo contatto.</div>';
+
+  const pendingHtml = pending.map(ct=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#FFFBEB;border-bottom:1px solid var(--border-light)">
+      <div>
+        <div style="font-weight:600;color:var(--navy);font-size:13px">Da: ${esc(ct.requesterName)} (${esc(ct.requesterEmail)})</div>
+        <div style="font-size:11px;color:var(--text-muted)">${formatDate(ct.createdAt)}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="respondContactRequest('${ct.id}',true)" style="font-size:12px;padding:5px 12px;background:#16A34A;color:#fff;border:none;border-radius:6px;cursor:pointer">✓ Accetta</button>
+        <button onclick="respondContactRequest('${ct.id}',false)" style="font-size:12px;padding:5px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;color:var(--text-muted)">✕ Rifiuta</button>
+      </div>
+    </div>`).join('');
+
+  main.innerHTML=`<div style="padding:20px;max-width:720px;margin:0 auto">
+    <div style="margin-bottom:20px">
+      <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:4px">Rete Contatti</div>
+      <div style="font-size:13px;color:var(--text-muted)">Connettiti con altri utenti, scambia messaggi e condividi documenti.</div>
+    </div>
+    ${pending.length ? `<div class="card" style="margin-bottom:16px;overflow:hidden">
+      <div style="padding:10px 16px;background:#FFFBEB;border-bottom:1px solid var(--border-light);font-size:12px;font-weight:700;color:#92400E">
+        ⏳ Richieste in entrata (${pending.length})
+      </div>${pendingHtml}</div>`:''}
+    <div class="card" style="margin-bottom:16px;overflow:hidden">
+      <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;font-weight:700;color:var(--navy)">I miei contatti (${accepted.length})</span>
+      </div>
+      ${acceptedHtml}
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid var(--border-light);font-size:13px;font-weight:700;color:var(--navy)">Cerca utente</div>
+      <div style="padding:16px;display:flex;gap:8px">
+        <input id="contact-search-input" type="email" placeholder="Inserisci email utente..." style="flex:1;padding:8px 12px;border:1px solid var(--border-light);border-radius:6px;font-size:13px">
+        <button onclick="sendContactRequest(document.getElementById('contact-search-input').value)" style="padding:8px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Invia richiesta</button>
+      </div>
+    </div>
+    <div id="p2p-chat-area" style="margin-top:16px"></div>
+  </div>`;
+}
+
+// ── P2P Chat (opened from contacts page) ────────────────
+function openP2PChat(peerId, peerName, btn){
+  const area = document.getElementById('p2p-chat-area');
+  if(!area) return;
+  const conv = getOrCreateP2PConv(peerId, peerName);
+  const threadId = 'p2p-thread-'+peerId;
+  area.innerHTML=`<div class="card" style="overflow:hidden">
+    <div style="padding:12px 16px;background:var(--navy);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:space-between">
+      <span>✉ Chat con ${esc(peerName)}</span>
+      <button onclick="document.getElementById('p2p-chat-area').innerHTML=''" style="background:none;border:none;color:rgba(255,255,255,0.7);cursor:pointer;font-size:16px">×</button>
+    </div>
+    <div id="${threadId}" style="min-height:120px;max-height:280px;overflow-y:auto;padding:14px;background:#f8fafc"></div>
+    <div style="padding:10px 14px;border-top:1px solid var(--border-light);display:flex;gap:8px">
+      <textarea id="p2p-ta-${peerId}" rows="2" placeholder="Scrivi a ${esc(peerName)}…" style="flex:1;font-size:13px;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;resize:none;font-family:inherit" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendP2PMessage('${peerId}','${esc(peerName).replace(/'/g,"\\'")}');}"  ></textarea>
+      <button onclick="sendP2PMessage('${peerId}','${esc(peerName).replace(/'/g,"\\'")}');" style="background:var(--navy);color:#fff;border:none;border-radius:6px;padding:0 14px;font-size:13px;font-weight:600;cursor:pointer">Invia</button>
+    </div>
+  </div>`;
+  renderP2PThread(document.getElementById(threadId), conv, peerId);
+  area.scrollIntoView({behavior:'smooth'});
+}
+
+// ── RENDER: MESSAGES PAGE ─────────────────────────────────
+function renderMessages(main){
+  if(!main||!currentUser) return;
+  const convs = DB.getP2PConvs().filter(c=>c.participants.includes(currentUser.id));
+  convs.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
+
+  const listHtml = convs.length ? convs.map(conv=>{
+    const peerId = conv.participants.find(p=>p!==currentUser.id);
+    const peerName = conv.participantNames?.[peerId]||'Utente';
+    const last = conv.messages[conv.messages.length-1];
+    const unread = conv.messages.filter(m=>m.senderId!==currentUser.id&&!m.readBy.includes(currentUser.id)).length;
+    return `<div onclick="navTo('contacts')" style="padding:14px 16px;border-bottom:1px solid var(--border-light);cursor:pointer;display:flex;align-items:center;justify-content:space-between">
+      <div style="min-width:0">
+        <div style="font-weight:600;color:var(--navy);font-size:14px">${esc(peerName)}</div>
+        <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px">${last?esc(last.text.substring(0,60)):''}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div style="font-size:11px;color:var(--text-muted)">${last?formatDate(last.ts):''}</div>
+        ${unread>0?`<span style="background:#DC2626;color:#fff;border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700">${unread}</span>`:''}
+      </div>
+    </div>`;
+  }).join('') : '<div style="padding:24px;text-align:center;color:var(--text-muted)">Nessuna conversazione. Aggiungi un contatto e inizia a messaggiare.</div>';
+
+  main.innerHTML=`<div style="padding:20px;max-width:720px;margin:0 auto">
+    <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:16px">Messaggi</div>
+    <div class="card" style="overflow:hidden">${listHtml}</div>
+  </div>`;
+}
+
+// ── RENDER: SHARED DOCS PAGE ──────────────────────────────
+async function renderSharedDocs(main){
+  if(!main||!currentUser) return;
+  const shares = getDocsSharedWithMe();
+  main.innerHTML=`<div style="padding:20px;max-width:760px;margin:0 auto">
+    <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:16px">Condivisi con me</div>
+    ${shares.length===0?'<div class="card" style="padding:24px;text-align:center;color:var(--text-muted)">Nessun documento è stato condiviso con te.</div>':
+    `<div class="card" style="overflow:hidden">
+      ${shares.map(s=>`
+        <div style="padding:14px 16px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:600;color:var(--navy);font-size:14px">${esc(s.docName)}</div>
+            <div style="font-size:12px;color:var(--text-muted)">Da: ${esc(s.ownerName)} &middot; ${formatDate(s.grantedAt)} &middot; ${s.permission==='download'?'Download':'Solo lettura'}</div>
+          </div>
+          ${s.permission==='download'?`<button onclick="downloadSharedDoc('${s.id}')" style="font-size:12px;padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;cursor:pointer">⬇ Scarica</button>`:'<span style="font-size:11px;color:var(--text-muted);background:#f1f5f9;border-radius:4px;padding:3px 8px">Sola lettura</span>'}
+        </div>`).join('')}
+    </div>`}
+  </div>`;
+}
+
+async function downloadSharedDoc(shareId){
+  const shares = DB.getDocShares();
+  const share = shares.find(s=>s.id===shareId&&s.recipientUserId===currentUser?.id&&s.active);
+  if(!share){showToast('Documento non più disponibile','error');return;}
+  if(share.permission!=='download'){showToast('Permesso insufficiente','error');return;}
+  showToast('Download in corso...','info');
+  try{
+    // Use stored storagePath for accuracy; fall back to computed path
+    const _dlPath = share.storagePath || (share.ownerCompanyId+'/'+share.docId+'/'+share.docName);
+    const{data,error}=await _supa.storage.from('documents')
+      .download(_dlPath);
+    if(error){showToast('Errore download','error');return;}
+    const url=URL.createObjectURL(data);
+    const a=document.createElement('a'); a.href=url; a.download=share.docName; a.click();
+    URL.revokeObjectURL(url);
+  }catch{showToast('Errore download','error');}
+}
+
+// ── Share doc to contact (from contacts page) ─────────────
+function shareDocToContact(peerId, peerName, btn){
+  const docs = DB.getDocs(currentCompany?.id||'');
+  if(!docs.length){showToast('Nessun documento da condividere','info');return;}
+  const opts = docs.map(d=>`<option value="${d.id}">${esc(d.name)}</option>`).join('');
+  const modal = `<div style="padding:16px">
+    <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:12px">Condividi documento con ${esc(peerName)}</div>
+    <div style="margin-bottom:10px">
+      <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Documento</label>
+      <select id="share-doc-sel" style="width:100%;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;font-size:13px"><option value="">— Seleziona —</option>${opts}</select>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px">Permesso</label>
+      <select id="share-perm-sel" style="width:100%;padding:7px 10px;border:1px solid var(--border-light);border-radius:6px;font-size:13px">
+        <option value="read">Solo lettura</option>
+        <option value="download">Download consentito</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="closeConfirm()" style="padding:6px 14px;border:1px solid var(--border-light);border-radius:6px;background:#fff;font-size:13px;cursor:pointer">Annulla</button>
+      <button onclick="shareDocument(document.getElementById('share-doc-sel').value,'${peerId}','${esc(peerName).replace(/'/g,"\\'")}',document.getElementById('share-perm-sel').value);closeConfirm();" style="padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Condividi</button>
+    </div>
+  </div>`;
+  document.getElementById('confirm-title').textContent='Condivisione documento';
+  document.getElementById('confirm-text').innerHTML=modal;
+  document.getElementById('confirm-ok-btn').style.display='none';
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
 
 function getMyNotifications(){
   const all=DB.getNotifications();
