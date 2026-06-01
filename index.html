@@ -2601,6 +2601,7 @@ function patchAdminCompany(){
 //  AUTH
 // ════════════════════════════════════════════════
 let currentUser=null, currentCompany=null, currentPage=null;
+let _savingNewPwd=false; // guard against double submit in saveNewPassword
 
 function switchAuthTab(tab){
   document.getElementById('tab-login').classList.toggle('active',tab==='login');
@@ -11471,17 +11472,43 @@ async function sendResetEmail(){
   okEl.classList.remove('hidden');
 }
 async function saveNewPassword(){
+  // Guard: prevent double submit (duplicate buttons, Enter key, double-tap)
+  if(_savingNewPwd) return;
+  _savingNewPwd = true;
+  // Disable both submit buttons immediately to block any further clicks
+  document.querySelectorAll('[onclick="saveNewPassword()"]').forEach(b=>{
+    b.disabled=true; b.textContent='Salvataggio…';
+  });
   const pwd = document.getElementById('new-pwd-input').value;
   const confirm = document.getElementById('new-pwd-confirm').value;
   const msgEl = document.getElementById('new-pwd-msg');
-  if(pwd.length < 8){ msgEl.textContent='Password minimo 8 caratteri.'; msgEl.classList.remove('hidden'); return; }
-  if(pwd !== confirm){ msgEl.textContent='Le password non coincidono.'; msgEl.classList.remove('hidden'); return; }
+  if(pwd.length < 8){
+    msgEl.textContent='Password minimo 8 caratteri.'; msgEl.classList.remove('hidden');
+    _savingNewPwd=false;
+    document.querySelectorAll('[onclick="saveNewPassword()"]').forEach(b=>{b.disabled=false;b.textContent='Salva nuova password';});
+    return;
+  }
+  if(pwd !== confirm){
+    msgEl.textContent='Le password non coincidono.'; msgEl.classList.remove('hidden');
+    _savingNewPwd=false;
+    document.querySelectorAll('[onclick="saveNewPassword()"]').forEach(b=>{b.disabled=false;b.textContent='Salva nuova password';});
+    return;
+  }
   const { error } = await _supa.auth.updateUser({ password: pwd });
   if(error){
     msgEl.textContent = error.message || 'Errore. Riprova.';
     msgEl.classList.remove('hidden');
+    _savingNewPwd=false;
+    document.querySelectorAll('[onclick="saveNewPassword()"]').forEach(b=>{b.disabled=false;b.textContent='Salva nuova password';});
     return;
   }
+  // SUCCESS — clear inputs and show confirmation; keep buttons disabled permanently
+  document.getElementById('new-pwd-input').value='';
+  document.getElementById('new-pwd-confirm').value='';
+  // Show inline success message (toast alone is insufficient if form stays visible)
+  msgEl.textContent='✅ Password aggiornata. Accesso in corso…';
+  msgEl.style.color='#16A34A'; msgEl.style.background='#F0FDF4'; msgEl.style.border='1px solid #BBF7D0';
+  msgEl.classList.remove('hidden');
   document.getElementById('new-pwd-modal').classList.add('hidden');
   showToast('Password aggiornata con successo!', 'success');
   // Auto-login: la sessione è già attiva dopo updateUser
