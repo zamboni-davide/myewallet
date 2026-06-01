@@ -11501,18 +11501,32 @@ async function saveNewPassword(){
 
 // Intercetta il token di recovery — Supabase v2 usa onAuthStateChange PASSWORD_RECOVERY
 function checkRecoveryToken(){
-  // Listener per evento PASSWORD_RECOVERY da Supabase
+  // PRIMARY: onAuthStateChange fires AFTER Supabase has established the recovery session
+  // This covers PKCE flow and implicit flow processed by the Supabase client
   _supa.auth.onAuthStateChange((event, session) => {
     if(event === 'PASSWORD_RECOVERY'){
       history.replaceState(null,'',window.location.pathname);
       showNewPasswordForm();
     }
   });
-  // Fallback: controlla anche il fragment URL (alcuni client lo usano ancora)
+  // FALLBACK: implicit flow — URL fragment contains access_token + refresh_token
+  // Do NOT show the form immediately; instead call setSession() first so that
+  // auth.updateUser() can work. Without this, updateUser() returns AUTH_SESSION_MISSING.
   const hash = window.location.hash;
   if(hash && hash.includes('type=recovery')){
-    history.replaceState(null,'',window.location.pathname);
-    showNewPasswordForm();
+    const params = new URLSearchParams(hash.substring(1));
+    const access_token  = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if(access_token && refresh_token){
+      // Explicitly set the session so updateUser() has a valid session to act on
+      _supa.auth.setSession({access_token, refresh_token}).then(({error})=>{
+        if(!error){
+          history.replaceState(null,'',window.location.pathname);
+          showNewPasswordForm();
+        }
+      });
+    }
+    // If tokens are absent, onAuthStateChange above will fire and handle it
   }
 }
 
