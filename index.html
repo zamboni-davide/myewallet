@@ -9116,18 +9116,9 @@ async function downloadSharedDoc(shareId){
       const a=document.createElement('a'); a.href=share.signedUrl; a.download=share.docName; a.click();
       _recordDownload(); return;
     }
-    // No pre-generated URL: share created before the signed-URL update
-    if(!share.storagePath&&!share.ownerCompanyId){
-      showToast('Link non disponibile. Chiedi al mittente di ricondividere il documento.','error');
-      return;
-    }
-    // Fallback: try createSignedUrl with current session (may fail if RLS blocks cross-user access)
-    const _dlPath = share.storagePath || (share.ownerCompanyId+'/'+share.docId+'/'+share.docName);
-    const{data,error}=await _supa.storage.from('documents')
-      .createSignedUrl(_dlPath, 3600);
-    if(error||!data?.signedUrl){showToast('Errore download: il documento non è più accessibile','error');return;}
-    const a=document.createElement('a'); a.href=data.signedUrl; a.download=share.docName; a.click();
-    _recordDownload();
+    // No pre-generated signedUrl → do NOT call createSignedUrl with recipient's JWT
+    // (Supabase Storage RLS blocks cross-user signed URL generation → 400)
+    showToast('Link non disponibile. Chiedi al mittente di ricondividere il documento per ottenere un nuovo link.','error');
   }catch{showToast('Errore download','error');}
 }
 
