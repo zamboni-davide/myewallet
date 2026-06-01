@@ -2275,7 +2275,7 @@ async function _supaLoadAll(companyId) {
   // Keys whose arrays must be MERGED (not replaced) with localStorage.
   // Prevents losing records written locally when Supabase sync was blocked
   // (e.g. non-admin RLS write rejection) or lost due to logout race condition.
-  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations','p2p_convs']);
+  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations','p2p_convs','contacts']);
   try {
     const { data, error } = await _supa.from('company_store')
       .select('store_key,store_value')
@@ -2293,7 +2293,12 @@ async function _supaLoadAll(companyId) {
             const lsRaw = localStorage.getItem('pda_'+row.store_key);
             const lsArr = lsRaw ? JSON.parse(lsRaw) : [];
             if(Array.isArray(lsArr) && lsArr.length > 0){
-              if(row.store_key === 'conversations' || row.store_key === 'p2p_convs'){
+              if(row.store_key === 'contacts'){
+                // Status-wins merge: localStorage status takes precedence over Supabase stale status
+                const lsMap = new Map(lsArr.map(c=>[c.id,c]));
+                val = val.map(c=> lsMap.has(c.id) ? {...c, ...lsMap.get(c.id)} : c);
+                lsArr.forEach(c=>{ if(c.id && !val.find(x=>x.id===c.id)) val.push(c); });
+              } else if(row.store_key === 'conversations' || row.store_key === 'p2p_convs'){
                 // Conversation merge: operate at message level (not just at conv level)
                 // A conversation in localStorage may have MORE messages than Supabase
                 // (e.g. user's reply not synced to Supabase due to RLS) — preserve them all
@@ -7257,7 +7262,7 @@ function renderSettingsNotifBlock(co){
     <div style="padding:14px 20px;border-bottom:1px solid var(--border-light);background:var(--navy);display:flex;align-items:center;justify-content:space-between">
       <span style="font-size:14px;font-weight:700;color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notifiche (${myNotifs.filter(n=>!n.read).length} non lette)</span>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.7);font-size:11px" onclick="markAllNotifRead()">Segna tutte lette</button>
+        <button class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.7);font-size:11px" onclick="markAllNotifsRead()">Segna tutte lette</button>
         ${hasRead?`<button class="btn btn-ghost btn-sm" style="color:rgba(231,76,60,0.8);font-size:11px" onclick="clearReadNotifs()">Elimina lette</button>`:''}
       </div>
     </div>
@@ -8587,13 +8592,15 @@ function sendContactRequest(email){
   renderContacts(document.getElementById('main-page'));
 }
 
-function respondContactRequest(contactId, accept){
+async function respondContactRequest(contactId, accept){
   const contacts = DB.getContacts();
   const ct = contacts.find(c=>c.id===contactId);
   if(!ct||ct.recipientId!==currentUser?.id) return;
   ct.status = accept ? 'accepted' : 'removed';
   ct.updatedAt = new Date().toISOString();
   DB.setContacts(contacts);
+  // Await sync so status change survives logout before fire-and-forget completes
+  await _supaSyncAwait('co_admin','contacts',contacts);
   if(accept){
     createNotification({recipientId:ct.requesterId, recipientRole:'user',
       companyId:'', companyName:ct.requesterName,
@@ -8743,7 +8750,7 @@ function renderP2PThread(container, conv, peerId){
 
 // ── 3) DOCUMENT SHARING ───────────────────────────────────
 
-function shareDocument(docId, recipientUserId, recipientName, permission){
+async function shareDocument(docId, recipientUserId, recipientName, permission){
   if(!currentUser||!currentCompany) return;
   // Block check: prevent sharing with blocked users
   const _ctSh = DB.getContacts().find(c=>
@@ -8757,8 +8764,19 @@ function shareDocument(docId, recipientUserId, recipientName, permission){
   const shares = DB.getDocShares();
   const existing = shares.find(s=>s.docId===docId&&s.recipientUserId===recipientUserId&&s.active);
   if(existing){ showToast('Documento già condiviso con questo utente','info'); return; }
+  // Pre-generate signed URL using owner's JWT (valid for owner's own files)
+  // Stored in share so recipient can download without needing access to owner's storage
+  let _preSignedUrl = null;
+  if(doc.storagePath && permission==='download'){
+    try{
+      const{data:_sd}=await _supa.storage.from('documents')
+        .createSignedUrl(doc.storagePath, 31536000); // 1 year
+      if(_sd?.signedUrl) _preSignedUrl=_sd.signedUrl;
+    }catch{}
+  }
   const share = {
     id:'ds_'+uid(), docId, docName:doc.name, storagePath:doc.storagePath||null,
+    signedUrl: _preSignedUrl,
     ownerUserId:currentUser.id, ownerCompanyId:currentCompany.id, ownerName:currentUser.name,
     recipientUserId, recipientName, permission, grantedAt:new Date().toISOString(), active:true
   };
@@ -8958,12 +8976,16 @@ async function downloadSharedDoc(shareId){
   showToast('Download in corso...','info');
   try{
     // Use stored storagePath for accuracy; fall back to computed path
+    // Use pre-generated signed URL if available (generated at share time by owner's JWT)
+    if(share.signedUrl){
+      const a=document.createElement('a'); a.href=share.signedUrl; a.download=share.docName; a.click();
+      return;
+    }
+    // Fallback: try createSignedUrl with current session (may fail if RLS blocks cross-user access)
     const _dlPath = share.storagePath || (share.ownerCompanyId+'/'+share.docId+'/'+share.docName);
-    // Use createSignedUrl (same as owner-side downloadDoc) so the recipient's JWT
-    // doesn't need direct storage access — the signed URL is permission-agnostic
     const{data,error}=await _supa.storage.from('documents')
       .createSignedUrl(_dlPath, 3600);
-    if(error||!data?.signedUrl){showToast('Errore download','error');return;}
+    if(error||!data?.signedUrl){showToast('Errore download: il documento non è più accessibile','error');return;}
     const a=document.createElement('a'); a.href=data.signedUrl; a.download=share.docName; a.click();
   }catch{showToast('Errore download','error');}
 }
