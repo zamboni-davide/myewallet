@@ -7231,7 +7231,7 @@ function renderSettingsNotifBlock(co){
     const fromAdmin = n.senderName && n.senderName !== currentUser?.name;
     const replyId = 'notif-reply-'+n.id;
     return `<div class="notif-item ${n.read&&!needsSig?'':'unread'}" style="padding:12px 14px;border-bottom:1px solid var(--border-light);${!n.read||needsSig?'background:rgba(26,82,212,0.04)':''}">
-      <div style="display:flex;align-items:flex-start;gap:10px;cursor:pointer" onclick="markNotifRead('${n.id}')${needsSig?`;showSignatureModal('${n.purchaseId}','${n.id}')`:''}">
+      <div style="display:flex;align-items:flex-start;gap:10px;cursor:pointer" onclick="readNotif('${n.id}')${needsSig?`;showSignatureModal('${n.purchaseId}','${n.id}')`:''}">
         <div class="notif-icon" style="background:${typeBg[n.type]||'#EFF6FF'};width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px">${typeIcon[n.type]||typeIcon.info}</div>
         <div class="notif-body" style="flex:1;min-width:0">
           ${fromAdmin?`<div style="font-size:11px;font-weight:600;color:var(--navy);margin-bottom:3px;opacity:0.7">Da: ${n.senderName||'Studio Zamboni'}</div>`:''}
@@ -8959,12 +8959,12 @@ async function downloadSharedDoc(shareId){
   try{
     // Use stored storagePath for accuracy; fall back to computed path
     const _dlPath = share.storagePath || (share.ownerCompanyId+'/'+share.docId+'/'+share.docName);
+    // Use createSignedUrl (same as owner-side downloadDoc) so the recipient's JWT
+    // doesn't need direct storage access — the signed URL is permission-agnostic
     const{data,error}=await _supa.storage.from('documents')
-      .download(_dlPath);
-    if(error){showToast('Errore download','error');return;}
-    const url=URL.createObjectURL(data);
-    const a=document.createElement('a'); a.href=url; a.download=share.docName; a.click();
-    URL.revokeObjectURL(url);
+      .createSignedUrl(_dlPath, 3600);
+    if(error||!data?.signedUrl){showToast('Errore download','error');return;}
+    const a=document.createElement('a'); a.href=data.signedUrl; a.download=share.docName; a.click();
   }catch{showToast('Errore download','error');}
 }
 
