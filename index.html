@@ -10861,10 +10861,25 @@ function acceptTerms(){
 
 function downloadTermsPDF(){
   const co=currentCompany||{name:'–',vatNumber:'',address:'',email:'',phone:'',plan:'Standard',planStartDate:null,planEndDate:null};
-  const plans=DB.getPlansConfig();
-  const planData=plans[co.plan]||{price:0,vatRate:22,paymentMethods:[]};
-  const iva=Math.round(planData.price*planData.vatRate/100*100)/100;
-  const tot=Math.round((planData.price+iva)*100)/100;
+  // Use signed contract snapshot if available — preserves price at signing time.
+  // Falls back to live DB.getPlansConfig() for users without a signed contract (e.g. Trial).
+  const _activeContract = getActiveContract(co.id);
+  const _snap = _activeContract?.planSnapshot;
+  let planData, iva, tot;
+  if(_snap?.pricing){
+    planData = {
+      price:          _snap.pricing.price   || 0,
+      vatRate:        _snap.pricing.vatRate  || 22,
+      paymentMethods: _snap.features?.paymentMethods || []
+    };
+    iva = Math.round((planData.price * planData.vatRate / 100) * 100) / 100;
+    tot = _snap.pricing.total || Math.round((planData.price + iva) * 100) / 100;
+  } else {
+    const plans = DB.getPlansConfig();
+    planData = plans[co.plan] || {price:0, vatRate:22, paymentMethods:[]};
+    iva = Math.round(planData.price * planData.vatRate / 100 * 100) / 100;
+    tot = Math.round((planData.price + iva) * 100) / 100;
+  }
   const user=currentUser||{name:'–',email:'–',termsAcceptedAt:null};
   const year=STUDIO_INFO.year;
   const now=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
@@ -11518,6 +11533,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   seedAdmin();
   // ── Inject SVG logos ──
   injectLogos();
+  updateDynamicTerms(); // ensure T&C spans reflect DB prices on every page load
   // Responsive: aggiorna bottom nav su resize
   window.addEventListener('resize',()=>{
     const bnav=document.getElementById('mobile-bottom-nav');
