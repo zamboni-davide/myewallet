@@ -7263,7 +7263,7 @@ function renderSettingsNotifBlock(co){
       <span style="font-size:14px;font-weight:700;color:#fff"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notifiche (${myNotifs.filter(n=>!n.read).length} non lette)</span>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" style="color:rgba(255,255,255,0.7);font-size:11px" onclick="markAllNotifsRead()">Segna tutte lette</button>
-        ${hasRead?`<button class="btn btn-ghost btn-sm" style="color:rgba(231,76,60,0.8);font-size:11px" onclick="clearReadNotifs()">Elimina lette</button>`:''}
+        ${hasRead?`<button class="btn btn-ghost btn-sm" style="color:rgba(231,76,60,0.8);font-size:11px" onclick="deleteAllReadNotifs()">Elimina lette</button>`:''}
       </div>
     </div>
     ${items}
@@ -8960,9 +8960,14 @@ async function renderSharedDocs(main){
         <div style="padding:14px 16px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between">
           <div>
             <div style="font-weight:600;color:var(--navy);font-size:14px">${esc(s.docName)}</div>
-            <div style="font-size:12px;color:var(--text-muted)">Da: ${esc(s.ownerName)} &middot; ${formatDate(s.grantedAt)} &middot; ${s.permission==='download'?'Download':'Solo lettura'}</div>
+            <div style="font-size:12px;color:var(--text-muted)">Da: ${esc(s.ownerName)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Ricevuto: ${formatDate(s.grantedAt)} &middot; ${s.permission==='download'?'Download consentito':'Sola lettura'}</div>
           </div>
-          ${s.permission==='download'?`<button onclick="downloadSharedDoc('${s.id}')" style="font-size:12px;padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;cursor:pointer">⬇ Scarica</button>`:'<span style="font-size:11px;color:var(--text-muted);background:#f1f5f9;border-radius:4px;padding:3px 8px">Sola lettura</span>'}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${s.permission==='download'?`<button onclick="downloadSharedDoc('${s.id}')" style="font-size:12px;padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;cursor:pointer">⬇ Scarica</button>
+              ${s.downloadedAt?`<span style="font-size:10px;color:#16A34A">✓ Scaricato il ${formatDate(s.downloadedAt)}</span>`:'<span style="font-size:10px;color:var(--text-muted)">Non ancora scaricato</span>'}`:
+            '<span style="font-size:11px;color:var(--text-muted);background:#f1f5f9;border-radius:4px;padding:3px 8px">Sola lettura</span>'}
+          </div>
         </div>`).join('')}
     </div>`}
   </div>`;
@@ -8975,10 +8980,22 @@ async function downloadSharedDoc(shareId){
   if(share.permission!=='download'){showToast('Permesso insufficiente','error');return;}
   showToast('Download in corso...','info');
   try{
-    // Use stored storagePath for accuracy; fall back to computed path
-    // Use pre-generated signed URL if available (generated at share time by owner's JWT)
+    // Helper: record first download timestamp and refresh "Condivisi con me" UI
+    const _recordDownload=()=>{
+      const _sh=DB.getDocShares();
+      const _s=_sh.find(x=>x.id===shareId);
+      if(_s&&!_s.downloadedAt){_s.downloadedAt=new Date().toISOString();DB.setDocShares(_sh);}
+      const _mp=document.getElementById('main-page');
+      if(_mp&&currentPage==='shared') renderSharedDocs(_mp);
+    };
+    // Use pre-generated signed URL (generated at share time by owner's JWT)
     if(share.signedUrl){
       const a=document.createElement('a'); a.href=share.signedUrl; a.download=share.docName; a.click();
+      _recordDownload(); return;
+    }
+    // No pre-generated URL: share created before the signed-URL update
+    if(!share.storagePath&&!share.ownerCompanyId){
+      showToast('Link non disponibile. Chiedi al mittente di ricondividere il documento.','error');
       return;
     }
     // Fallback: try createSignedUrl with current session (may fail if RLS blocks cross-user access)
@@ -8987,6 +9004,7 @@ async function downloadSharedDoc(shareId){
       .createSignedUrl(_dlPath, 3600);
     if(error||!data?.signedUrl){showToast('Errore download: il documento non è più accessibile','error');return;}
     const a=document.createElement('a'); a.href=data.signedUrl; a.download=share.docName; a.click();
+    _recordDownload();
   }catch{showToast('Errore download','error');}
 }
 
