@@ -1946,8 +1946,21 @@ textarea.input{resize:vertical;min-height:80px;}
           <p>I documenti caricati sono conservati per tutta la durata del piano attivo e per <strong>120 giorni</strong> dopo la scadenza, poi cancellati definitivamente in modo irreversibile. Lo stesso termine si applica in caso di risoluzione per morosità. La cancellazione anticipata è disponibile nelle impostazioni account.</p>
         </div>
       </div>
+
       <div class="terms-section">
-        <div class="terms-section-title">10. Modifiche alle Condizioni</div>
+        <div class="terms-section-title">11. Rete Contatti, Messaggistica e Condivisione Documentale</div>
+        <div class="terms-text">
+          <p><strong>11.1 Rete Contatti tra Utenti.</strong> La Piattaforma consente agli Utenti registrati di stabilire connessioni reciproche ("contatti"). L'invio e l'accettazione di richieste di contatto sono azioni volontarie. L'Utente può in qualsiasi momento rimuovere un contatto o bloccarlo; il blocco impedisce ulteriori interazioni fino alla sua revoca.</p>
+          <p><strong>11.2 Messaggistica tra Utenti.</strong> Gli Utenti collegati possono scambiarsi messaggi testuali tramite la funzione di messaggistica interna. L'Utente è responsabile del contenuto dei messaggi inviati. È vietato l'utilizzo della messaggistica per finalità illecite, commerciali non autorizzate, molestie o qualsiasi attività in contrasto con le presenti CGU o con la normativa vigente.</p>
+          <p><strong>11.3 Condivisione Documentale.</strong> L'Utente può proporre la condivisione di documenti presenti nella propria libreria verso altri Utenti collegati. La condivisione avviene mediante proposta esplicita da parte del mittente e accettazione da parte del destinatario. Il mittente è responsabile di condividere esclusivamente documenti rispetto ai quali detiene titolo o autorizzazione. Il destinatario è responsabile dell'uso del documento ricevuto. I documenti accettati dal destinatario entrano nella sua libreria documentale con metadato di origine ("Ricevuto da [Utente], [data/ora]"). Il mittente mantiene un archivio storico delle condivisioni in uscita, con indicazione del documento, del destinatario, dello stato di consenso e delle relative date.</p>
+          <p><strong>11.4 Revoca dell'Accesso.</strong> Il mittente può revocare in qualsiasi momento l'accesso al documento condiviso. La revoca comporta la disattivazione del link di accesso/download; i documenti già archiviati nella libreria del destinatario potrebbero rimanere nella sua disponibilità secondo quanto tecnicamente applicabile. Il Fornitore non garantisce la cancellazione retroattiva di copie già acquisite dal destinatario.</p>
+          <p><strong>11.5 Registro Attività Documenti.</strong> La Piattaforma registra eventi tecnici rilevanti relativi ai documenti (caricamento, visualizzazione, download, condivisione, revoca) per finalità di sicurezza, tracciabilità e corretto funzionamento del servizio. Tali registrazioni costituiscono log tecnici e non sono destinate a finalità di controllo individuale dell'Utente se non nei limiti consentiti dalla normativa applicabile.</p>
+          <p><strong>11.6 Limiti e Sospensione delle Funzionalità.</strong> Il Fornitore si riserva il diritto di limitare, sospendere o revocare le funzionalità di contatto, messaggistica e condivisione documentale in caso di uso improprio, violazioni delle presenti CGU, esigenze di sicurezza del servizio o obblighi di legge. Blocchi e revoche producono effetti immediati secondo quanto previsto dalle presenti CGU e dalla normativa applicabile.</p>
+          <p><strong>11.7 Responsabilità dell'Utente.</strong> L'Utente è l'unico responsabile delle proprie azioni nell'ambito delle funzionalità di Fase 2. Il Fornitore non è responsabile per eventuali danni derivanti dall'utilizzo improprio della rete contatti, della messaggistica o della condivisione documentale tra Utenti.</p>
+        </div>
+      </div>
+      <div class="terms-section">
+        <div class="terms-section-title">12. Modifiche alle Condizioni</div>
         <div class="terms-text">
           <p>Il Fornitore può modificare le presenti CGU con preavviso di <strong>30 giorni</strong> via email. L'utilizzo continuato del Servizio costituisce accettazione. In caso di modifiche pregiudizievoli, l'Utente può recedere entro il termine di preavviso senza penali.</p>
         </div>
@@ -3960,7 +3973,11 @@ function renderDocListBody(docs){
         <tr>
           <td data-label="Documento"><div class="doc-name-cell">
             <div class="file-icon" style="background:${catColor(doc.category)};width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;border:1.5px solid ${getCat(doc.category)?.color||'#E5E7EB'}">${fileIcon(doc.name)}</div>
-            <div><div class="doc-name-text truncate">${esc(doc.name)}</div><div class="doc-name-desc">${esc(doc.description||'–')}</div></div>
+            <div>
+               <div class="doc-name-text truncate">${esc(doc.name)}</div>
+               ${doc.isReceived?`<div style="font-size:10px;font-weight:700;color:#1A52D4;letter-spacing:0.02em">📥 RICEVUTO DA ${esc(doc.receivedFrom||'utente')} · ${formatDate(doc.receivedAt||doc.uploadedAt)}</div>`:''}
+               <div class="doc-name-desc">${esc(doc.description||'–')}</div>
+             </div>
           </div></td>
           <td data-label="Categoria"><span class="badge badge-gray" style="font-size:11px">${getCat(doc.category)?.name||doc.category||'–'}</span></td>
           <td data-label="Sottocategoria" style="font-size:13px;color:var(--text-muted)">${doc.subcategory||'–'}</td>
@@ -8778,7 +8795,8 @@ async function shareDocument(docId, recipientUserId, recipientName, permission){
     id:'ds_'+uid(), docId, docName:doc.name, storagePath:doc.storagePath||null,
     signedUrl: _preSignedUrl,
     ownerUserId:currentUser.id, ownerCompanyId:currentCompany.id, ownerName:currentUser.name,
-    recipientUserId, recipientName, permission, grantedAt:new Date().toISOString(), active:true
+    recipientUserId, recipientName, permission,
+    grantedAt:new Date().toISOString(), status:'pending', active:true
   };
   shares.push(share);
   DB.setDocShares(shares);
@@ -8794,8 +8812,65 @@ async function shareDocument(docId, recipientUserId, recipientName, permission){
       type:'info', senderName:currentUser.name});
   }
   showToast('Documento condiviso con '+recipientName,'success');
+  // OBJ4: send a P2P context message so sharing is visible in chat
+  const _convs=DB.getP2PConvs();
+  const _parts=[currentUser.id,recipientUserId].sort();
+  let _conv=_convs.find(c=>c.participants[0]===_parts[0]&&c.participants[1]===_parts[1]);
+  if(_conv){
+    _conv.messages.push({id:'m_'+uid(),text:'📄 Ho condiviso il documento "'+s.docName+'" con te. Trovi la proposta nella sezione Condivisioni.',senderId:currentUser.id,senderName:currentUser.name,ts:new Date().toISOString(),readBy:[currentUser.id]});
+    _conv.updatedAt=new Date().toISOString();
+    DB.setP2PConvs(_convs);
+    try{_supaSyncAwait('co_admin','p2p_convs',_convs).catch(()=>{});}catch{}
+  }
 }
 
+
+
+async function acceptShare(shareId){
+  const shares=DB.getDocShares();
+  const s=shares.find(x=>x.id===shareId&&x.recipientUserId===currentUser?.id);
+  if(!s){showToast('Condivisione non trovata','error');return;}
+  if(s.status==='accepted'){showToast('Già accettato','info');return;}
+  s.status='accepted'; s.acceptedAt=new Date().toISOString();
+  DB.setDocShares(shares);
+  await _supaSyncAwait('co_admin','doc_shares',shares);
+  try{await _supaSyncAwait(currentCompany.id,'doc_shares',shares);}catch{}
+  const receivedDoc={
+    id:'rdoc_'+uid(), name:s.docName, category:'Ricevuti', subcategory:'',
+    description:'Ricevuto da '+s.ownerName, receivedFrom:s.ownerName,
+    receivedAt:s.acceptedAt, sharedDocId:s.docId,
+    ownerCompanyId:s.ownerCompanyId,
+    storagePath:s.storagePath||null, signedUrl:s.signedUrl||null,
+    fileType:'', fileSize:0, tags:[], notes:'',
+    uploadedBy:s.ownerName, uploadedAt:s.grantedAt, isReceived:true
+  };
+  const myDocs=DB.getDocs(currentCompany.id);
+  if(!myDocs.find(d=>d.sharedDocId===s.docId&&d.isReceived)){
+    myDocs.push(receivedDoc);
+    DB.setDocs(currentCompany.id,myDocs);
+  }
+  const users=DB.getUsers();
+  const owner=users.find(u=>u.id===s.ownerUserId);
+  if(owner){
+    createNotification({recipientId:s.ownerUserId,recipientRole:'user',
+      companyId:owner.companyId||'',companyName:owner.name||'',
+      message:'✅ <strong>'+esc(currentUser.name)+'</strong> ha accettato la condivisione di <strong>'+esc(s.docName)+'</strong>.',
+      type:'success',senderName:currentUser.name});
+  }
+  showToast('Documento accettato e aggiunto alla tua libreria','success');
+  renderSharedDocs(document.getElementById('main-page'));
+}
+
+function rejectShare(shareId){
+  const shares=DB.getDocShares();
+  const s=shares.find(x=>x.id===shareId&&x.recipientUserId===currentUser?.id);
+  if(!s) return;
+  s.status='rejected'; s.active=false; s.rejectedAt=new Date().toISOString();
+  DB.setDocShares(shares);
+  try{_supaSyncAwait('co_admin','doc_shares',shares).catch(()=>{});}catch{}
+  showToast('Condivisione rifiutata','info');
+  renderSharedDocs(document.getElementById('main-page'));
+}
 function revokeDocShare(shareId){
   const shares = DB.getDocShares();
   const s = shares.find(x=>x.id===shareId);
@@ -8951,25 +9026,73 @@ function renderMessages(main){
 // ── RENDER: SHARED DOCS PAGE ──────────────────────────────
 async function renderSharedDocs(main){
   if(!main||!currentUser) return;
-  const shares = getDocsSharedWithMe();
+  const allShares = DB.getDocShares();
+  // INCOMING: shares proposed to current user
+  const incoming = allShares.filter(s=>s.recipientUserId===currentUser.id&&s.active!==false&&s.status!=='rejected');
+  // OUTGOING: shares sent by current user
+  const outgoing = allShares.filter(s=>s.ownerUserId===currentUser.id);
+
+  const pendingHtml = incoming.filter(s=>s.status==='pending'||!s.status).map(s=>`
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border-light);background:#FFFBEB">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:600;color:var(--navy);font-size:14px">${esc(s.docName)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">Proposto da: <strong>${esc(s.ownerName)}</strong></div>
+          <div style="font-size:11px;color:var(--text-muted)">${formatDate(s.grantedAt)} &middot; ${s.permission==='download'?'Download consentito':'Sola lettura'}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button onclick="acceptShare('${s.id}')" style="font-size:12px;padding:5px 12px;background:#16A34A;color:#fff;border:none;border-radius:6px;cursor:pointer">✓ Accetta</button>
+          <button onclick="rejectShare('${s.id}')" style="font-size:12px;padding:5px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;color:var(--text-muted)">✕ Rifiuta</button>
+        </div>
+      </div>
+    </div>`).join('');
+
+  const acceptedHtml = incoming.filter(s=>s.status==='accepted').map(s=>`
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border-light)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:600;color:var(--navy);font-size:14px">${esc(s.docName)}</div>
+          <div style="font-size:12px;color:var(--text-muted)">Ricevuto da: <strong>${esc(s.ownerName)}</strong></div>
+          <div style="font-size:11px;color:var(--text-muted)">Proposto: ${formatDate(s.grantedAt)} &middot; Accettato: ${formatDate(s.acceptedAt||s.grantedAt)}</div>
+          ${s.downloadedAt?`<div style="font-size:10px;color:#16A34A">✓ Scaricato il ${formatDate(s.downloadedAt)}</div>`:''}
+        </div>
+        ${s.permission==='download'?`<button onclick="downloadSharedDoc('${s.id}')" style="font-size:12px;padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;cursor:pointer">⬇ Scarica</button>`:'<span style="font-size:11px;color:var(--text-muted);background:#f1f5f9;border-radius:4px;padding:3px 8px">Sola lettura</span>'}
+      </div>
+    </div>`).join('');
+
+  const outgoingHtml = outgoing.map(s=>{
+    const statusLabel={
+      pending:'⏳ In attesa di consenso',
+      accepted:'✅ Consenso ricevuto',
+      rejected:'✗ Rifiutato'
+    }[s.status||'pending'];
+    const statusColor={pending:'#92400E',accepted:'#16A34A',rejected:'#DC2626'}[s.status||'pending'];
+    return `<div style="padding:12px 16px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-weight:600;color:var(--navy);font-size:13px">${esc(s.docName)}</div>
+        <div style="font-size:12px;color:var(--text-muted)">A: ${esc(s.recipientName)} &middot; ${formatDate(s.grantedAt)}</div>
+        ${s.acceptedAt?`<div style="font-size:11px;color:var(--text-muted)">Accettato: ${formatDate(s.acceptedAt)}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <span style="font-size:11px;font-weight:600;color:${statusColor}">${statusLabel}</span>
+        ${s.status!=='rejected'?`<button onclick="revokeDocShare('${s.id}')" style="font-size:10px;padding:3px 8px;background:none;border:1px solid #e5e7eb;border-radius:4px;cursor:pointer;color:var(--text-muted)">Revoca</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
   main.innerHTML=`<div style="padding:20px;max-width:760px;margin:0 auto">
-    <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:16px">Condivisi con me</div>
-    ${shares.length===0?'<div class="card" style="padding:24px;text-align:center;color:var(--text-muted)">Nessun documento è stato condiviso con te.</div>':
-    `<div class="card" style="overflow:hidden">
-      ${shares.map(s=>`
-        <div style="padding:14px 16px;border-bottom:1px solid var(--border-light);display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-weight:600;color:var(--navy);font-size:14px">${esc(s.docName)}</div>
-            <div style="font-size:12px;color:var(--text-muted)">Da: ${esc(s.ownerName)}</div>
-            <div style="font-size:11px;color:var(--text-muted)">Ricevuto: ${formatDate(s.grantedAt)} &middot; ${s.permission==='download'?'Download consentito':'Sola lettura'}</div>
-          </div>
-          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            ${s.permission==='download'?`<button onclick="downloadSharedDoc('${s.id}')" style="font-size:12px;padding:6px 14px;background:var(--navy);color:#fff;border:none;border-radius:6px;cursor:pointer">⬇ Scarica</button>
-              ${s.downloadedAt?`<span style="font-size:10px;color:#16A34A">✓ Scaricato il ${formatDate(s.downloadedAt)}</span>`:'<span style="font-size:10px;color:var(--text-muted)">Non ancora scaricato</span>'}`:
-            '<span style="font-size:11px;color:var(--text-muted);background:#f1f5f9;border-radius:4px;padding:3px 8px">Sola lettura</span>'}
-          </div>
-        </div>`).join('')}
-    </div>`}
+    <div style="font-size:22px;font-weight:700;color:var(--navy);margin-bottom:16px">Condivisioni</div>
+    ${pendingHtml?`<div class="card" style="margin-bottom:16px;overflow:hidden">
+      <div style="padding:10px 16px;background:#FFFBEB;border-bottom:1px solid var(--border-light);font-size:12px;font-weight:700;color:#92400E">⏳ Proposte in entrata</div>
+      ${pendingHtml}</div>`:''}
+    <div class="card" style="margin-bottom:16px;overflow:hidden">
+      <div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid var(--border-light);font-size:13px;font-weight:700;color:var(--navy)">📥 Documenti ricevuti e accettati</div>
+      ${acceptedHtml||'<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">Nessun documento ricevuto.</div>'}
+    </div>
+    <div class="card" style="overflow:hidden">
+      <div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid var(--border-light);font-size:13px;font-weight:700;color:var(--navy)">📤 Storico condivisioni inviate</div>
+      ${outgoingHtml||'<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">Nessuna condivisione inviata.</div>'}
+    </div>
   </div>`;
 }
 
@@ -10558,6 +10681,7 @@ function savePlanConfig(name){
     termsVersion: new Date().toISOString().slice(0,10).replace(/-/g,'.')
   });
   DB.setPlanChangelog(changelog);
+  updateDynamicTerms(); // propagate new price to T&C spans immediately
 
   // ── Notifica tutti gli utenti attivi del piano ─────────
   const companies = DB.getCompanies().filter(co=>{
@@ -10735,6 +10859,7 @@ function showTermsReadOnly(){
   const tyEl=document.getElementById('terms-year');
   if(tyEl) tyEl.textContent=STUDIO_INFO.year;
   document.querySelectorAll('.terms-year-inline').forEach(el=>el.textContent=STUDIO_INFO.year);
+  updateDynamicTerms(); // refresh prices from DB.getPlansConfig()
   document.getElementById('terms-modal').classList.remove('hidden');
 }
 
