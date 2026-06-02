@@ -4266,6 +4266,10 @@ async function downloadDoc(docId){
   const doc=docs.find(d=>d.id===docId);
   if(!doc){showToast('Documento non trovato','error');return;}
   logDocActivity(docId,'download',{fileName:doc.name,fileSize:doc.fileSize});
+  // Received docs carry a pre-generated signedUrl — use it directly to avoid cross-company 400
+  if(doc.signedUrl){
+    const a=document.createElement('a');a.href=doc.signedUrl;a.download=doc.name;a.click();return;
+  }
   if(doc.storagePath){
     try{
       const{data,error}=await _supa.storage.from('documents').createSignedUrl(doc.storagePath,3600);
@@ -8779,8 +8783,9 @@ async function shareDocument(docId, recipientUserId, recipientName, permission){
   const doc = docs.find(d=>d.id===docId);
   if(!doc){ showToast('Documento non trovato','error'); return; }
   const shares = DB.getDocShares();
+  // If a previous share exists, deactivate it before creating a new proposal
   const existing = shares.find(s=>s.docId===docId&&s.recipientUserId===recipientUserId&&s.active);
-  if(existing){ showToast('Documento già condiviso con questo utente','info'); return; }
+  if(existing){ existing.active=false; existing.supersededAt=new Date().toISOString(); }
   // Pre-generate signed URL using owner's JWT (valid for owner's own files)
   // Stored in share so recipient can download without needing access to owner's storage
   let _preSignedUrl = null;
@@ -8845,10 +8850,17 @@ async function acceptShare(shareId){
     uploadedBy:s.ownerName, uploadedAt:s.grantedAt, isReceived:true
   };
   const myDocs=DB.getDocs(currentCompany.id);
-  if(!myDocs.find(d=>d.sharedDocId===s.docId&&d.isReceived)){
+  const _existingRdoc = myDocs.find(d=>d.sharedDocId===s.docId&&d.isReceived);
+  if(_existingRdoc){
+    // Update existing received doc with fresh signedUrl and timestamps
+    _existingRdoc.signedUrl   = s.signedUrl||_existingRdoc.signedUrl||null;
+    _existingRdoc.storagePath = s.storagePath||_existingRdoc.storagePath||null;
+    _existingRdoc.receivedAt  = s.acceptedAt;
+    _existingRdoc.name        = s.docName;
+  } else {
     myDocs.push(receivedDoc);
-    DB.setDocs(currentCompany.id,myDocs);
   }
+  DB.setDocs(currentCompany.id,myDocs);
   const users=DB.getUsers();
   const owner=users.find(u=>u.id===s.ownerUserId);
   if(owner){
