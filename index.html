@@ -8817,7 +8817,7 @@ async function shareDocument(docId, recipientUserId, recipientName, permission){
   const _parts=[currentUser.id,recipientUserId].sort();
   let _conv=_convs.find(c=>c.participants[0]===_parts[0]&&c.participants[1]===_parts[1]);
   if(_conv){
-    _conv.messages.push({id:'m_'+uid(),text:'📄 Ho condiviso il documento "'+s.docName+'" con te. Trovi la proposta nella sezione Condivisioni.',senderId:currentUser.id,senderName:currentUser.name,ts:new Date().toISOString(),readBy:[currentUser.id]});
+    _conv.messages.push({id:'m_'+uid(),text:'📄 Ho condiviso il documento "'+share.docName+'" con te. Trovi la proposta nella sezione Condivisioni.',senderId:currentUser.id,senderName:currentUser.name,ts:new Date().toISOString(),readBy:[currentUser.id]});
     _conv.updatedAt=new Date().toISOString();
     DB.setP2PConvs(_convs);
     try{_supaSyncAwait('co_admin','p2p_convs',_convs).catch(()=>{});}catch{}
