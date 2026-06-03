@@ -8762,7 +8762,13 @@ function renderP2PThread(container, conv, peerId){
     container.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Inizia la conversazione.</div>';
     return;
   }
-  container.innerHTML = conv.messages.map(m=>{
+  // Filter out legacy doc-share injection messages (textual artifacts from old code)
+  const _msgs = conv.messages.filter(m=>!m.text?.startsWith('📄 Ho condiviso il documento'));
+  if(!_msgs.length){
+    container.innerHTML='<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Inizia la conversazione.</div>';
+    return;
+  }
+  container.innerHTML = _msgs.map(m=>{
     const isMine = m.senderId===currentUser?.id;
     return `<div style="display:flex;flex-direction:column;align-items:${isMine?'flex-end':'flex-start'};margin-bottom:10px">
       <div style="max-width:75%;background:${isMine?'var(--navy)':'#F1F5F9'};color:${isMine?'#fff':'var(--text)'};padding:8px 12px;border-radius:${isMine?'14px 14px 2px 14px':'14px 14px 14px 2px'};font-size:13px;word-break:break-word">${esc(m.text)}</div>
