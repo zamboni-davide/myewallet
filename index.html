@@ -2289,7 +2289,7 @@ async function _supaLoadAll(companyId) {
   // Keys whose arrays must be MERGED (not replaced) with localStorage.
   // Prevents losing records written locally when Supabase sync was blocked
   // (e.g. non-admin RLS write rejection) or lost due to logout race condition.
-  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations','p2p_convs','contacts']);
+  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations','p2p_convs','contacts','doc_shares']);
   try {
     const { data, error } = await _supa.from('company_store')
       .select('store_key,store_value')
@@ -2307,7 +2307,18 @@ async function _supaLoadAll(companyId) {
             const lsRaw = localStorage.getItem('pda_'+row.store_key);
             const lsArr = lsRaw ? JSON.parse(lsRaw) : [];
             if(Array.isArray(lsArr) && lsArr.length > 0){
-              if(row.store_key === 'contacts'){
+              if(row.store_key === 'doc_shares'){
+                // Status-wins merge: accepted > rejected > pending
+                // localStorage (more recent user action) wins over stale Supabase version
+                const _SR={accepted:3,rejected:2,revoked:2,superseded:1,pending:0};
+                const _rank=x=>_SR[x?.status||'pending']||0;
+                const lsMap=new Map(lsArr.map(s=>[s.id,s]));
+                val=val.map(s=>{
+                  const ls=lsMap.get(s.id);
+                  return ls&&_rank(ls)>=_rank(s)?{...s,...ls}:s;
+                });
+                lsArr.forEach(s=>{if(s.id&&!val.find(x=>x.id===s.id))val.push(s);});
+              } else if(row.store_key === 'contacts'){
                 // Status-wins merge: localStorage status takes precedence over Supabase stale status
                 const lsMap = new Map(lsArr.map(c=>[c.id,c]));
                 val = val.map(c=> lsMap.has(c.id) ? {...c, ...lsMap.get(c.id)} : c);
@@ -2416,8 +2427,14 @@ async function _supaLoadAll(companyId) {
         if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
         if(Array.isArray(arr)&&arr.length>0){
           const existing=Array.isArray(_mem['doc_shares'])?[..._mem['doc_shares']]:[];
-          const exIds=new Set(existing.map(s=>s.id));
-          arr.forEach(s=>{if(s.id&&!exIds.has(s.id))existing.push(s);});
+          const _SR2={accepted:3,rejected:2,revoked:2,superseded:1,pending:0};
+          const _rank2=x=>_SR2[x?.status||'pending']||0;
+          arr.forEach(s=>{
+            if(!s.id) return;
+            const ex=existing.find(x=>x.id===s.id);
+            if(!ex){ existing.push(s); }
+            else if(_rank2(s)>_rank2(ex)){ Object.assign(ex,s); }
+          });
           if(existing.length>(_mem['doc_shares']||[]).length){
             _mem['doc_shares']=existing;
             try{localStorage.setItem('pda_doc_shares',JSON.stringify(existing));}catch{}
@@ -4273,6 +4290,13 @@ async function downloadDoc(docId){
   if(doc.signedUrl){
     const a=document.createElement('a');a.href=doc.signedUrl;a.download=doc.name;a.click();return;
   }
+  if(doc.fileData){const a=document.createElement('a');a.href=doc.fileData;a.download=doc.name;a.click();return;}
+  // For received docs: skip cross-company storagePath (would return 400 without Storage SELECT policy)
+  if(doc.isReceived){
+    showToast('File non scaricabile. Il proprietario deve ricondividere il documento per ottenere un link aggiornato.','error');
+    return;
+  }
+  // Own docs: try storagePath via createSignedUrl
   if(doc.storagePath){
     try{
       const{data,error}=await _supa.storage.from('documents').createSignedUrl(doc.storagePath,3600);
@@ -4280,9 +4304,8 @@ async function downloadDoc(docId){
         const a=document.createElement('a');a.href=data.signedUrl;a.download=doc.name;a.click();
         return;
       }
-    }catch(e){console.warn('[Storage] signed URL error:',e?.message);}
+    }catch{}
   }
-  if(doc.fileData){const a=document.createElement('a');a.href=doc.fileData;a.download=doc.name;a.click();return;}
   showToast('File non disponibile per il download','error');
 }
 
@@ -8808,6 +8831,8 @@ async function shareDocument(docId, recipientUserId, recipientName, permission){
   const share = {
     id:'ds_'+uid(), docId, docName:doc.name, storagePath:doc.storagePath||null,
     signedUrl: _preSignedUrl,
+    // Copy fileData only for base64 docs (no storagePath) so download works without storage policy
+    fileData: (!doc.storagePath && doc.fileData) ? doc.fileData : null,
     ownerUserId:currentUser.id, ownerCompanyId:currentCompany.id, ownerName:currentUser.name,
     recipientUserId, recipientName, permission,
     grantedAt:new Date().toISOString(), status:'pending', active:true
@@ -8847,21 +8872,25 @@ async function acceptShare(shareId){
     receivedAt:s.acceptedAt, sharedDocId:s.docId,
     ownerCompanyId:s.ownerCompanyId,
     storagePath:s.storagePath||null, signedUrl:s.signedUrl||null,
+    fileData:s.fileData||null,
     fileType:'', fileSize:0, tags:[], notes:'',
     uploadedBy:s.ownerName, uploadedAt:s.grantedAt, isReceived:true
   };
   const myDocs=DB.getDocs(currentCompany.id);
   const _existingRdoc = myDocs.find(d=>d.sharedDocId===s.docId&&d.isReceived);
   if(_existingRdoc){
-    // Update existing received doc with fresh signedUrl and timestamps
+    // Update existing received doc with fresh data from share
     _existingRdoc.signedUrl   = s.signedUrl||_existingRdoc.signedUrl||null;
     _existingRdoc.storagePath = s.storagePath||_existingRdoc.storagePath||null;
+    _existingRdoc.fileData    = s.fileData||_existingRdoc.fileData||null;
     _existingRdoc.receivedAt  = s.acceptedAt;
     _existingRdoc.name        = s.docName;
   } else {
     myDocs.push(receivedDoc);
   }
   DB.setDocs(currentCompany.id,myDocs);
+  // Await explicit Supabase sync so received doc survives logout/login
+  await _supaSyncAwait(currentCompany.id,'docs_'+currentCompany.id,myDocs);
   const users=DB.getUsers();
   const owner=users.find(u=>u.id===s.ownerUserId);
   if(owner){
