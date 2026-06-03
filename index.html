@@ -1570,6 +1570,7 @@ textarea.input{resize:vertical;min-height:80px;}
       <div class="nav-item nav-f2" data-page="shared" id="nav-shared" onclick="navTo('shared')" style="display:none">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
         Condivisi con me
+        <span class="nav-badge hidden" id="nav-shared-badge" style="background:var(--danger)">0</span>
       </div>
       <div class="nav-item" data-page="settings" onclick="navTo('settings')" style="margin-top:4px;border:1px solid rgba(26,82,212,0.25);border-radius:var(--radius-sm)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -3399,6 +3400,8 @@ function showPhase2Nav(){
     if(badge){badge.textContent=pending;badge.classList.toggle('hidden',pending===0);}
     const p2pBadge=document.getElementById('nav-p2p-badge');
     if(p2pBadge){const u=countUnreadP2P();p2pBadge.textContent=u;p2pBadge.classList.toggle('hidden',u===0);}
+    const sharedBadge=document.getElementById('nav-shared-badge');
+    if(sharedBadge){const ps=countPendingShares();sharedBadge.textContent=ps;sharedBadge.classList.toggle('hidden',ps===0);}
   }
 }
 
@@ -8817,16 +8820,8 @@ async function shareDocument(docId, recipientUserId, recipientName, permission){
       type:'info', senderName:currentUser.name});
   }
   showToast('Documento condiviso con '+recipientName,'success');
-  // OBJ4: send a P2P context message so sharing is visible in chat
-  const _convs=DB.getP2PConvs();
-  const _parts=[currentUser.id,recipientUserId].sort();
-  let _conv=_convs.find(c=>c.participants[0]===_parts[0]&&c.participants[1]===_parts[1]);
-  if(_conv){
-    _conv.messages.push({id:'m_'+uid(),text:'📄 Ho condiviso il documento "'+share.docName+'" con te. Trovi la proposta nella sezione Condivisioni.',senderId:currentUser.id,senderName:currentUser.name,ts:new Date().toISOString(),readBy:[currentUser.id]});
-    _conv.updatedAt=new Date().toISOString();
-    DB.setP2PConvs(_convs);
-    try{_supaSyncAwait('co_admin','p2p_convs',_convs).catch(()=>{});}catch{}
-  }
+  // Doc share is handled as a structured event in the Condivisioni section.
+  // No text injection into P2P chat — avoids ambiguity with regular messages.
 }
 
 
@@ -8918,8 +8913,14 @@ function logDocActivity(docId, action, meta){
 
 // ── Hook into existing badge count ────────────────────────
 const _origCountUnreadNotifs = countUnreadNotifs;
+function countPendingShares(){
+  if(!currentUser||isTrustedAdmin()) return 0;
+  return DB.getDocShares().filter(
+    s=>s.recipientUserId===currentUser.id&&s.status==='pending'&&s.active!==false
+  ).length;
+}
 function countUnreadNotifs(){
-  return _origCountUnreadNotifs() + countUnreadP2P();
+  return _origCountUnreadNotifs() + countUnreadP2P() + countPendingShares();
 }
 
 // ── RENDER: CONTACTS PAGE ─────────────────────────────────
@@ -9183,9 +9184,13 @@ function countUnreadNotifs(){
 function updateNotifBadge(){
   const n=countUnreadNotifs();
   const badge=document.getElementById('notif-badge');
-  if(!badge)return;
-  if(n>0){badge.textContent=n>99?'99+':n;badge.classList.remove('hidden');}
-  else{badge.classList.add('hidden');}
+  if(badge){
+    if(n>0){badge.textContent=n>99?'99+':n;badge.classList.remove('hidden');}
+    else{badge.classList.add('hidden');}
+  }
+  // Keep nav-shared-badge in sync on every badge refresh
+  const sharedBadge=document.getElementById('nav-shared-badge');
+  if(sharedBadge){const ps=countPendingShares();sharedBadge.textContent=ps;sharedBadge.classList.toggle('hidden',ps===0);}
 }
 
 function toggleNotifPanel(e){
