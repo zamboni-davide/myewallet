@@ -1355,6 +1355,43 @@ textarea.input{resize:vertical;min-height:80px;}
   .m-nav-item{min-width:0;}
   .topbar{min-width:0;}
 }
+  /* ─── NOTIFICATION PANEL ──────────────────────────── */
+  .notif-item{
+    display:flex;align-items:flex-start;gap:10px;
+    padding:10px 14px;cursor:pointer;
+    border-bottom:1px solid var(--border-light);
+    transition:background .1s;
+  }
+  .notif-item:last-child{border-bottom:none;}
+  .notif-item:hover{background:#F8FAFC;}
+  .notif-item.unread{background:#EFF6FF;}
+  .notif-item.unread:hover{background:#DBEAFE;}
+  .notif-icon{
+    width:28px;height:28px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;margin-top:2px;
+  }
+  .notif-body{flex:1;min-width:0;}
+  .notif-msg{
+    font-size:13px;line-height:1.5;color:var(--text);
+    word-break:break-word;
+  }
+  .notif-meta{
+    display:flex;flex-wrap:wrap;align-items:center;gap:5px;
+    margin-top:3px;
+  }
+  .notif-del{
+    background:none;border:none;cursor:pointer;
+    color:var(--text-muted);padding:2px;border-radius:4px;
+    opacity:.6;flex-shrink:0;
+  }
+  .notif-del:hover{opacity:1;color:var(--danger);}
+  #notif-panel-body{max-height:400px;overflow-y:auto;}
+  @media(max-width:768px){
+    .notif-item{padding:10px 12px;gap:8px;}
+    .notif-msg{font-size:12px;}
+    #notif-panel-body{max-height:320px;}
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
@@ -2750,6 +2787,7 @@ async function doLogin(){
       await _supaLoadAll('co_admin');
       if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
       patchAdminCompany();
+      localStorage.removeItem('pda_role'); // clear before fresh login — prevents cross-user stale cache
       const serverRole = await requireRole();
       let users = DB.getUsers();
       let user = users.find(u=>u.email===email);
@@ -6046,6 +6084,71 @@ function setAdminTab(t){
 }
 function resetAdminFilter(){adminCompanyFilter='';adminCompanySearch='';renderAdminTab();}
 
+// adminOpenTicket — shows inline detail + status management for a ticket
+function adminOpenTicket(ticketId){
+  const tickets = DB.getTickets();
+  const tk = tickets.find(t=>t.id===ticketId);
+  if(!tk){ showToast('Ticket non trovato','error'); return; }
+
+  const statusColor = tk.status==='open'?'#E74C3C':tk.status==='closed'?'#6B7280':'#F59E0B';
+  const statusLabel = tk.status==='open'?'Aperto':tk.status==='closed'?'Chiuso':'In lavorazione';
+
+  // Render modal using the existing confirm-overlay pattern
+  const html = `<div style="padding:0">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:var(--navy)">${esc(tk.subject||'–')}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(tk.companyName||'–')} · ${esc(tk.userName||'–')} · ${formatDate(tk.createdAt)}</div>
+      </div>
+      <span style="background:${statusColor}20;color:${statusColor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px">${statusLabel}</span>
+    </div>
+    ${tk.category?`<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px">CATEGORIA: ${esc(tk.category.toUpperCase())}</div>`:''}
+    <div style="background:#f8fafc;border:1px solid var(--border-light);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.6;white-space:pre-wrap;margin-bottom:16px">${esc(tk.message||'–')}</div>
+    ${tk.adminNote?`<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:14px"><strong>Nota admin:</strong> ${esc(tk.adminNote)}</div>`:''}
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:12px;border-top:1px solid var(--border-light)">
+      <span style="font-size:12px;font-weight:600;color:var(--text-muted)">Cambia stato:</span>
+      ${tk.status!=='open'?`<button onclick="adminUpdateTicketStatus('${tk.id}','open')" style="padding:5px 12px;font-size:12px;border:1px solid #E74C3C;color:#E74C3C;background:#fff;border-radius:6px;cursor:pointer">Aperto</button>`:''}
+      ${tk.status!=='in_progress'?`<button onclick="adminUpdateTicketStatus('${tk.id}','in_progress')" style="padding:5px 12px;font-size:12px;border:1px solid #F59E0B;color:#F59E0B;background:#fff;border-radius:6px;cursor:pointer">In lavorazione</button>`:''}
+      ${tk.status!=='closed'?`<button onclick="adminUpdateTicketStatus('${tk.id}','closed')" style="padding:5px 12px;font-size:12px;border:1px solid #6B7280;color:#6B7280;background:#fff;border-radius:6px;cursor:pointer">Chiudi</button>`:''}
+    </div>
+    <div style="margin-top:12px">
+      <textarea id="tk-admin-note-${tk.id}" placeholder="Aggiungi nota admin (opzionale)…" rows="2" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--border-light);border-radius:6px;resize:none;font-family:inherit;box-sizing:border-box">${esc(tk.adminNote||'')}</textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+        <button onclick="closeConfirm()" style="padding:6px 16px;border:1px solid var(--border-light);border-radius:6px;background:#fff;font-size:13px;cursor:pointer">Chiudi</button>
+        <button onclick="adminSaveTicketNote('${tk.id}')" style="padding:6px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Salva nota</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('confirm-title').textContent='Ticket #'+ticketId.substring(0,8).toUpperCase();
+  document.getElementById('confirm-text').innerHTML=html;
+  document.getElementById('confirm-ok-btn').style.display='none';
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
+function adminUpdateTicketStatus(ticketId, newStatus){
+  const tickets = DB.getTickets();
+  const tk = tickets.find(t=>t.id===ticketId);
+  if(!tk) return;
+  tk.status = newStatus;
+  tk.updatedAt = new Date().toISOString();
+  DB.setTickets(tickets);
+  closeConfirm();
+  showToast('Stato ticket aggiornato','success');
+  renderAdminTab(); // refresh ticket list
+}
+
+function adminSaveTicketNote(ticketId){
+  const tickets = DB.getTickets();
+  const tk = tickets.find(t=>t.id===ticketId);
+  if(!tk) return;
+  const note = document.getElementById('tk-admin-note-'+ticketId)?.value.trim();
+  tk.adminNote = note;
+  tk.updatedAt = new Date().toISOString();
+  DB.setTickets(tickets);
+  closeConfirm();
+  showToast('Nota salvata','success');
+}
+
 function renderAdminTab(){
   const body=document.getElementById('admin-tab-body');
   if(!body) return;
@@ -6130,7 +6233,7 @@ function renderAdminTab(){
     </div>`;
   } else if(adminTab==='companies'){
     // KPI counts
-    const coTrialActive=companies.filter(co=>co.trialMode&&!getTrialInfo(co).isExpired);
+    const coTrialActive=companies.filter(co=>(co.trialMode||co.plan==='Trial')&&!getTrialInfo(co).isExpired);
     const coTrialExp=companies.filter(co=>co.trialMode&&getTrialInfo(co).isExpired);
     const coActive=companies.filter(co=>!co.trialMode&&getPlanStatus(co).status==='active');
     const coExpiring=companies.filter(co=>!co.trialMode&&getPlanStatus(co).status==='expiring');
@@ -6955,7 +7058,7 @@ Importo: € ${tot.toFixed(2)} IVA incl."
       :tickets.map(tk=>{
         const statusColor=tk.status==='open'?'#E74C3C':tk.status==='closed'?'#6B7280':'#F59E0B';
         const statusLabel=tk.status==='open'?'Aperto':tk.status==='closed'?'Chiuso':'In lavorazione';
-        return`<div class="card" style="padding:14px 18px;border-left:3px solid ${statusColor}">
+        return`<div class="card" style="padding:14px 18px;border-left:3px solid ${statusColor};cursor:pointer" onclick="adminOpenTicket('${tk.id}')">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:2px">${esc(tk.subject||'–')}</div>
@@ -7903,7 +8006,15 @@ function renderSettings(main){
 
     ${co.plan!=='Admin'?(()=>{
       const purchases=DB.getPurchases(co.id);
-      if(!purchases.length) return `<div class="settings-section" style="margin-top:0"><div class="settings-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Storico Acquisti &amp; Contratti</div><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nessun acquisto registrato.</div></div>`;
+      if(!purchases.length){
+        // Self-registered trial users: show synthetic trial row from company data
+        if(co.trialMode||co.plan==='Trial'){
+          const trStart=co.trialStartDate?formatDate(co.trialStartDate):'–';
+          const trEnd=co.trialEndDate?formatDate(co.trialEndDate):'–';
+          return `<div class="settings-section" style="margin-top:0"><div class="settings-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Storico Acquisti &amp; Contratti</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:var(--navy);color:#fff"><th style="padding:8px 12px;text-align:left">Data</th><th style="padding:8px 12px;text-align:left">Tipo</th><th style="padding:8px 12px;text-align:left">Piano</th><th style="padding:8px 12px;text-align:left">Imponibile</th><th style="padding:8px 12px;text-align:left">IVA</th><th style="padding:8px 12px;text-align:left">Totale</th><th style="padding:8px 12px;text-align:left">Firma</th><th style="padding:8px 12px;text-align:left">Contratto</th></tr></thead><tbody><tr style="border-bottom:1px solid var(--border-light)"><td style="padding:8px 12px">${trStart}</td><td style="padding:8px 12px"><span style="background:#F3F4F6;color:#374151;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600">Trial Gratuito</span></td><td style="padding:8px 12px">Trial</td><td style="padding:8px 12px">€ 0,00</td><td style="padding:8px 12px">€ 0,00</td><td style="padding:8px 12px">€ 0,00</td><td style="padding:8px 12px"><span style="color:#16A34A;font-weight:600">✓ Attivo</span></td><td style="padding:8px 12px"><span style="color:var(--text-muted);font-size:11px">–</span></td></tr></tbody></table></div><div style="padding:8px 12px;font-size:11px;color:var(--text-muted)">Periodo: ${trStart} – ${trEnd}</div></div>`;
+        }
+        return `<div class="settings-section" style="margin-top:0"><div class="settings-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Storico Acquisti &amp; Contratti</div><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nessun acquisto registrato.</div></div>`;
+      }
       const typeLabel={activation:'Attivazione',renewal:'Rinnovo',trial:'Trial Gratuito'};
       const sigBadge=p=>p.clientSignedAt
         ?'<span style=\"display:inline-flex;align-items:center;gap:3px;background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;\">✅ Firmato<\/span>'
