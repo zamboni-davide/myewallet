@@ -2707,14 +2707,11 @@ async function _resolveRole(){
     localStorage.setItem('pda_role', role);
     return role;
   }catch(e){
-    // RPC failed (network error, closed connection, etc.)
-    // Fall back to last known cached role rather than returning null
-    // null → requireRole throws AUTH_UNAVAILABLE → login/session restore crashes
-    const cached = localStorage.getItem('pda_role');
-    if(cached === 'admin' || cached === 'user'){
-      return cached; // use last known role — safe for UI, server enforces real permissions
-    }
-    // No cache: default to 'user' (safest fallback — admin privileges are server-enforced)
+    // RPC failed — ALWAYS return 'user' as safe fallback.
+    // pda_role cache is browser-level, not user-specific: a stale 'admin' entry
+    // from a previous session on the same browser could promote a normal user to admin.
+    // Admin is granted exclusively by the Supabase server-side is_admin() function.
+    // Worst case of this fallback: legitimate admin sees user view until network recovers.
     return 'user';
   }
 }
@@ -2787,6 +2784,33 @@ async function doLogin(){
       await _supaLoadAll('co_admin');
       if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
       patchAdminCompany();
+      // ── Repair trial purchase if missing in Supabase ────────────────────────
+      // Idempotent: only fires when company is Trial but Supabase has no purchases.
+      // Covers: user confirmed email on different browser / cleared localStorage.
+      if(companyId && companyId !== 'co_admin'){
+        try{
+          const _repairCo = DB.getCompanies().find(c=>c.id===companyId);
+          if(_repairCo && (_repairCo.trialMode || _repairCo.plan==='Trial') && DB.getPurchases(companyId).length===0){
+            const _ts = _repairCo.trialStartDate||_repairCo.createdAt||new Date().toISOString();
+            const _te = _repairCo.trialEndDate||new Date(new Date(_ts).getTime()+30*864e5).toISOString();
+            const _repairPurch=[{
+              id:uid(),type:'trial',plan:'Trial',
+              startDate:_ts,endDate:_te,
+              price:0,iva:0,total:0,vatRate:22,
+              createdAt:_ts,paymentMethod:'-',
+              note:'Piano FREE - 30 giorni, max 15 documenti',
+              adminSignedAt:_ts,
+              adminSignedBy:'Studio Zamboni - Davide Pasquale Zamboni (automatico)',
+              pendingClientSignature:false,
+              clientSignedAt:_ts,
+              clientSignedBy:null,clientSignedEmail:null,
+              clientIpHint:'ricostruito al login (registrazione su browser diverso o storage cancellato)'
+            }];
+            DB.setPurchases(companyId,_repairPurch);
+            await _supaSyncAwait(companyId,'purchases_'+companyId,_repairPurch);
+          }
+        }catch(_repairErr){}
+      }
       localStorage.removeItem('pda_role'); // clear before fresh login — prevents cross-user stale cache
       const serverRole = await requireRole();
       let users = DB.getUsers();
@@ -11925,9 +11949,21 @@ async function saveNewPassword(){
       const email = data.session.user.email;
       await _supaLoadAll('co_admin');
       patchAdminCompany();
+      localStorage.removeItem('pda_role'); // clear before fresh role check — prevents cross-session cache contamination
       const spRole = await requireRole();
       let user = users.find(u=>u.email===email);
-      if(!user){ user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,pwd:'__supabase__',companyId:'co_admin',role:spRole,createdAt:new Date().toISOString()}; users.push(user); DB.setUsers(users); }
+      if(!user){
+        // Only assign admin/co_admin if server confirmed the role.
+        // Default non-admin users to 'user' role and their own company (not co_admin).
+        const safeRole = spRole === 'admin' ? 'admin' : 'user';
+        const safeCoId = spRole === 'admin' ? 'co_admin' : (data.session.user.user_metadata?.company_id||null);
+        if(safeCoId){ // only create if we have a valid companyId
+          user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,
+                pwd:'__supabase__',companyId:safeCoId,role:safeRole,
+                createdAt:new Date().toISOString()};
+          users.push(user); DB.setUsers(users);
+        }
+      }
       const co = DB.getCompanies().find(c=>c.id===user.companyId);
       if(user&&co){ currentUser=user; Object.freeze(currentUser); currentCompany=co; if(isAccountBlocked(co)){showBlockedScreen(co);return;} startApp(user,co); }
     }
