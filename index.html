@@ -3380,6 +3380,8 @@ function startApp(user,co){
   document.getElementById('sidebar-user-name').textContent=user.name;
   document.getElementById('sidebar-user-role').textContent=user.role==='admin'?'Amministratore':'Utente';
   document.getElementById('sidebar-avatar').textContent=user.name.charAt(0).toUpperCase();
+  // Always reset nav-admin visibility before role check (prevents stale state from previous session)
+  document.getElementById('nav-admin').classList.add('hidden');
   if(user.role==='admin'){
     document.getElementById('nav-admin').classList.remove('hidden');
     const _ant=document.getElementById('admin-nav-title'); if(_ant) _ant.style.display='block';
@@ -3417,7 +3419,7 @@ function showPhase2Nav(){
   const isAdmin = isTrustedAdmin();
   ['nav-contacts','nav-messages','nav-shared'].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.style.display=isAdmin?'none':'';
+    if(el) el.style.display=isAdmin?'none':'flex'; // explicit flex for proper mobile rendering
   });
   // Update pending contact badge for non-admin users
   if(!isAdmin && currentUser){
@@ -4319,13 +4321,16 @@ async function downloadDoc(docId){
 }
 
 async function getDocViewUrl(doc){
-  if(doc.storagePath){
+  if(doc.fileData) return doc.fileData; // base64 docs: no storage call needed
+  if(doc.storagePath && !doc.isReceived){ // skip cross-company storagePath for received docs
     try{
       const{data,error}=await _supa.storage.from('documents').createSignedUrl(doc.storagePath,3600);
       if(!error&&data?.signedUrl) return data.signedUrl;
-    }catch(e){}
+      // 400 = object not found or no SELECT policy — fall through silently
+    }catch{}
   }
-  return doc.fileData||null;
+  if(doc.signedUrl) return doc.signedUrl; // pre-generated signed URL (shared docs)
+  return null;
 }
 
 // ════════════════════════════════════════════════
@@ -5966,7 +5971,7 @@ function renderAdmin(main){
       <div style="background:#041348;border-radius:var(--radius);padding:20px 18px;position:relative;overflow:hidden;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#1A52D4;margin-bottom:8px;">Aziende</div>
         <div style="font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:#fff;line-height:1">${companies.length}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">${companies.filter(c=>!c.trialMode&&getPlanStatus(c).status==='active').length} attive · ${companies.filter(c=>c.trialMode).length} trial</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">${companies.filter(c=>!c.trialMode&&getPlanStatus(c).status==='active').length} attive · ${companies.filter(c=>c.trialMode||c.plan==='Trial').length} trial</div>
         <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:36px;opacity:0.12"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
       </div>
       <div style="background:#041348;border-radius:var(--radius);padding:20px 18px;position:relative;overflow:hidden;">
@@ -6937,6 +6942,30 @@ Importo: € ${tot.toFixed(2)} IVA incl."
     </div>`;
 } else if(adminTab==='plans'){
     renderPlanConfig(body);
+  } else if(adminTab==='tickets'){
+    const tickets=DB.getTickets().slice().reverse();
+    const openTkts=tickets.filter(t=>t.status!=='closed');
+    const closedTkts=tickets.filter(t=>t.status==='closed');
+    body.innerHTML=`<div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
+        <span style="font-size:14px;font-weight:700;color:var(--navy)">Ticket aperti (${openTkts.length})</span>
+        <span style="font-size:12px;color:var(--text-muted)">Totale: ${tickets.length} · Chiusi: ${closedTkts.length}</span>
+      </div>
+      ${tickets.length===0?`<div class="empty-state"><div class="empty-state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m22 17-8-5-8 5"/></svg></div><div class="empty-state-text">Nessun ticket</div></div>`
+      :tickets.map(tk=>{
+        const statusColor=tk.status==='open'?'#E74C3C':tk.status==='closed'?'#6B7280':'#F59E0B';
+        const statusLabel=tk.status==='open'?'Aperto':tk.status==='closed'?'Chiuso':'In lavorazione';
+        return`<div class="card" style="padding:14px 18px;border-left:3px solid ${statusColor}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:2px">${esc(tk.subject||'–')}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${esc(tk.companyName||'–')} · ${formatDate(tk.createdAt)}</div>
+              ${tk.message?`<div style="font-size:12px;color:var(--text);margin-top:6px;padding-top:6px;border-top:1px solid var(--border-light)">${esc(tk.message.substring(0,200))}${tk.message.length>200?'…':''}</div>`:''}
+            </div>
+            <span style="background:${statusColor}20;color:${statusColor};font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap">${statusLabel}</span>
+          </div>
+        </div>`}).join('')}
+    </div>`;
   } else if(adminTab==='new-company'){
     const today=new Date().toISOString().split('T')[0];
     const nextYear=new Date(Date.now()+365*864e5).toISOString().split('T')[0];
@@ -7874,7 +7903,7 @@ function renderSettings(main){
 
     ${co.plan!=='Admin'?(()=>{
       const purchases=DB.getPurchases(co.id);
-      if(!purchases.length) return '';
+      if(!purchases.length) return `<div class="settings-section" style="margin-top:0"><div class="settings-section-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg> Storico Acquisti &amp; Contratti</div><div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px">Nessun acquisto registrato.</div></div>`;
       const typeLabel={activation:'Attivazione',renewal:'Rinnovo',trial:'Trial Gratuito'};
       const sigBadge=p=>p.clientSignedAt
         ?'<span style=\"display:inline-flex;align-items:center;gap:3px;background:#D1FAE5;color:#065F46;border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700;\">✅ Firmato<\/span>'
@@ -9261,6 +9290,12 @@ function updateNotifBadge(){
   // Keep nav-shared-badge in sync on every badge refresh
   const sharedBadge=document.getElementById('nav-shared-badge');
   if(sharedBadge){const ps=countPendingShares();sharedBadge.textContent=ps;sharedBadge.classList.toggle('hidden',ps===0);}
+  // Keep nav-p2p-badge in sync on every badge refresh
+  const p2pBadgeGlobal=document.getElementById('nav-p2p-badge');
+  if(p2pBadgeGlobal){const u=countUnreadP2P();p2pBadgeGlobal.textContent=u;p2pBadgeGlobal.classList.toggle('hidden',u===0);}
+  // Keep nav-contact-badge in sync
+  const contactBadge=document.getElementById('nav-contact-badge');
+  if(contactBadge&&currentUser){const p=DB.getContacts().filter(c=>c.recipientId===currentUser.id&&c.status==='pending').length;contactBadge.textContent=p;contactBadge.classList.toggle('hidden',p===0);}
 }
 
 function toggleNotifPanel(e){
@@ -9347,10 +9382,11 @@ function renderNotifPanel(){
         ${typeIcon[n.type]||'ℹ️'}
       </div>
       <div class="notif-body" style="padding-right:${n.read?'24px':'0'}">
-        <div class="notif-msg">${esc(n.message)}</div>
-        <div class="notif-meta">
-          ${n.companyName?`<strong>${esc(n.companyName)}</strong> · `:''}${formatDate(n.createdAt)}
-          ${!n.read?'<span style="color:#1D4ED8;font-weight:600;margin-left:4px"><svg width="8" height="8" viewBox="0 0 8 8" style="margin-right:3px;vertical-align:middle"><circle cx="4" cy="4" r="3" fill="currentColor"/></svg>Nuovo</span>':''}
+        <div class="notif-msg" style="font-size:13px;line-height:1.5;color:var(--text)">${n.message}</div>
+        <div class="notif-meta" style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
+          ${n.companyName?`<span style="font-size:11px;font-weight:600;color:var(--navy)">${esc(n.companyName)}</span><span style="color:var(--border-light)">·</span>`:''}
+          <span style="font-size:11px;color:var(--text-muted)">${formatDate(n.createdAt)}</span>
+          ${!n.read?'<span style="background:#EFF6FF;color:#1D4ED8;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px">Nuovo</span>':''}
         </div>
       </div>
       ${n.read?`<button class="notif-del" onclick="deleteNotif('${n.id}',event)" title="Elimina"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}
@@ -10723,7 +10759,7 @@ function recalcFreePlan(){
   if(ps) ps.textContent=s+' MB';
 }
 
-function savePlanConfig(name){
+async function savePlanConfig(name){
   const plans=DB.getPlansConfig();
   let updatedPlan;
 
@@ -10746,6 +10782,8 @@ function savePlanConfig(name){
   }
 
   DB.setPlansConfig(plans);
+  // Await explicit Supabase sync so plan changes survive logout/login
+  await _supaSyncAwait('co_admin','plans_config',plans);
 
   // ── Salva nel changelog ────────────────────────────────
   const changelog = DB.getPlanChangelog();
