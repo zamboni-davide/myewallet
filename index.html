@@ -2871,6 +2871,40 @@ async function doLogin(){
         user.companyId = companyId;
       }
       if(user && co && co.id !== 'co_admin' || (user && co && user.role==='admin')){
+
+        // ── FIX B: repair termsAcceptedAt if lost (idempotent) ───────────────
+        // Covers: saveNewPassword created user without termsAcceptedAt, or different-browser scenario
+        if(user && !user.termsAcceptedAt && meta?.termsAcceptedAt){
+          try{
+            user.termsAcceptedAt = meta.termsAcceptedAt;
+            const _uIdx = users.findIndex(u=>u.id===user.id);
+            if(_uIdx>=0){ users[_uIdx].termsAcceptedAt = meta.termsAcceptedAt; }
+            DB.setUsers(users);
+            await _supaSyncAwait('co_admin','users',users);
+          }catch(_fixBErr){}
+        }
+
+        // ── FIX C: repair gdprConsent from user_consents if lost (idempotent) ─
+        // Covers: company record lost gdprConsent after different-browser registration
+        if(co && !co.gdprConsent && user){
+          try{
+            const _consents = DB.getUserConsents();
+            const _hasGdpr = _consents.some(c=>c.userId===user.id&&c.docType==='gdpr'&&c.isValid);
+            if(_hasGdpr){
+              const _allCos = DB.getCompanies();
+              const _coIdx  = _allCos.findIndex(c=>c.id===co.id);
+              if(_coIdx>=0){
+                _allCos[_coIdx].gdprConsent = true;
+                if(!_allCos[_coIdx].consentTimestamp)
+                  _allCos[_coIdx].consentTimestamp = user.termsAcceptedAt||new Date().toISOString();
+                DB.setCompanies(_allCos);
+                co = _allCos[_coIdx]; // update local reference
+                await _supaSyncAwait('co_admin','companies',_allCos);
+              }
+            }
+          }catch(_fixCErr){}
+        }
+
         // Sync dati locali verso Supabase (solo se ci sono dati da sincronizzare)
         _supaUploadAll('co_admin').catch(()=>{});
         if(companyId && companyId !== 'co_admin') _supaUploadAll(companyId).catch(()=>{});
@@ -7415,7 +7449,7 @@ function adminDeleteCompany(coId){
 function getPlanStatus(co){
   if(!co.planEndDate){
     if(co.trialMode) return {status:'trial',label:'Trial',daysLeft:null,pct:100};
-    if(isTrustedAdmin())                     return {status:'admin',   label:'Admin',   daysLeft:null,pct:100};
+    if(co.id==='co_admin')                  return {status:'admin',   label:'Admin',   daysLeft:null,pct:100};
     /* co_admin: _resolveRole never returns co_admin — dead branch kept for safety */
     if(false)                                return {status:'co_admin',label:'Co-Admin',daysLeft:null,pct:100};
     return {status:'free',label:'Free',daysLeft:null,pct:100};
@@ -11960,6 +11994,7 @@ async function saveNewPassword(){
         if(safeCoId){ // only create if we have a valid companyId
           user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,
                 pwd:'__supabase__',companyId:safeCoId,role:safeRole,
+                termsAcceptedAt:data.session.user.user_metadata?.termsAcceptedAt||null,
                 createdAt:new Date().toISOString()};
           users.push(user); DB.setUsers(users);
         }
