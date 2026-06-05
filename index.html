@@ -11002,6 +11002,11 @@ async function savePlanConfig(name){
   DB.setPlansConfig(plans);
   // Await explicit Supabase sync so plan changes survive logout/login
   await _supaSyncAwait('co_admin','plans_config',plans);
+  // Re-assert in memory and localStorage: a concurrent _supaLoadAll (triggered by
+  // showAdminPage navigation) could have overwritten plans_config with the stale
+  // Supabase version during the await above, since plans_config is not in _MERGE_KEYS.
+  _mem['plans_config'] = plans;
+  try{localStorage.setItem('pda_plans_config',JSON.stringify(plans));}catch{}
 
   // ── Salva nel changelog ────────────────────────────────
   const changelog = DB.getPlanChangelog();
@@ -12293,11 +12298,4 @@ Richiesta inviata tramite MyEwallet.`,
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap;margin-top:4px">
       <button onclick="acceptCookies('necessary')" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:rgba(255,255,255,0.8);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap">Solo necessari</button>
-      <button onclick="acceptCookies('all')" style="background:#C9A84C;border:none;color:#041348;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Accetta</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ MODAL RICHIESTA CANCELLAZIONE ACCOUNT ══ -->
-<div id="delete-account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:14px;max-width:440px;wid
+      <button onclick="acceptCookies('all')" style="background:#C9A84C;border:none;color:#041348;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:po
