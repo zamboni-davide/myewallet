@@ -6231,6 +6231,13 @@ function adminOpenTicket(ticketId){
         <button onclick="adminSaveTicketNote('${tk.id}')" style="padding:6px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Salva nota</button>
       </div>
     </div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border-light)">
+      <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px">Risposta admin</div>
+      <textarea id="admin-reply-${tk.id}" rows="2" placeholder="Scrivi una risposta visibile all'utente…" style="width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--border-light);border-radius:6px;resize:none;font-family:inherit;box-sizing:border-box"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px">
+        <button onclick="adminSendTicketReply('${tk.id}')" style="padding:6px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Invia risposta</button>
+      </div>
+    </div>
   </div>`;
   document.getElementById('confirm-title').textContent='Ticket #'+ticketId.substring(0,8).toUpperCase();
   document.getElementById('confirm-text').innerHTML=html;
@@ -6238,19 +6245,20 @@ function adminOpenTicket(ticketId){
   document.getElementById('confirm-overlay').classList.remove('hidden');
 }
 
-function adminUpdateTicketStatus(ticketId, newStatus){
+async function adminUpdateTicketStatus(ticketId, newStatus){
   const tickets = DB.getTickets();
   const tk = tickets.find(t=>t.id===ticketId);
   if(!tk) return;
   tk.status = newStatus;
   tk.updatedAt = new Date().toISOString();
   DB.setTickets(tickets);
+  await _supaSyncAwait('co_admin','tickets',tickets);
   closeConfirm();
   showToast('Stato ticket aggiornato','success');
-  renderAdminTab(); // refresh ticket list
+  renderAdminTab();
 }
 
-function adminSaveTicketNote(ticketId){
+async function adminSaveTicketNote(ticketId){
   const tickets = DB.getTickets();
   const tk = tickets.find(t=>t.id===ticketId);
   if(!tk) return;
@@ -6258,8 +6266,34 @@ function adminSaveTicketNote(ticketId){
   tk.adminNote = note;
   tk.updatedAt = new Date().toISOString();
   DB.setTickets(tickets);
+  await _supaSyncAwait('co_admin','tickets',tickets);
   closeConfirm();
   showToast('Nota salvata','success');
+}
+
+async function adminSendTicketReply(ticketId){
+  const text = document.getElementById('admin-reply-'+ticketId)?.value.trim();
+  if(!text){ showToast('Scrivi una risposta','error'); return; }
+  const tickets = DB.getTickets();
+  const t = tickets.find(x=>x.id===ticketId);
+  if(!t) return;
+  t.messages = t.messages||[];
+  t.messages.push({id:uid(), from:'admin', userId:'admin', userName:'Studio Zamboni',
+    text, at:new Date().toISOString()});
+  t.status = 'pending';
+  t.updatedAt = new Date().toISOString();
+  DB.setTickets(tickets);
+  await _supaSyncAwait('co_admin','tickets',tickets);
+  const users = DB.getUsers().filter(u=>u.companyId===t.companyId);
+  users.forEach(u=>createNotification({
+    recipientId:u.id, recipientRole:'user',
+    companyId:t.companyId, companyName:t.companyName,
+    message:`💬 Studio Zamboni ha risposto al tuo ticket: "${esc(t.subject)}"`,
+    type:'info', relatedRequestId:ticketId, senderName:'Studio Zamboni'
+  }));
+  closeConfirm();
+  showToast('Risposta inviata','success');
+  renderAdminTab();
 }
 
 function renderAdminTab(){
@@ -9617,29 +9651,30 @@ function renderNotifPanel(){
     </div>`).join('');
 }
 
-function readNotif(id){
+async function readNotif(id){
   const notifs=DB.getNotifications();
   const n=notifs.find(x=>x.id===id);
-  if(n&&!n.read){n.read=true;DB.setNotifications(notifs);}
+  if(n&&!n.read){n.read=true;DB.setNotifications(notifs);await _supaSyncAwait('co_admin','notifications',notifs);}
   updateNotifBadge();
   renderNotifPanel();
   if(n&&n.recipientRole==='user') navTo('settings');
   if(n&&n.recipientRole==='admin') navTo('admin');
 }
 
-function readNotifAdmin(id){
+async function readNotifAdmin(id){
   const notifs=DB.getNotifications();
   const n=notifs.find(x=>x.id===id);
-  if(n&&!n.read){n.read=true;DB.setNotifications(notifs);}
+  if(n&&!n.read){n.read=true;DB.setNotifications(notifs);await _supaSyncAwait('co_admin','notifications',notifs);}
   updateNotifBadge();
   renderAdminTab();
 }
 
-function markAllNotifsRead(){
+async function markAllNotifsRead(){
   const notifs=DB.getNotifications();
   const myIds=getMyNotifications().map(n=>n.id);
   notifs.forEach(n=>{if(myIds.includes(n.id))n.read=true;});
   DB.setNotifications(notifs);
+  await _supaSyncAwait('co_admin','notifications',notifs);
   updateNotifBadge();
   updateNavNotifBadge();
   renderNotifPanel();
