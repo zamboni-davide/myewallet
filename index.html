@@ -2435,7 +2435,13 @@ async function _supaLoadAll(companyId) {
           if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
           if(Array.isArray(arr))arr.forEach(c=>{
             if(!c?.id)return;
-            if(mergedCoMap.has(c.id)){Object.assign(mergedCoMap.get(c.id),c);}
+            if(mergedCoMap.has(c.id)){
+              const t=mergedCoMap.get(c.id);
+              if(c.gdprConsent!==undefined)t.gdprConsent=c.gdprConsent;
+              if(c.gdprConsentTimestamp!==undefined)t.gdprConsentTimestamp=c.gdprConsentTimestamp;
+              if(c.consentTimestamp!==undefined)t.consentTimestamp=c.consentTimestamp;
+              if(c.userType!==undefined)t.userType=c.userType;
+            }
             else{mergedCo.push(c);mergedCoMap.set(c.id,c);}
           });
         });
@@ -12298,4 +12304,29 @@ Richiesta inviata tramite MyEwallet.`,
     </div>
     <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap;margin-top:4px">
       <button onclick="acceptCookies('necessary')" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:rgba(255,255,255,0.8);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap">Solo necessari</button>
-      <button onclick="acceptCookies('all')" style="background:#C9A84C;border:none;color:#041348;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:po
+      <button onclick="acceptCookies('all')" style="background:#C9A84C;border:none;color:#041348;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Accetta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL RICHIESTA CANCELLAZIONE ACCOUNT ══ -->
+<div id="delete-account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;padding:28px 24px">
+    <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#DC2626;margin:0 0 8px">⚠️ Richiesta cancellazione account</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6;margin:0 0 16px">
+      Ai sensi dell'art. 17 GDPR hai il diritto di richiedere la cancellazione dei tuoi dati personali.<br><br>
+      La richiesta verrà inviata a <strong>Studio Zamboni</strong> e processata entro <strong>30 giorni</strong>. I tuoi dati verranno eliminati salvo obblighi di legge (conservazione fiscale 10 anni).
+    </p>
+    <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#991B1B">
+      <strong>Attenzione:</strong> questa azione è irreversibile. Tutti i documenti, dati e accessi verranno rimossi.
+    </div>
+    <textarea id="delete-account-reason" placeholder="Motivo della richiesta (opzionale)..." rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:13px;resize:none;box-sizing:border-box;font-family:inherit;margin-bottom:16px"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeDeleteAccountModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer">Annulla</button>
+      <button onclick="submitDeleteAccountRequest()" style="background:#DC2626;border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Invia richiesta</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
