@@ -9561,7 +9561,7 @@ function getMyNotifications(){
 }
 
 function countUnreadNotifs(){
-  return getMyNotifications().filter(n=>!n.read).length + countUnreadConvMsgs();
+  return getMyNotifications().filter(n=>!n.read).length;
 }
 
 function updateNotifBadge(){
