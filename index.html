@@ -2526,6 +2526,60 @@ async function _supaLoadAll(companyId) {
       }
     }catch{}
   }
+  // For non-admin users: also load conversations from co_admin partition
+  // (admin messages written to co_admin may not have reached the user partition due to RLS)
+  if(companyId !== 'co_admin' && companyId){
+    try{
+      const{data:admConvData}=await _supa.from('company_store')
+        .select('store_value').eq('store_key','conversations').eq('company_id','co_admin').single();
+      if(admConvData?.store_value){
+        let arr=admConvData.store_value;
+        if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+        if(Array.isArray(arr)){
+          const myConvs=Array.isArray(_mem['conversations'])?[..._mem['conversations']]:[];
+          const convMap=new Map(myConvs.map(c=>[c.id,c]));
+          arr.forEach(conv=>{
+            if(conv.companyId!==companyId)return;
+            const ex=convMap.get(conv.id);
+            if(!ex){myConvs.push(conv);convMap.set(conv.id,conv);}
+            else{
+              const exIds=new Set((ex.messages||[]).map(m=>m.id));
+              const extras=(conv.messages||[]).filter(m=>m.id&&!exIds.has(m.id));
+              if(extras.length){
+                ex.messages=[...(ex.messages||[]),...extras].sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+                ex.updatedAt=ex.messages[ex.messages.length-1].ts;
+              }
+            }
+          });
+          _mem['conversations']=myConvs;
+          try{localStorage.setItem('pda_conversations',JSON.stringify(myConvs));}catch{}
+        }
+      }
+    }catch{}
+  }
+  // For non-admin users: also load tickets from co_admin partition
+  // (admin replies and status changes are written to co_admin and may not reach user partition)
+  if(companyId !== 'co_admin' && companyId){
+    try{
+      const{data:admTkData}=await _supa.from('company_store')
+        .select('store_value').eq('store_key','tickets').eq('company_id','co_admin').single();
+      if(admTkData?.store_value){
+        let arr=admTkData.store_value;
+        if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+        if(Array.isArray(arr)){
+          const myTks=Array.isArray(_mem['tickets'])?[..._mem['tickets']]:[];
+          const tkMap=new Map(myTks.map(t=>[t.id,t]));
+          arr.forEach(tk=>{
+            if(tk.companyId!==companyId)return;
+            if(!tkMap.has(tk.id)){myTks.push(tk);tkMap.set(tk.id,tk);}
+            else{Object.assign(tkMap.get(tk.id),tk);}
+          });
+          _mem['tickets']=myTks;
+          try{localStorage.setItem('pda_tickets',JSON.stringify(myTks));}catch{}
+        }
+      }
+    }catch{}
+  }
 }
 
 // Upload all current localStorage data for a company to Supabase
