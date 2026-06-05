@@ -2406,16 +2406,41 @@ async function _supaLoadAll(companyId) {
         .select('store_value').eq('store_key','users');
       if(allU&&allU.length>0){
         let merged=Array.isArray(_mem['users'])?[..._mem['users']]:[];
-        const knownIds=new Set(merged.map(u=>u?.id).filter(Boolean));
+        const mergedUMap=new Map(merged.map(u=>[u?.id,u]).filter(([id])=>id));
         allU.forEach(row=>{
           let arr=row.store_value;
           if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
-          if(Array.isArray(arr))arr.forEach(u=>{if(u?.id&&!knownIds.has(u.id)){merged.push(u);knownIds.add(u.id);}});
+          if(Array.isArray(arr))arr.forEach(u=>{
+            if(!u?.id)return;
+            if(mergedUMap.has(u.id)){Object.assign(mergedUMap.get(u.id),u);}
+            else{merged.push(u);mergedUMap.set(u.id,u);}
+          });
         });
-        if(merged.length>(_mem['users']||[]).length){
-          _mem['users']=merged;
-          try{localStorage.setItem('pda_users',JSON.stringify(merged));}catch{}
-        }
+        _mem['users']=merged;
+        try{localStorage.setItem('pda_users',JSON.stringify(merged));}catch{}
+      }
+    }catch{}
+  }
+  // For admin: also load companies from ALL company partitions (picks up gdprConsent/gdprConsentTimestamp
+  // written to a company's own partition when co_admin RLS blocked the cross-partition write)
+  if(companyId==='co_admin'){
+    try{
+      const {data:allCoP}=await _supa.from('company_store')
+        .select('store_value').eq('store_key','companies');
+      if(allCoP&&allCoP.length>0){
+        let mergedCo=Array.isArray(_mem['companies'])?[..._mem['companies']]:[];
+        const mergedCoMap=new Map(mergedCo.map(c=>[c?.id,c]).filter(([id])=>id));
+        allCoP.forEach(row=>{
+          let arr=row.store_value;
+          if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+          if(Array.isArray(arr))arr.forEach(c=>{
+            if(!c?.id)return;
+            if(mergedCoMap.has(c.id)){Object.assign(mergedCoMap.get(c.id),c);}
+            else{mergedCo.push(c);mergedCoMap.set(c.id,c);}
+          });
+        });
+        _mem['companies']=mergedCo;
+        try{localStorage.setItem('pda_companies',JSON.stringify(mergedCo));}catch{}
       }
     }catch{}
   }
@@ -2918,6 +2943,15 @@ async function doLogin(){
               }
             }
           }catch(_fixCErr){}
+
+        // ── FIX D: sync users + companies to co_admin at every login ─────────
+        // Guarantees termsAcceptedAt, gdprConsent, gdprConsentTimestamp reach
+        // Supabase even when registration sync was skipped (email confirmation flow)
+        // or a previous RLS-blocked write left the data only in localStorage.
+        try{
+          await _supaSyncAwait('co_admin','users', DB.getUsers());
+          await _supaSyncAwait('co_admin','companies', DB.getCompanies());
+        }catch(_fixDErr){}
         }
 
         // Sync dati locali verso Supabase (solo se ci sono dati da sincronizzare)
@@ -12266,22 +12300,4 @@ Richiesta inviata tramite MyEwallet.`,
 
 <!-- ══ MODAL RICHIESTA CANCELLAZIONE ACCOUNT ══ -->
 <div id="delete-account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;padding:28px 24px">
-    <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#DC2626;margin:0 0 8px">⚠️ Richiesta cancellazione account</h3>
-    <p style="font-size:13px;color:#4a5568;line-height:1.6;margin:0 0 16px">
-      Ai sensi dell'art. 17 GDPR hai il diritto di richiedere la cancellazione dei tuoi dati personali.<br><br>
-      La richiesta verrà inviata a <strong>Studio Zamboni</strong> e processata entro <strong>30 giorni</strong>. I tuoi dati verranno eliminati salvo obblighi di legge (conservazione fiscale 10 anni).
-    </p>
-    <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#991B1B">
-      <strong>Attenzione:</strong> questa azione è irreversibile. Tutti i documenti, dati e accessi verranno rimossi.
-    </div>
-    <textarea id="delete-account-reason" placeholder="Motivo della richiesta (opzionale)..." rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:13px;resize:none;box-sizing:border-box;font-family:inherit;margin-bottom:16px"></textarea>
-    <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button onclick="closeDeleteAccountModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer">Annulla</button>
-      <button onclick="submitDeleteAccountRequest()" style="background:#DC2626;border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Invia richiesta</button>
-    </div>
-  </div>
-</div>
-
-</body>
-</html>
+  <div style="background:#fff;border-radius:14px;max-width:440px;wid
