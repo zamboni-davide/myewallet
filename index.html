@@ -9138,13 +9138,19 @@ async function sendP2PMessage(peerId, peerName){
   updateNotifBadge();
 }
 
-function markP2PMsgsRead(conv){
+async function markP2PMsgsRead(conv){
   if(!conv||!currentUser) return;
   let changed=false;
   conv.messages.forEach(m=>{
     if(!m.readBy.includes(currentUser.id)){m.readBy.push(currentUser.id);changed=true;}
   });
-  if(changed){DB.setP2PConvs(DB.getP2PConvs());updateNotifBadge();}
+  if(changed){
+    const convs=DB.getP2PConvs();
+    DB.setP2PConvs(convs);
+    updateNotifBadge();
+    updateNavNotifBadge();
+    await _supaSyncAwait('co_admin','p2p_convs',convs);
+  }
 }
 
 function countUnreadP2P(){
