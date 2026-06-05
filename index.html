@@ -3631,7 +3631,7 @@ function startTrialCountdown(ti){
     if(el) el.textContent=txt;
     // Settings card countdown
     const elS=document.getElementById('settings-trial-countdown');
-    if(elS) elS.textContent=txt+' su 7';
+    if(elS) elS.textContent=txt;
     // Update doc counters
     updateTrialDocCounters();
   }
@@ -3645,7 +3645,7 @@ function updateTrialDocCounters(){
   const el1=document.getElementById('trial-doc-counter');
   if(el1) el1.textContent=n;
   const el2=document.getElementById('settings-trial-doc-count');
-  if(el2) el2.textContent=n+'/3';
+  if(el2) el2.textContent=String(n);
 }
 
 function updateSidebarForTrial(){
@@ -7995,21 +7995,34 @@ function renderSettings(main){
         ${isTrustedAdmin()?``:  ti.isTrial?`
         <div class="settings-section" style="padding:0;overflow:hidden">
           <div class="plan-card ${ti.isExpired?'expired':'active'}" style="border-radius:var(--radius) var(--radius) 0 0">
-            <div class="plan-card-badge">
-              <span style="font-size:14px">${ti.isExpired?'×':'·'}</span>
-              ${ti.isExpired?'Trial Scaduto':'Accesso Trial'}
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px">
+              <div>
+                <div class="plan-card-badge">
+                  <span style="font-size:11px">${ti.isExpired?'×':'◦'}</span>
+                  ${ti.isExpired?'Trial Scaduto':'Accesso Trial'}
+                </div>
+                <div class="plan-card-name" style="margin-top:8px">Prova Gratuita – ${ti.trialDays||30} giorni</div>
+              </div>
             </div>
-            <div class="plan-card-name">Prova Gratuita – 30 giorni</div>
-            <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
-              <div><div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Giorni rimanenti</div>
-              <div style="font-size:18px;font-weight:700;color:${ti.isExpired?'#fc8181':'var(--gold)'}">${ti.isExpired?'0':ti.daysLeft}</div></div>
-              <div><div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Documenti</div>
-              <div style="font-size:18px;font-weight:700" id="settings-trial-doc-count">${DB.getDocs(co.id).length}/15</div></div>
-              <div><div style="font-size:11px;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2px">Scadenza trial</div>
-              <div style="font-size:15px;font-weight:600">${co.trialEndDate?formatDate(co.trialEndDate):'–'}</div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid rgba(255,255,255,0.13);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:16px">
+              <div style="padding:12px 14px;border-right:1px solid rgba(255,255,255,0.13)">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;opacity:0.5;margin-bottom:5px">Giorni rimasti</div>
+                <div style="font-size:28px;font-weight:800;color:${ti.isExpired?'#fc8181':ti.daysLeft<=2?'#fc8181':ti.daysLeft<=5?'#FBBF24':'var(--gold)'};line-height:1">${ti.isExpired?'0':ti.daysLeft}</div>
+                <div style="font-size:9px;opacity:0.4;margin-top:5px">su ${ti.trialDays||30}</div>
+              </div>
+              <div style="padding:12px 14px;border-right:1px solid rgba(255,255,255,0.13)">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;opacity:0.5;margin-bottom:5px">Documenti</div>
+                <div style="font-size:28px;font-weight:800;line-height:1"><span id="settings-trial-doc-count">${DB.getDocs(co.id).length}</span></div>
+                <div style="font-size:9px;opacity:0.4;margin-top:5px">su ${ti.docLimit||15}</div>
+              </div>
+              <div style="padding:12px 14px">
+                <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;opacity:0.5;margin-bottom:5px">Scadenza</div>
+                <div style="font-size:13px;font-weight:700;line-height:1.3;color:${ti.isExpired?'#fc8181':'rgba(255,255,255,0.9)'}">${co.trialEndDate?formatDate(co.trialEndDate):'–'}</div>
+                <div style="font-size:9px;opacity:0.4;margin-top:5px">&nbsp;</div>
+              </div>
             </div>
-            ${!ti.isExpired?`<div class="plan-progress"><div class="plan-progress-bar ${ti.daysLeft<=2?'danger':ti.daysLeft<=5?'warn':'ok'}" style="width:${Math.round((ti.daysLeft/7)*100)}%" id="settings-trial-bar"></div></div>
-            <div class="plan-days-left" id="settings-trial-countdown">${ti.daysLeft} giorni rimanenti su 30</div>`:''}
+            ${!ti.isExpired?`<div class="plan-progress" style="margin-bottom:6px"><div class="plan-progress-bar ${ti.daysLeft<=2?'danger':ti.daysLeft<=5?'warn':'ok'}" style="width:${Math.round((ti.daysLeft/(ti.trialDays||30))*100)}%" id="settings-trial-bar"></div></div>
+            <div class="plan-days-left" id="settings-trial-countdown">${ti.daysLeft} giorni rimasti su ${ti.trialDays||30}</div>`:''}
             ${(()=>{const limitBytes=getPlanStorageLimitBytes(co);const usedBytes=getStorageUsedBytes(co);if(!limitBytes)return'';const pct=Math.min(100,Math.round(usedBytes/limitBytes*100));const barColor=pct>=90?'#FC8181':pct>=70?'#FBBF24':'var(--gold)';const freeBytes=Math.max(0,limitBytes-usedBytes);return`<div style="margin-top:14px;padding:12px 14px;background:rgba(0,0,0,0.15);border-radius:var(--radius-sm)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;opacity:0.7">💾 Storage Trial</span><span style="font-size:11px;font-weight:700;color:${barColor}">${pct}%</span></div><div style="height:7px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.4s"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;opacity:0.75"><span>Usato: <strong>${formatBytes(usedBytes)}</strong></span><span>Libero: <strong>${formatBytes(freeBytes)}</strong> / ${formatBytes(limitBytes)}</span></div></div>`;})()}
           </div>
           <div style="padding:16px 20px;background:#fff">
@@ -12374,4 +12387,23 @@ Richiesta inviata tramite MyEwallet.`,
 </div>
 
 <!-- ══ MODAL RICHIESTA CANCELLAZIONE ACCOUNT ══ -->
-<div id="delete-acco
+<div id="delete-account-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9500;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;padding:28px 24px">
+    <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#DC2626;margin:0 0 8px">⚠️ Richiesta cancellazione account</h3>
+    <p style="font-size:13px;color:#4a5568;line-height:1.6;margin:0 0 16px">
+      Ai sensi dell'art. 17 GDPR hai il diritto di richiedere la cancellazione dei tuoi dati personali.<br><br>
+      La richiesta verrà inviata a <strong>Studio Zamboni</strong> e processata entro <strong>30 giorni</strong>. I tuoi dati verranno eliminati salvo obblighi di legge (conservazione fiscale 10 anni).
+    </p>
+    <div style="background:#FEF2F2;border:1px solid #FCA5A5;border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:12px;color:#991B1B">
+      <strong>Attenzione:</strong> questa azione è irreversibile. Tutti i documenti, dati e accessi verranno rimossi.
+    </div>
+    <textarea id="delete-account-reason" placeholder="Motivo della richiesta (opzionale)..." rows="3" style="width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 12px;font-size:13px;resize:none;box-sizing:border-box;font-family:inherit;margin-bottom:16px"></textarea>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button onclick="closeDeleteAccountModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer">Annulla</button>
+      <button onclick="submitDeleteAccountRequest()" style="background:#DC2626;border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Invia richiesta</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
