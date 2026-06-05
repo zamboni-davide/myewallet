@@ -2480,6 +2480,21 @@ async function _supaLoadAll(companyId) {
       }
     }catch{}
   }
+  // For non-admin users: also load plans_config from co_admin partition
+  if(companyId !== 'co_admin' && companyId){
+    try{
+      const{data:pcData}=await _supa.from('company_store')
+        .select('store_value').eq('store_key','plans_config').eq('company_id','co_admin').single();
+      if(pcData?.store_value){
+        let pc=pcData.store_value;
+        if(typeof pc==='string')try{pc=JSON.parse(pc);}catch{pc=null;}
+        if(pc&&typeof pc==='object'){
+          _mem['plans_config']=pc;
+          try{localStorage.setItem('pda_plans_config',JSON.stringify(pc));}catch{}
+        }
+      }
+    }catch{}
+  }
 }
 
 // Upload all current localStorage data for a company to Supabase
@@ -6438,12 +6453,12 @@ function renderAdminTab(){
           </td>
           <td>${accBadge}</td>
           <td style="font-size:12px">
-            <div style="color:${u.termsAcceptedAt?'#16A34A':'#DC2626'}">
-              ${u.termsAcceptedAt
-                ?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> T&C · '+formatDate(u.termsAcceptedAt)
+            <div style="color:${(u.termsAcceptedAt||u.acceptedTermsAt||u.termsAccepted)?'#16A34A':'#DC2626'}">
+              ${(u.termsAcceptedAt||u.acceptedTermsAt||u.termsAccepted)
+                ?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> T&C · '+formatDate(u.termsAcceptedAt||u.acceptedTermsAt||(typeof u.termsAccepted==='string'?u.termsAccepted:'')||'')
                 :'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Non accettate'}
             </div>
-            ${co?.gdprConsent?`<div style="color:#16A34A;margin-top:2px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> GDPR · ${formatDate(co.gdprConsentTimestamp||co.consentTimestamp||u.termsAcceptedAt||'')}</div>`:''}
+            ${(co?.gdprConsent||u.gdprConsent||u.gdprAccepted||u.gdprConsentAt||u.gdprTimestamp)?`<div style="color:#16A34A;margin-top:2px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> GDPR · ${formatDate(co?.gdprConsentTimestamp||co?.consentTimestamp||u.gdprConsentAt||u.gdprTimestamp||u.termsAcceptedAt||u.acceptedTermsAt||'')}</div>`:''}
           </td>
           <td style="font-size:12px;color:var(--text-muted)">${formatDate(u.createdAt||'')}</td>
           <td>
