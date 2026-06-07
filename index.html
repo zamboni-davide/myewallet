@@ -12505,15 +12505,7 @@ async function confirmGdprWarning(){
   setTimeout(()=>document.getElementById('gdpr-code-input')?.focus(), 100);
 }
 
-// ── TODO: inserire credenziali Brevo prima del deploy ──────────────────
-// Le credenziali Brevo (BREVO_API_KEY e BREVO_SENDER_EMAIL) NON sono
-// presenti in questo file. Sostituire i placeholder qui sotto.
-// ────────────────────────────────────────────────────────────────────────
 async function sendGdprVerificationEmail(code){
-  const BREVO_API_KEY    = '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';
-  const BREVO_SENDER_EMAIL = 'direzione@consulenzesardegna.com';
-  const BREVO_SENDER_NAME  = 'MyEwallet® — Studio Zamboni';
-
   const userEmail = currentUser?.email||'';
   const userName  = currentUser?.name||'Utente';
   if(!userEmail){ showToast('Email utente non trovata','error'); return; }
@@ -12561,16 +12553,15 @@ async function sendGdprVerificationEmail(code){
 </body></html>`;
 
   try{
-    const resp = await fetch('https://api.brevo.com/v3/smtp/email',{
+    const resp = await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/send-email',{
       method:'POST',
       headers:{
-        'accept':'application/json',
-        'api-key': BREVO_API_KEY,
-        'content-type':'application/json'
+        'Content-Type':'application/json',
+        'Authorization':'Bearer '+(_supaAnonKey||'')
       },
       body: JSON.stringify({
-        sender:{name:BREVO_SENDER_NAME, email:BREVO_SENDER_EMAIL},
-        to:[{email:userEmail, name:userName}],
+        to: userEmail,
+        toName: userName,
         subject:'MyEwallet® — Codice di conferma cancellazione account',
         htmlContent
       })
@@ -12578,7 +12569,7 @@ async function sendGdprVerificationEmail(code){
     if(!resp.ok){
       let body='(nessun body)';
       try{ body=await resp.text(); }catch{}
-      console.error('Brevo API error — status:',resp.status,'| statusText:',resp.statusText,'| body:',body);
+      console.error('send-email edge function error — status:',resp.status,'| statusText:',resp.statusText,'| body:',body);
       throw new Error('HTTP '+resp.status);
     }
   }catch(e){
