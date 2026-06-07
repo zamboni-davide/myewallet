@@ -9156,6 +9156,19 @@ function p2pConvId(uid1, uid2){
 
 // ── 1) CONTACT SYSTEM ────────────────────────────────────
 
+let _contactSearchTimer=null;
+function _contactSearchCheck(val){
+  const el=document.getElementById('contact-search-result');
+  if(!el) return;
+  const email=(val||'').trim().toLowerCase();
+  if(!email){el.textContent='';return;}
+  const found=DB.getUsers().find(u=>u.email===email&&u.role!=='admin'&&u.id!==currentUser?.id);
+  if(found){
+    el.innerHTML=`<span style="color:#16A34A;font-weight:600">✓ Utente trovato: ${esc(found.name||found.email)} — puoi inviare la richiesta</span>`;
+  } else {
+    el.innerHTML=`<span style="color:#6B7280">Nessun account registrato con questa email</span>`;
+  }
+}
 function sendContactRequest(email){
   if(!currentUser) return;
   const users = DB.getUsers();
@@ -9198,6 +9211,7 @@ async function respondContactRequest(contactId, accept){
   DB.setContacts(contacts);
   // Await sync so status change survives logout before fire-and-forget completes
   await _supaSyncAwait('co_admin','contacts',contacts);
+  updateNavNotifBadge();
   if(accept){
     createNotification({recipientId:ct.requesterId, recipientRole:'user',
       companyId:'', companyName:ct.requesterName,
@@ -9568,9 +9582,13 @@ function renderContacts(main){
     </div>
     <div class="card" style="overflow:hidden">
       <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid var(--border-light);font-size:13px;font-weight:700;color:var(--navy)">Cerca utente</div>
-      <div style="padding:16px;display:flex;gap:8px">
-        <input id="contact-search-input" type="email" placeholder="Inserisci email utente..." style="flex:1;padding:8px 12px;border:1px solid var(--border-light);border-radius:6px;font-size:13px">
-        <button onclick="sendContactRequest(document.getElementById('contact-search-input').value)" style="padding:8px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Invia richiesta</button>
+      <div style="padding:16px 16px 8px">
+        <div style="display:flex;gap:8px">
+          <input id="contact-search-input" type="email" placeholder="Inserisci email utente..." style="flex:1;padding:8px 12px;border:1px solid var(--border-light);border-radius:6px;font-size:13px"
+            oninput="_contactSearchTimer&&clearTimeout(_contactSearchTimer);_contactSearchTimer=setTimeout(()=>_contactSearchCheck(this.value),500)">
+          <button onclick="sendContactRequest(document.getElementById('contact-search-input').value)" style="padding:8px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Invia richiesta</button>
+        </div>
+        <div id="contact-search-result" style="margin-top:8px;font-size:12px;min-height:18px"></div>
       </div>
     </div>
     <div id="p2p-chat-area" style="margin-top:16px"></div>
@@ -9896,6 +9914,14 @@ function updateNavNotifBadge(){
   updateAdminNotifTabBadge();
   // Signature badge
   updateSignatureBadge();
+  // P2P messages badge
+  if(!isTrustedAdmin()&&currentUser){
+    const p2pBadge=document.getElementById('nav-p2p-badge');
+    if(p2pBadge){const u=countUnreadP2P();p2pBadge.textContent=u;p2pBadge.classList.toggle('hidden',u===0);}
+    // Contacts pending badge
+    const contactBadge=document.getElementById('nav-contact-badge');
+    if(contactBadge){const p=DB.getContacts().filter(c=>c.recipientId===currentUser.id&&c.status==='pending').length;contactBadge.textContent=p;contactBadge.classList.toggle('hidden',p===0);}
+  }
 }
 
 function renderNotifPanel(){
