@@ -12553,7 +12553,7 @@ async function sendGdprVerificationEmail(code){
 </body></html>`;
 
   try{
-    const resp = await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/send-email',{
+    const resp = await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{
       method:'POST',
       headers:{
         'Content-Type':'application/json',
