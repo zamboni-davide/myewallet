@@ -12459,14 +12459,158 @@ function openDeleteAccountModal(){
   const warn = document.getElementById('gdpr-warning-modal');
   if(warn){ warn.style.display='flex'; }
 }
+
 function closeGdprWarningModal(){
   const warn = document.getElementById('gdpr-warning-modal');
   if(warn){ warn.style.display='none'; }
+  // Reset entrambi gli step
+  const s1=document.getElementById('gdpr-warning-step1');
+  const s2=document.getElementById('gdpr-warning-step2');
+  if(s1){ s1.style.display=''; }
+  if(s2){ s2.style.display='none'; }
+  const inp=document.getElementById('gdpr-code-input');
+  if(inp) inp.value='';
+  const err=document.getElementById('gdpr-code-error');
+  if(err) err.style.display='none';
+  const ok=document.getElementById('gdpr-code-success');
+  if(ok) ok.style.display='none';
+  const btn=document.getElementById('gdpr-proceed-btn');
+  if(btn){ btn.disabled=false; btn.textContent='Ho scaricato i miei documenti — Accetto e procedo'; }
 }
-function confirmGdprWarning(){
-  closeGdprWarningModal();
-  const modal = document.getElementById('delete-account-modal');
-  if(modal){ modal.style.display='flex'; }
+
+async function confirmGdprWarning(){
+  // Disabilita pulsante per evitare doppio click
+  const btn=document.getElementById('gdpr-proceed-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Invio codice…'; }
+
+  // Genera codice DEL-XXXXXX
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix='';
+  for(let i=0;i<6;i++) suffix+=chars[Math.floor(Math.random()*chars.length)];
+  const code='DEL-'+suffix;
+  const expiresAt=new Date(Date.now()+30*60*1000).toISOString();
+  _mem['_gdprDeletionCode']={code, expiresAt};
+  delete _mem['_gdprCodeVerifiedAt'];
+
+  // Invia email con codice
+  await sendGdprVerificationEmail(code);
+
+  // Mostra step 2
+  const s1=document.getElementById('gdpr-warning-step1');
+  const s2=document.getElementById('gdpr-warning-step2');
+  if(s1) s1.style.display='none';
+  if(s2) s2.style.display='block';
+  const hint=document.getElementById('gdpr-code-email-hint');
+  if(hint) hint.textContent=currentUser?.email||'';
+  setTimeout(()=>document.getElementById('gdpr-code-input')?.focus(), 100);
+}
+
+// ── TODO: inserire credenziali Brevo prima del deploy ──────────────────
+// Le credenziali Brevo (BREVO_API_KEY e BREVO_SENDER_EMAIL) NON sono
+// presenti in questo file. Sostituire i placeholder qui sotto.
+// ────────────────────────────────────────────────────────────────────────
+async function sendGdprVerificationEmail(code){
+  const BREVO_API_KEY    = 'NUOVA_CHIAVExsmtpsib-388dbe76f7ec496dfe915a2682659aa85e17b30e90c9d468ac8f621cb0c1b745-7wsb0OayYXRjVEXy';
+  const BREVO_SENDER_EMAIL = 'direzione@consulenzesardegna.com';
+  const BREVO_SENDER_NAME  = 'MyEwallet® — Studio Zamboni';
+
+  const userEmail = currentUser?.email||'';
+  const userName  = currentUser?.name||'Utente';
+  if(!userEmail){ showToast('Email utente non trovata','error'); return; }
+
+  const htmlContent = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 16px">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden">
+  <tr><td style="background:#041348;padding:24px 32px">
+    <p style="margin:0;font-size:22px;font-weight:700;color:#C9A84C;letter-spacing:.02em">MyEwallet&#174;</p>
+    <p style="margin:4px 0 0;font-size:12px;color:rgba(255,255,255,.6)">Studio Zamboni &mdash; Servizio di archiviazione documentale</p>
+  </td></tr>
+  <tr><td style="padding:32px 32px 16px">
+    <p style="font-size:15px;font-weight:600;color:#041348;margin:0 0 16px">Conferma richiesta di cancellazione account</p>
+    <p style="font-size:13px;color:#374151;line-height:1.7;margin:0 0 16px">
+      Gentile ${userName},<br><br>
+      hai avviato una procedura di cancellazione del tuo account MyEwallet&#174; ai sensi dell&apos;<strong>art.&nbsp;17 del Regolamento UE 2016/679 (GDPR)</strong>.<br><br>
+      Per completare la richiesta, inserisci il codice di verifica riportato qui sotto nell&apos;apposito campo della piattaforma.
+      Il codice &egrave; valido per <strong>30&nbsp;minuti</strong>.
+    </p>
+    <p style="font-size:12px;color:#DC2626;line-height:1.6;margin:0 0 0">
+      &#9888;&#65039; Se non sei stato tu a richiedere questa cancellazione, contatta immediatamente lo Studio:
+      <strong>consulenzesardegna@pec.it</strong>
+    </p>
+  </td></tr>
+  <tr><td style="padding:20px 32px 32px">
+    <div style="background:#041348;border-radius:10px;padding:24px;text-align:center">
+      <p style="margin:0 0 8px;font-size:11px;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.12em;text-transform:uppercase">Codice di verifica</p>
+      <p style="margin:0;font-size:36px;font-weight:700;color:#C9A84C;letter-spacing:.18em;font-family:monospace">${code}</p>
+      <p style="margin:8px 0 0;font-size:11px;color:rgba(255,255,255,.4)">Valido 30 minuti</p>
+    </div>
+  </td></tr>
+  <tr><td style="background:#f8fafc;padding:16px 32px;border-top:1px solid #e2e8f0">
+    <p style="margin:0;font-size:11px;color:#6b7280;line-height:1.6">
+      Studio Zamboni &middot; Via Perantoni Satta 14, 07100 Sassari &middot;
+      <a href="mailto:consulenzesardegna@pec.it" style="color:#041348">consulenzesardegna@pec.it</a>
+      &middot; P.IVA IT03065200903
+    </p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+
+  try{
+    const resp = await fetch('https://api.brevo.com/v3/smtp/email',{
+      method:'POST',
+      headers:{
+        'accept':'application/json',
+        'api-key': BREVO_API_KEY,
+        'content-type':'application/json'
+      },
+      body: JSON.stringify({
+        sender:{name:BREVO_SENDER_NAME, email:BREVO_SENDER_EMAIL},
+        to:[{email:userEmail, name:userName}],
+        subject:'MyEwallet® — Codice di conferma cancellazione account',
+        htmlContent
+      })
+    });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+  }catch(e){
+    console.error('sendGdprVerificationEmail error:',e);
+    showToast('Errore invio email. Riprova o contatta lo Studio.','error');
+  }
+}
+
+function verifyGdprCode(){
+  const input=(document.getElementById('gdpr-code-input')?.value||'').trim().toUpperCase();
+  const stored=_mem['_gdprDeletionCode'];
+  const errEl=document.getElementById('gdpr-code-error');
+  const okEl=document.getElementById('gdpr-code-success');
+
+  if(!stored){
+    if(errEl){ errEl.textContent='Sessione scaduta. Ricomincia la procedura.'; errEl.style.display=''; }
+    return;
+  }
+  if(new Date()>new Date(stored.expiresAt)){
+    if(errEl){ errEl.textContent='Il codice è scaduto (validità 30 minuti). Chiudi e ricomincia.'; errEl.style.display=''; }
+    return;
+  }
+  if(input!==stored.code){
+    if(errEl){ errEl.textContent='Codice errato. Verifica quanto ricevuto via email e riprova.'; errEl.style.display=''; }
+    return;
+  }
+  // Codice corretto
+  const now=new Date().toISOString();
+  _mem['_gdprCodeVerifiedAt']=now;
+  delete _mem['_gdprDeletionCode'];
+  if(errEl) errEl.style.display='none';
+  if(okEl) okEl.style.display='';
+  setTimeout(()=>{
+    closeGdprWarningModal();
+    const modal=document.getElementById('delete-account-modal');
+    if(modal) modal.style.display='flex';
+  }, 1200);
 }
 function closeDeleteAccountModal(){
   const modal = document.getElementById('delete-account-modal');
@@ -12500,13 +12644,27 @@ Richiesta inviata tramite MyEwallet.`,
     createdAt: now,
     updatedAt: now,
     messages: [],
-    timeline: [{
-      event: 'request',
-      at: now,
-      by: currentUser.id,
-      byName: currentUser.name,
-      text: `Richiesta di cancellazione account inviata. Motivo dichiarato: ${reason}. Consenso esplicito registrato: l'utente ha dichiarato di aver scaricato i propri documenti e accetta l'eliminazione definitiva dell'account e di tutti i dati.`
-    }]
+    timeline: (()=>{
+      const events=[{
+        event: 'request',
+        at: now,
+        by: currentUser.id,
+        byName: currentUser.name,
+        text: `Richiesta di cancellazione account inviata. Motivo dichiarato: ${reason}. Consenso esplicito registrato: l'utente ha dichiarato di aver scaricato i propri documenti e accetta l'eliminazione definitiva dell'account e di tutti i dati.`
+      }];
+      const verifiedAt=_mem['_gdprCodeVerifiedAt'];
+      if(verifiedAt){
+        events.push({
+          event:'code_verified',
+          at: verifiedAt,
+          by: currentUser.id,
+          byName: currentUser.name,
+          text:`Identità verificata tramite codice univoco inviato via email all'indirizzo ${currentUser.email}. Verifica completata alle ${new Date(verifiedAt).toLocaleString('it-IT')}.`
+        });
+        delete _mem['_gdprCodeVerifiedAt'];
+      }
+      return events;
+    })()
   };
   const tickets = DB.getTickets();
   tickets.push(ticket);
@@ -12593,28 +12751,57 @@ Richiesta inviata tramite MyEwallet.`,
   </div>
 </div>
 
-<!-- ══ MODAL AVVISO GDPR PRE-CANCELLAZIONE ══ -->
+<!-- ══ MODAL AVVISO GDPR PRE-CANCELLAZIONE (step 1 + step 2 verifica codice) ══ -->
 <div id="gdpr-warning-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9510;align-items:center;justify-content:center;padding:20px">
   <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;padding:28px 24px">
-    <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#DC2626;margin:0 0 14px">⚠️ Prima di procedere</h3>
-    <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;padding:14px 16px;margin-bottom:14px">
-      <p style="font-size:13px;color:#7F1D1D;line-height:1.7;margin:0">
-        <strong>La richiesta di cancellazione comporta:</strong><br>
-        — cancellazione totale dell'account e di tutti i dati personali<br>
-        — eliminazione definitiva di tutti i documenti archiviati in piattaforma<br>
-        — revoca immediata di tutti gli accessi
+
+    <!-- ── Step 1: avviso ── -->
+    <div id="gdpr-warning-step1">
+      <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#DC2626;margin:0 0 14px">⚠️ Prima di procedere</h3>
+      <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+        <p style="font-size:13px;color:#7F1D1D;line-height:1.7;margin:0">
+          <strong>La richiesta di cancellazione comporta:</strong><br>
+          — cancellazione totale dell'account e di tutti i dati personali<br>
+          — eliminazione definitiva di tutti i documenti archiviati in piattaforma<br>
+          — revoca immediata di tutti gli accessi
+        </p>
+      </div>
+      <div style="background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px;padding:14px 16px;margin-bottom:22px">
+        <p style="font-size:13px;color:#78350F;line-height:1.7;margin:0">
+          <strong>📥 Scarica i tuoi documenti prima di procedere</strong><br>
+          Una volta confermata la cancellazione, non sarà più possibile recuperare nessun documento. Ti invitiamo a scaricarli tutti ora dalla sezione <em>I miei documenti</em>.
+        </p>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="closeGdprWarningModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">Annulla</button>
+        <button id="gdpr-proceed-btn" onclick="confirmGdprWarning()" style="background:#DC2626;border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.4">Ho scaricato i miei documenti — Accetto e procedo</button>
+      </div>
+    </div>
+
+    <!-- ── Step 2: inserimento codice ── -->
+    <div id="gdpr-warning-step2" style="display:none">
+      <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#041348;margin:0 0 8px">Codice inviato alla tua email</h3>
+      <p style="font-size:13px;color:#4a5568;line-height:1.6;margin:0 0 20px">
+        Abbiamo inviato un codice di verifica a <strong id="gdpr-code-email-hint"></strong>.<br>
+        Il codice è valido per <strong>30 minuti</strong>. Inseriscilo qui sotto per procedere.
       </p>
+      <div style="margin-bottom:14px">
+        <label style="font-size:12px;font-weight:700;color:#041348;display:block;margin-bottom:6px;letter-spacing:.04em">CODICE DI VERIFICA</label>
+        <input id="gdpr-code-input" type="text" maxlength="10" placeholder="DEL-XXXXXX"
+          style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:18px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-family:monospace;box-sizing:border-box;text-align:center"
+          oninput="this.value=this.value.toUpperCase();document.getElementById('gdpr-code-error').style.display='none'"
+          onkeydown="if(event.key==='Enter')verifyGdprCode()"/>
+      </div>
+      <div id="gdpr-code-error" style="display:none;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:6px;padding:8px 12px;font-size:12px;color:#DC2626;margin-bottom:12px"></div>
+      <div id="gdpr-code-success" style="display:none;background:#DCFCE7;border:1px solid #86EFAC;border-radius:6px;padding:8px 12px;font-size:12px;color:#16A34A;margin-bottom:12px">
+        ✓ Codice verificato. Procedo con la richiesta di cancellazione.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+        <button onclick="closeGdprWarningModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">Annulla</button>
+        <button onclick="verifyGdprCode()" style="background:#041348;border:none;color:#C9A84C;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Verifica codice</button>
+      </div>
     </div>
-    <div style="background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px;padding:14px 16px;margin-bottom:22px">
-      <p style="font-size:13px;color:#78350F;line-height:1.7;margin:0">
-        <strong>📥 Scarica i tuoi documenti prima di procedere</strong><br>
-        Una volta confermata la cancellazione, non sarà più possibile recuperare nessun documento. Ti invitiamo a scaricarli tutti ora dalla sezione <em>I miei documenti</em>.
-      </p>
-    </div>
-    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
-      <button onclick="closeGdprWarningModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">Annulla</button>
-      <button onclick="confirmGdprWarning()" style="background:#DC2626;border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.4">Ho scaricato i miei documenti — Accetto e procedo</button>
-    </div>
+
   </div>
 </div>
 
