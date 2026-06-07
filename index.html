@@ -2620,7 +2620,7 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares'];
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares'];
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
@@ -2699,6 +2699,8 @@ const DB = {
   setNotifications(n){this.set('notifications',n);},
   getTickets(){const v=this.get('tickets',[]); return Array.isArray(v)?v:[];},
   setTickets(t){this.set('tickets',t);},
+  getGdprDeletions(){const v=this.get('gdpr_deletions',[]); return Array.isArray(v)?v:[];},
+  setGdprDeletions(r){this.set('gdpr_deletions',r);},
   getConversations(){const v=this.get('conversations',[]); return Array.isArray(v)?v:[];},
   setConversations(v){this.set('conversations',v);},
   // ── FASE 2 ─────────────────────────────────────────────
@@ -6261,6 +6263,23 @@ function adminOpenTicket(ticketId){
 
   const statusColor = tk.status==='open'?'#E74C3C':tk.status==='closed'?'#6B7280':'#F59E0B';
   const statusLabel = tk.status==='open'?'Aperto':tk.status==='closed'?'Chiuso':'In lavorazione';
+  const isGdpr = tk.category==='gdpr_deletion';
+
+  // Timeline block (solo per gdpr_deletion)
+  const timelineHtml = isGdpr && (tk.timeline||[]).length>0
+    ? `<div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:#7F1D1D;letter-spacing:.04em;margin-bottom:6px">STORICO GDPR — TRACCIA LEGALE</div>
+        <div style="border:1px solid #FCA5A5;border-radius:8px;background:#FFF7F7;padding:10px 12px;display:flex;flex-direction:column;gap:6px">
+          ${(tk.timeline).map(e=>{
+            const icon = e.event==='request'?'📩':e.event==='admin_reply'?'💬':e.event==='deletion_executed'?'🗑️':'📋';
+            return `<div style="font-size:12px;line-height:1.5">
+              <span style="font-weight:700;color:#991B1B">${icon} [${new Date(e.at).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}]</span>
+              <span style="color:#374151;margin-left:4px"><strong>${esc(e.byName)}</strong> — ${esc(e.text)}</span>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`
+    : '';
 
   const threadHtml = (tk.messages||[]).length > 0
     ? (tk.messages||[]).map(m=>{
@@ -6273,16 +6292,26 @@ function adminOpenTicket(ticketId){
       }).join('')
     : `<div style="font-size:13px;line-height:1.6;white-space:pre-wrap">${esc(tk.message||'–')}</div>`;
 
+  // Pulsante esecuzione cancellazione GDPR (solo per ticket gdpr_deletion non ancora chiusi)
+  const gdprExecuteBtn = isGdpr && tk.status!=='closed'
+    ? `<div style="margin-top:14px;padding:14px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:8px">
+        <div style="font-size:12px;color:#7F1D1D;font-weight:700;margin-bottom:8px">⚠️ AZIONE IRREVERSIBILE — CANCELLAZIONE GDPR</div>
+        <div style="font-size:12px;color:#991B1B;margin-bottom:10px;line-height:1.5">Questa azione eliminerà definitivamente l'utente, l'azienda e tutti i dati. Il record della pratica verrà archiviato in gdpr_deletions per tutela legale.</div>
+        <button onclick="adminExecuteGdprDeletion('${tk.id}')" style="background:#DC2626;border:none;color:#fff;padding:8px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer">Esegui cancellazione account</button>
+      </div>`
+    : '';
+
   // Render modal using the existing confirm-overlay pattern
   const html = `<div style="padding:0">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
       <div>
-        <div style="font-size:16px;font-weight:700;color:var(--navy)">${esc(tk.subject||'–')}</div>
+        <div style="font-size:16px;font-weight:700;color:${isGdpr?'#DC2626':'var(--navy)'}">${esc(tk.subject||'–')}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(tk.companyName||'–')} · ${esc(tk.userName||'–')} · ${formatDate(tk.createdAt)}</div>
       </div>
       <span style="background:${statusColor}20;color:${statusColor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px">${statusLabel}</span>
     </div>
-    ${tk.category?`<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px">CATEGORIA: ${esc(tk.category.toUpperCase())}</div>`:''}
+    ${tk.category?`<div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:${isGdpr?'10px':'4px'}">CATEGORIA: ${esc(tk.category.toUpperCase())}</div>`:''}
+    ${timelineHtml}
     <div style="background:#f8fafc;border:1px solid var(--border-light);border-radius:8px;padding:12px 14px;max-height:240px;overflow-y:auto;margin-bottom:16px;display:flex;flex-direction:column;gap:2px">${threadHtml}</div>
     ${tk.adminNote?`<div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;padding:10px 14px;font-size:12px;margin-bottom:14px"><strong>Nota admin:</strong> ${esc(tk.adminNote)}</div>`:''}
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:12px;border-top:1px solid var(--border-light)">
@@ -6305,6 +6334,7 @@ function adminOpenTicket(ticketId){
         <button onclick="adminSendTicketReply('${tk.id}')" style="padding:6px 16px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer">Invia risposta</button>
       </div>
     </div>
+    ${gdprExecuteBtn}
   </div>`;
   document.getElementById('confirm-title').textContent='Ticket #'+ticketId.substring(0,8).toUpperCase();
   document.getElementById('confirm-text').innerHTML=html;
@@ -6344,11 +6374,16 @@ async function adminSendTicketReply(ticketId){
   const tickets = DB.getTickets();
   const t = tickets.find(x=>x.id===ticketId);
   if(!t) return;
+  const now = new Date().toISOString();
   t.messages = t.messages||[];
   t.messages.push({id:uid(), from:'admin', userId:'admin', userName:'Studio Zamboni',
-    text, at:new Date().toISOString()});
+    text, at:now});
+  if(t.category==='gdpr_deletion'){
+    t.timeline = t.timeline||[];
+    t.timeline.push({event:'admin_reply', at:now, by:'admin', byName:'Studio Zamboni', text});
+  }
   t.status = 'pending';
-  t.updatedAt = new Date().toISOString();
+  t.updatedAt = now;
   DB.setTickets(tickets);
   await _supaSyncAwait('co_admin','tickets',tickets);
   const users = DB.getUsers().filter(u=>u.companyId===t.companyId);
@@ -6360,6 +6395,49 @@ async function adminSendTicketReply(ticketId){
   }));
   closeConfirm();
   showToast('Risposta inviata','success');
+  renderAdminTab();
+}
+
+async function adminExecuteGdprDeletion(ticketId){
+  const tickets = DB.getTickets();
+  const tk = tickets.find(t=>t.id===ticketId);
+  if(!tk||tk.category!=='gdpr_deletion'){ showToast('Ticket GDPR non trovato','error'); return; }
+  const now = new Date().toISOString();
+  // Aggiunge evento finale alla timeline
+  tk.timeline = tk.timeline||[];
+  tk.timeline.push({
+    event:'deletion_executed', at:now, by:'admin', byName:'Studio Zamboni',
+    text:'Cancellazione account eseguita da Studio Zamboni. Account, documenti e dati eliminati definitivamente.'
+  });
+  tk.status = 'closed';
+  tk.updatedAt = now;
+  // Archivia il record in gdpr_deletions per tutela legale
+  const record = {
+    id: uid(),
+    ticketId: tk.id,
+    userId: tk.userId,
+    companyId: tk.companyId,
+    userName: tk.userName,
+    userEmail: tk.userEmail,
+    companyName: tk.companyName,
+    requestedAt: tk.createdAt,
+    executedAt: now,
+    timeline: tk.timeline,
+    messages: tk.messages||[]
+  };
+  const deletions = DB.getGdprDeletions();
+  deletions.push(record);
+  DB.setGdprDeletions(deletions);
+  // Salva ticket aggiornato
+  DB.setTickets(tickets);
+  await _supaSyncAwait('co_admin','tickets',tickets);
+  // Elimina utenti e azienda
+  const allUsers = DB.getUsers().filter(u=>u.companyId!==tk.companyId);
+  const allCos = DB.getCompanies().filter(c=>c.id!==tk.companyId);
+  DB.setUsers(allUsers);
+  DB.setCompanies(allCos);
+  closeConfirm();
+  showToast('Cancellazione GDPR eseguita. Record archiviato legalmente.','success');
   renderAdminTab();
 }
 
@@ -7348,14 +7426,35 @@ function adminCreateCompany(){
 }
 
 function adminDeleteUser(userId){
+  const users=DB.getUsers();
+  const u=users.find(x=>x.id===userId);
+  if(!u){showToast('Utente non trovato','error');return;}
+  const uName=u.name||u.email||userId;
+  // Step 1 — primo modal
+  document.getElementById('confirm-title').textContent='Elimina utente';
+  document.getElementById('confirm-text').innerHTML=`Sei sicuro di voler eliminare l'utente <strong>${esc(uName)}</strong>?`;
+  const okBtn=document.getElementById('confirm-ok-btn');
+  okBtn.textContent='Procedi';
+  okBtn.style.display='';
   confirmCallback=()=>{
-    const users=DB.getUsers().filter(u=>u.id!==userId);
-    DB.setUsers(users);
-    showToast('Utente eliminato','success');
-    renderAdmin(document.getElementById('main-page'));
+    // executeConfirm chiuderà il modal; riapriamo subito con step 2
+    setTimeout(()=>{
+      document.getElementById('confirm-title').textContent='Conferma eliminazione definitiva';
+      document.getElementById('confirm-text').innerHTML=`<strong>ATTENZIONE: questa azione è irreversibile.</strong><br><br>Eliminare definitivamente l'utente <strong>${esc(uName)}</strong> e tutti i suoi dati?`;
+      const okBtn2=document.getElementById('confirm-ok-btn');
+      okBtn2.textContent='Conferma eliminazione';
+      okBtn2.style.display='';
+      confirmCallback=()=>{
+        okBtn2.textContent='Elimina';
+        const all=DB.getUsers().filter(x=>x.id!==userId);
+        DB.setUsers(all);
+        showToast('Utente eliminato','success');
+        renderAdmin(document.getElementById('main-page'));
+      };
+      document.getElementById('confirm-overlay').classList.remove('hidden');
+    },50);
   };
-  document.getElementById('confirm-msg').textContent='Eliminare questo utente?';
-  document.getElementById('confirm-modal').classList.remove('hidden');
+  document.getElementById('confirm-overlay').classList.remove('hidden');
 }
 
 function adminEditUserProfile(userId){
@@ -8559,12 +8658,13 @@ function renderSettings(main){
 // ════════════════════════════════════════════════════════
 
 const TICKET_CATEGORIES = [
-  {id:'support',    label:'Supporto Tecnico',        icon:'🛠️', tagClass:'ticket-tag-support'},
-  {id:'admin',      label:'Supporto Amministrativo', icon:'📋', tagClass:'ticket-tag-admin'},
-  {id:'billing',    label:'Fatturazione / Pagamenti', icon:'→', tagClass:'ticket-tag-billing'},
-  {id:'feature',    label:'Richiesta Funzionalità',  icon:'✨', tagClass:'ticket-tag-support'},
-  {id:'bug',        label:'Segnalazione Bug',         icon:'🐛', tagClass:'ticket-tag-support'},
-  {id:'other',      label:'Altro',                   icon:'💬', tagClass:'ticket-tag-other'},
+  {id:'support',       label:'Supporto Tecnico',           icon:'🛠️', tagClass:'ticket-tag-support'},
+  {id:'admin',         label:'Supporto Amministrativo',    icon:'📋', tagClass:'ticket-tag-admin'},
+  {id:'billing',       label:'Fatturazione / Pagamenti',   icon:'→',  tagClass:'ticket-tag-billing'},
+  {id:'feature',       label:'Richiesta Funzionalità',     icon:'✨', tagClass:'ticket-tag-support'},
+  {id:'bug',           label:'Segnalazione Bug',           icon:'🐛', tagClass:'ticket-tag-support'},
+  {id:'gdpr_deletion', label:'Cancellazione GDPR art.17',  icon:'⚖️', tagClass:'ticket-tag-danger', tagStyle:'background:#FEE2E2;color:#DC2626;border:1px solid #FCA5A5;font-weight:700'},
+  {id:'other',         label:'Altro',                      icon:'💬', tagClass:'ticket-tag-other'},
 ];
 
 function getCatTicket(id){ return TICKET_CATEGORIES.find(c=>c.id===id)||TICKET_CATEGORIES[5]; }
@@ -8650,14 +8750,25 @@ function replyTicket(ticketId, fromRole){
   const tickets = DB.getTickets();
   const t = tickets.find(x=>x.id===ticketId);
   if(!t) return;
+  const now = new Date().toISOString();
   const msg = {
     id: uid(), from: fromRole,
     userId: fromRole==='admin' ? 'admin' : currentUser.id,
     userName: fromRole==='admin' ? 'Studio Zamboni' : currentUser.name,
-    text, at: new Date().toISOString()
+    text, at: now
   };
   t.messages.push(msg);
-  t.updatedAt = new Date().toISOString();
+  t.updatedAt = now;
+  if(t.category==='gdpr_deletion'){
+    t.timeline = t.timeline||[];
+    t.timeline.push({
+      event: fromRole==='admin'?'admin_reply':'user_reply',
+      at: now,
+      by: fromRole==='admin'?'admin':(currentUser?.id||'user'),
+      byName: fromRole==='admin'?'Studio Zamboni':(currentUser?.name||'Utente'),
+      text
+    });
+  }
   if(fromRole==='admin') t.status='pending';  // waiting for user
   else t.status='open';                        // waiting for admin
   DB.setTickets(tickets);
@@ -8728,12 +8839,26 @@ function renderTicketThread(t, fromRole){
   const replyId = fromRole==='admin' ? 'admin-reply-'+t.id : 'user-reply-'+t.id;
   const statusTag = t.status==='open'?'tag-open':t.status==='pending'?'tag-pending':'tag-closed';
   const statusLabel = t.status==='open'?'Aperto':t.status==='pending'?'In risposta':'Chiuso';
+  // Storico GDPR (visibile sia lato utente che admin su ticket gdpr_deletion)
+  const timelineBlock = t.category==='gdpr_deletion' && (t.timeline||[]).length>0
+    ? `<div style="margin-bottom:12px;background:#FFF7F7;border:1px solid #FCA5A5;border-radius:8px;padding:10px 12px">
+        <div style="font-size:11px;font-weight:700;color:#7F1D1D;margin-bottom:6px;letter-spacing:.04em">STORICO PRATICA GDPR art.17</div>
+        ${t.timeline.map(e=>{
+          const icon=e.event==='request'?'📩':e.event==='admin_reply'?'💬':e.event==='deletion_executed'?'🗑️':'📋';
+          return `<div style="font-size:12px;line-height:1.5;margin-bottom:4px">
+            <span style="font-weight:700;color:#991B1B">${icon} [${new Date(e.at).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}]</span>
+            <span style="color:#374151;margin-left:4px"><strong>${esc(e.byName)}</strong> — ${esc(e.text)}</span>
+          </div>`;
+        }).join('')}
+      </div>`
+    : '';
   return `
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
-      <span class="ticket-tag ${getCatTicket(t.category).tagClass}">${getCatTicket(t.category).icon} ${getCatTicket(t.category).label}</span>
+      <span class="ticket-tag ${getCatTicket(t.category).tagClass}" style="${getCatTicket(t.category).tagStyle||''}">${getCatTicket(t.category).icon} ${getCatTicket(t.category).label}</span>
       <span class="ticket-tag ${statusTag}">${statusLabel}</span>
       <span style="font-size:11px;color:var(--text-muted)">Aperto il ${formatDate(t.createdAt)} · Ultimo aggiornamento: ${formatDate(t.updatedAt)}</span>
     </div>
+    ${timelineBlock}
     <div class="msg-thread" style="background:var(--bg);border-radius:var(--radius-sm);max-height:320px;overflow-y:auto;border:1px solid var(--border-light)">
       ${msgBubbles}
     </div>
@@ -12331,6 +12456,15 @@ function showCookiePolicy(){
 //  GDPR — CANCELLAZIONE ACCOUNT (art. 17)
 // ════════════════════════════════════════════════
 function openDeleteAccountModal(){
+  const warn = document.getElementById('gdpr-warning-modal');
+  if(warn){ warn.style.display='flex'; }
+}
+function closeGdprWarningModal(){
+  const warn = document.getElementById('gdpr-warning-modal');
+  if(warn){ warn.style.display='none'; }
+}
+function confirmGdprWarning(){
+  closeGdprWarningModal();
   const modal = document.getElementById('delete-account-modal');
   if(modal){ modal.style.display='flex'; }
 }
@@ -12343,13 +12477,16 @@ function closeDeleteAccountModal(){
 function submitDeleteAccountRequest(){
   if(!currentUser||!currentCompany) return;
   const reason = document.getElementById('delete-account-reason')?.value?.trim()||'Non specificato';
+  const now = new Date().toISOString();
   const ticket = {
     id: uid(),
     companyId: currentCompany.id,
+    companyName: currentCompany.name,
     userId: currentUser.id,
+    userName: currentUser.name,
     userEmail: currentUser.email,
-    category: 'gdpr_erasure',
-    subject: 'RICHIESTA CANCELLAZIONE ACCOUNT — Art. 17 GDPR',
+    category: 'gdpr_deletion',
+    subject: `Cancellazione account art.17 GDPR — ${currentUser.name}`,
     message: `Richiesta di cancellazione account ai sensi dell'art. 17 GDPR.
 
 Utente: ${currentUser.name} (${currentUser.email})
@@ -12360,8 +12497,16 @@ Data: ${new Date().toLocaleString('it-IT')}
 Richiesta inviata tramite MyEwallet.`,
     status: 'open',
     priority: 'high',
-    createdAt: new Date().toISOString(),
-    thread: []
+    createdAt: now,
+    updatedAt: now,
+    messages: [],
+    timeline: [{
+      event: 'request',
+      at: now,
+      by: currentUser.id,
+      byName: currentUser.name,
+      text: `Richiesta di cancellazione account inviata. Motivo dichiarato: ${reason}. Consenso esplicito registrato: l'utente ha dichiarato di aver scaricato i propri documenti e accetta l'eliminazione definitiva dell'account e di tutti i dati.`
+    }]
   };
   const tickets = DB.getTickets();
   tickets.push(ticket);
@@ -12444,6 +12589,31 @@ Richiesta inviata tramite MyEwallet.`,
     <div style="display:flex;gap:8px;flex-shrink:0;align-items:center;flex-wrap:wrap;margin-top:4px">
       <button onclick="acceptCookies('necessary')" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:rgba(255,255,255,0.8);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap">Solo necessari</button>
       <button onclick="acceptCookies('all')" style="background:#C9A84C;border:none;color:#041348;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">Accetta</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL AVVISO GDPR PRE-CANCELLAZIONE ══ -->
+<div id="gdpr-warning-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9510;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;padding:28px 24px">
+    <h3 style="font-family:'Cormorant Garamond',serif;font-size:20px;color:#DC2626;margin:0 0 14px">⚠️ Prima di procedere</h3>
+    <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;padding:14px 16px;margin-bottom:14px">
+      <p style="font-size:13px;color:#7F1D1D;line-height:1.7;margin:0">
+        <strong>La richiesta di cancellazione comporta:</strong><br>
+        — cancellazione totale dell'account e di tutti i dati personali<br>
+        — eliminazione definitiva di tutti i documenti archiviati in piattaforma<br>
+        — revoca immediata di tutti gli accessi
+      </p>
+    </div>
+    <div style="background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px;padding:14px 16px;margin-bottom:22px">
+      <p style="font-size:13px;color:#78350F;line-height:1.7;margin:0">
+        <strong>📥 Scarica i tuoi documenti prima di procedere</strong><br>
+        Una volta confermata la cancellazione, non sarà più possibile recuperare nessun documento. Ti invitiamo a scaricarli tutti ora dalla sezione <em>I miei documenti</em>.
+      </p>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <button onclick="closeGdprWarningModal()" style="background:transparent;border:1px solid #e2e8f0;color:#4a5568;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600">Annulla</button>
+      <button onclick="confirmGdprWarning()" style="background:#DC2626;border:none;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;line-height:1.4">Ho scaricato i miei documenti — Accetto e procedo</button>
     </div>
   </div>
 </div>
