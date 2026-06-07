@@ -12510,7 +12510,7 @@ async function confirmGdprWarning(){
 // presenti in questo file. Sostituire i placeholder qui sotto.
 // ────────────────────────────────────────────────────────────────────────
 async function sendGdprVerificationEmail(code){
-  const BREVO_API_KEY    = 'NUOVA_CHIAVExsmtpsib-388dbe76f7ec496dfe915a2682659aa85e17b30e90c9d468ac8f621cb0c1b745-7wsb0OayYXRjVEXy';
+  const BREVO_API_KEY    = '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';
   const BREVO_SENDER_EMAIL = 'direzione@consulenzesardegna.com';
   const BREVO_SENDER_NAME  = 'MyEwallet® — Studio Zamboni';
 
@@ -12575,7 +12575,12 @@ async function sendGdprVerificationEmail(code){
         htmlContent
       })
     });
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    if(!resp.ok){
+      let body='(nessun body)';
+      try{ body=await resp.text(); }catch{}
+      console.error('Brevo API error — status:',resp.status,'| statusText:',resp.statusText,'| body:',body);
+      throw new Error('HTTP '+resp.status);
+    }
   }catch(e){
     console.error('sendGdprVerificationEmail error:',e);
     showToast('Errore invio email. Riprova o contatta lo Studio.','error');
