@@ -4736,6 +4736,8 @@ function confirmDelete(docId){
 function closeConfirm(){
   document.getElementById('confirm-overlay').classList.add('hidden');
   document.getElementById('confirm-ok-btn').style.display='';
+  const _cbox=document.querySelector('.confirm-box');
+  if(_cbox){_cbox.style.maxHeight='';_cbox.style.overflowY='';}
   confirmCallback=null;
 }
 function executeConfirm(){if(confirmCallback)confirmCallback();closeConfirm();}
@@ -6230,6 +6232,7 @@ function renderAdmin(main){
       <div class="admin-tab ${adminTab==='invoices'?'active':''}" onclick="setAdminTab('invoices')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> Fatture &amp; Doc.</div>
       <div class="admin-tab ${adminTab==='payments'?'active':''}" onclick="setAdminTab('payments')" style="position:relative"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pagamenti ${(()=>{const _c=DB.getPaymentRequests().filter(r=>r.status===PAYMENT_STATUS.PENDING_ADMIN||r.status===PAYMENT_STATUS.PAYMENT_PENDING).length;return _c>0?'<span style="position:absolute;top:6px;right:4px;min-width:14px;height:14px;border-radius:7px;background:#E74C3C;color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 3px">'+_c+'</span>':'';})()}</div>
       <div class="admin-tab ${adminTab==='subscriptions'?'active':''}" onclick="setAdminTab('subscriptions')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Abbonamenti</div>
+      <div class="admin-tab ${adminTab==='gdpr-archive'?'active':''}" onclick="setAdminTab('gdpr-archive')">⚖️ Archivio GDPR</div>
       <div class="admin-tab ${adminTab==='new-company'?'active':''}" onclick="setAdminTab('new-company')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuova Azienda</div>
     </div>
     <div id="admin-tab-body"></div>`;
@@ -6339,6 +6342,8 @@ function adminOpenTicket(ticketId){
   document.getElementById('confirm-title').textContent='Ticket #'+ticketId.substring(0,8).toUpperCase();
   document.getElementById('confirm-text').innerHTML=html;
   document.getElementById('confirm-ok-btn').style.display='none';
+  const _cbox=document.querySelector('.confirm-box');
+  if(_cbox){_cbox.style.maxHeight='85vh';_cbox.style.overflowY='auto';}
   document.getElementById('confirm-overlay').classList.remove('hidden');
 }
 
@@ -7360,6 +7365,48 @@ Importo: € ${tot.toFixed(2)} IVA incl."
             <span style="background:${statusColor}20;color:${statusColor};font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap">${statusLabel}</span>
           </div>
         </div>`}).join('')}
+    </div>`;
+  } else if(adminTab==='gdpr-archive'){
+    const gdprRecs=DB.getGdprDeletions().slice().reverse();
+    body.innerHTML=`<div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
+        <span style="font-size:14px;font-weight:700;color:#7F1D1D">⚖️ Archivio GDPR art.17 — Cancellazioni eseguite (${gdprRecs.length})</span>
+        <span style="font-size:11px;color:var(--text-muted)">Conservare per obbligo legale</span>
+      </div>
+      ${gdprRecs.length===0
+        ?`<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">Nessuna cancellazione GDPR eseguita.</div>`
+        :gdprRecs.map((r,i)=>{
+          const timelineId='gdpr-arch-tl-'+i;
+          const tlHtml=(r.timeline||[]).map(e=>{
+            const icon=e.event==='request'?'📩':e.event==='code_verified'?'✅':e.event==='admin_reply'?'💬':e.event==='deletion_executed'?'🗑️':'📋';
+            return `<div style="font-size:12px;line-height:1.6;padding:4px 0;border-bottom:1px solid #FEE2E2">
+              <span style="font-weight:700;color:#991B1B">${icon} [${new Date(e.at).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}]</span>
+              <span style="color:#374151;margin-left:4px"><strong>${esc(e.byName||'–')}</strong> — ${esc(e.text||'')}</span>
+            </div>`;
+          }).join('');
+          return `<div class="card" style="padding:16px 18px;border-left:3px solid #DC2626">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#7F1D1D;margin-bottom:2px">${esc(r.userName||'–')}</div>
+                <div style="font-size:12px;color:var(--text-muted)">${esc(r.userEmail||'–')}</div>
+              </div>
+              <div style="text-align:right;font-size:11px;color:var(--text-muted)">
+                <div>Richiesta: <strong>${r.requestedAt?new Date(r.requestedAt).toLocaleDateString('it-IT'):'–'}</strong></div>
+                <div>Cancellazione: <strong>${r.executedAt?new Date(r.executedAt).toLocaleDateString('it-IT'):'–'}</strong></div>
+              </div>
+            </div>
+            ${(r.timeline||[]).length>0?`
+            <div style="margin-top:10px">
+              <button onclick="const el=document.getElementById('${timelineId}');el.style.display=el.style.display==='none'?'block':'none'"
+                style="background:transparent;border:1px solid #FCA5A5;color:#DC2626;padding:4px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">
+                Storico timeline (${(r.timeline||[]).length} eventi)
+              </button>
+              <div id="${timelineId}" style="display:none;margin-top:8px;background:#FFF7F7;border:1px solid #FCA5A5;border-radius:8px;padding:8px 12px">
+                ${tlHtml}
+              </div>
+            </div>`:''}
+          </div>`;
+        }).join('')}
     </div>`;
   } else if(adminTab==='new-company'){
     const today=new Date().toISOString().split('T')[0];
@@ -8413,7 +8460,7 @@ function renderSettings(main){
 
       <!-- Ticket list -->
       ${(()=>{
-        const myTickets = DB.getTickets().filter(t=>t.companyId===co.id).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
+        const myTickets = DB.getTickets().filter(t=>t.companyId===co.id && (t.status!=='closed' || t.category==='gdpr_deletion')).sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
         if(!myTickets.length) return '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">'+(isTrustedAdmin()?'Nessun ticket ricevuto.':'Nessun ticket aperto. Usa il modulo sopra per contattare Studio Zamboni.')+'</div>';
         return '<div class="flex-col gap-3">'+myTickets.map(t=>{
           const cat=getCatTicket(t.category);
@@ -12579,7 +12626,7 @@ async function sendGdprVerificationEmail(code){
 }
 
 function verifyGdprCode(){
-  const input=(document.getElementById('gdpr-code-input')?.value||'').trim().toUpperCase();
+  const input='DEL-'+((document.getElementById('gdpr-code-input')?.value||'').trim().toUpperCase());
   const stored=_mem['_gdprDeletionCode'];
   const errEl=document.getElementById('gdpr-code-error');
   const okEl=document.getElementById('gdpr-code-success');
@@ -12783,10 +12830,13 @@ Richiesta inviata tramite MyEwallet.`,
       </p>
       <div style="margin-bottom:14px">
         <label style="font-size:12px;font-weight:700;color:#041348;display:block;margin-bottom:6px;letter-spacing:.04em">CODICE DI VERIFICA</label>
-        <input id="gdpr-code-input" type="text" maxlength="10" placeholder="DEL-XXXXXX"
-          style="width:100%;padding:12px 14px;border:2px solid #e2e8f0;border-radius:8px;font-size:18px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-family:monospace;box-sizing:border-box;text-align:center"
-          oninput="this.value=this.value.toUpperCase();document.getElementById('gdpr-code-error').style.display='none'"
-          onkeydown="if(event.key==='Enter')verifyGdprCode()"/>
+        <div style="display:flex;align-items:center;border:2px solid #e2e8f0;border-radius:8px;overflow:hidden;font-family:monospace;font-size:18px;font-weight:700;letter-spacing:.12em;background:#f8fafc">
+          <span style="padding:12px 0 12px 14px;color:#041348;user-select:none;white-space:nowrap">DEL-</span>
+          <input id="gdpr-code-input" type="text" maxlength="6" placeholder="XXXXXX"
+            style="flex:1;padding:12px 14px 12px 2px;border:none;outline:none;font-size:18px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-family:monospace;background:transparent;min-width:0"
+            oninput="this.value=this.value.toUpperCase();document.getElementById('gdpr-code-error').style.display='none'"
+            onkeydown="if(event.key==='Enter')verifyGdprCode()"/>
+        </div>
       </div>
       <div id="gdpr-code-error" style="display:none;background:#FEF2F2;border:1px solid #FCA5A5;border-radius:6px;padding:8px 12px;font-size:12px;color:#DC2626;margin-bottom:12px"></div>
       <div id="gdpr-code-success" style="display:none;background:#DCFCE7;border:1px solid #86EFAC;border-radius:6px;padding:8px 12px;font-size:12px;color:#16A34A;margin-bottom:12px">
