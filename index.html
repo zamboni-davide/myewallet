@@ -12557,7 +12557,7 @@ async function sendGdprVerificationEmail(code){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'Authorization':'Bearer '+(_supaAnonKey||'')
+        'Authorization':'Bearer '+SUPA_KEY
       },
       body: JSON.stringify({
         to: userEmail,
