@@ -7559,7 +7559,7 @@ async function adminCreateSuperUser(){
     await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},
-      body:JSON.stringify({type:'email',to:email,subject:'Benvenuto su MyEwallet® — Accesso Super User',html:emailHtml})
+      body:JSON.stringify({to:email,toName:nomeStudio,subject:'Benvenuto su MyEwallet® — Accesso Super User',htmlContent:emailHtml})
     });
   }catch(e){console.warn('Welcome email SU:',e);}
   showToast('Super User creato. Email di benvenuto inviata.','success');
