@@ -7374,16 +7374,10 @@ Importo: € ${tot.toFixed(2)} IVA incl."
     const tickets=DB.getTickets().slice().reverse();
     const openTkts=tickets.filter(t=>t.status!=='closed');
     const closedTkts=tickets.filter(t=>t.status==='closed');
-    body.innerHTML=`<div style="display:flex;flex-direction:column;gap:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
-        <span style="font-size:14px;font-weight:700;color:var(--navy)">Ticket aperti (${openTkts.length})</span>
-        <span style="font-size:12px;color:var(--text-muted)">Totale: ${tickets.length} · Chiusi: ${closedTkts.length}</span>
-      </div>
-      ${tickets.length===0?`<div class="empty-state"><div class="empty-state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m22 17-8-5-8 5"/></svg></div><div class="empty-state-text">Nessun ticket</div></div>`
-      :tickets.map(tk=>{
-        const statusColor=tk.status==='open'?'#E74C3C':tk.status==='closed'?'#6B7280':'#F59E0B';
-        const statusLabel=tk.status==='open'?'Aperto':tk.status==='closed'?'Chiuso':'In lavorazione';
-        return`<div class="card" style="padding:14px 18px;border-left:3px solid ${statusColor};cursor:pointer" onclick="adminOpenTicket('${tk.id}')">
+    const tkCard=tk=>{
+      const statusColor=tk.status==='open'?'#E74C3C':tk.status==='closed'?'#6B7280':'#F59E0B';
+      const statusLabel=tk.status==='open'?'Aperto':tk.status==='closed'?'Chiuso':'In lavorazione';
+      return`<div class="card" style="padding:14px 18px;border-left:3px solid ${statusColor};cursor:pointer" onclick="adminOpenTicket('${tk.id}')">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
             <div>
               <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:2px">${esc(tk.subject||'–')}</div>
@@ -7392,7 +7386,24 @@ Importo: € ${tot.toFixed(2)} IVA incl."
             </div>
             <span style="background:${statusColor}20;color:${statusColor};font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap">${statusLabel}</span>
           </div>
-        </div>`}).join('')}
+        </div>`;
+    };
+    body.innerHTML=`<div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
+        <span style="font-size:14px;font-weight:700;color:var(--navy)">Ticket aperti (${openTkts.length})</span>
+        <span style="font-size:12px;color:var(--text-muted)">Totale: ${tickets.length} · Chiusi: ${closedTkts.length}</span>
+      </div>
+      ${openTkts.length===0?`<div class="empty-state"><div class="empty-state-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m22 17-8-5-8 5"/></svg></div><div class="empty-state-text">Nessun ticket aperto</div></div>`
+      :openTkts.map(tkCard).join('')}
+      ${closedTkts.length>0?`<div style="margin-top:4px;border-top:1px solid var(--border-light);padding-top:12px">
+        <button onclick="const el=document.getElementById('admin-closed-tickets');const arr=document.getElementById('admin-closed-arr');const vis=el.style.display==='none';el.style.display=vis?'flex':'none';arr.style.transform=vis?'rotate(90deg)':'rotate(0deg)';" style="display:flex;align-items:center;gap:8px;background:transparent;border:none;cursor:pointer;padding:4px 0 10px;font-size:13px;font-weight:600;color:var(--text-muted)">
+          <svg id="admin-closed-arr" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform .2s"><polyline points="9 18 15 12 9 6"/></svg>
+          Ticket chiusi (${closedTkts.length})
+        </button>
+        <div id="admin-closed-tickets" style="display:none;flex-direction:column;gap:12px">
+          ${closedTkts.map(tkCard).join('')}
+        </div>
+      </div>`:''}
     </div>`;
   } else if(adminTab==='gdpr-archive'){
     const gdprRecs=DB.getGdprDeletions().slice().reverse();
