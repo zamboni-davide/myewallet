@@ -7528,6 +7528,39 @@ async function adminToggleSuperUser(coId){
   renderAdminTab();
 }
 
+function adminDeleteSuperUser(coId){
+  const companies=DB.getCompanies();
+  const su=companies.find(c=>c.id===coId);
+  if(!su){showToast('Super User non trovato','error');return;}
+  const suName=su.name||su.email||coId;
+  document.getElementById('confirm-title').textContent='Elimina Super User';
+  document.getElementById('confirm-text').innerHTML=`Sei sicuro di voler eliminare il Super User <strong>${esc(suName)}</strong>?`;
+  const okBtn=document.getElementById('confirm-ok-btn');
+  okBtn.textContent='Procedi';
+  okBtn.style.display='';
+  confirmCallback=()=>{
+    setTimeout(()=>{
+      document.getElementById('confirm-title').textContent='Conferma eliminazione definitiva';
+      document.getElementById('confirm-text').innerHTML=`<strong>ATTENZIONE: questa azione è irreversibile.</strong><br><br>Eliminare definitivamente il Super User <strong>${esc(suName)}</strong> e tutti gli utenti collegati?`;
+      const okBtn2=document.getElementById('confirm-ok-btn');
+      okBtn2.textContent='Conferma eliminazione';
+      okBtn2.style.display='';
+      confirmCallback=async()=>{
+        const allCos=DB.getCompanies().filter(c=>c.id!==coId);
+        DB.setCompanies(allCos);
+        const allUsers=DB.getUsers().filter(u=>u.companyId!==coId);
+        DB.setUsers(allUsers);
+        await _supaSyncAwait('co_admin','companies',allCos);
+        await _supaSyncAwait('co_admin','users',allUsers);
+        showToast('Super User eliminato','success');
+        renderAdminTab();
+      };
+      document.getElementById('confirm-overlay').classList.remove('hidden');
+    },50);
+  };
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
 async function adminCreateSuperUser(){
   const nomeTit=document.getElementById('su-nome-tit')?.value.trim()||'';
   const cognTit=document.getElementById('su-cogn-tit')?.value.trim()||'';
@@ -7584,6 +7617,7 @@ function renderAdminSuperUsers(body){
             <div style="display:flex;align-items:center;gap:10px">
               <span style="background:${su.superuserActive?'#DCFCE7':'#FEE2E2'};color:${su.superuserActive?'#166534':'#991B1B'};font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px">${su.superuserActive?'Attivo':'Disattivo'}</span>
               <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="adminToggleSuperUser('${su.id}')">${su.superuserActive?'Disattiva':'Attiva'}</button>
+              <button class="btn btn-sm" style="font-size:11px;color:#DC2626;border:1px solid #FCA5A5;background:transparent" onclick="adminDeleteSuperUser('${su.id}')">Elimina</button>
             </div>
           </div>`).join('')}
     </div>
