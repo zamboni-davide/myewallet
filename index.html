@@ -2622,7 +2622,7 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares'];
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares','link_requests'];
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
@@ -2701,6 +2701,8 @@ const DB = {
   setNotifications(n){this.set('notifications',n);},
   getTickets(){const v=this.get('tickets',[]); return Array.isArray(v)?v:[];},
   setTickets(t){this.set('tickets',t);},
+  getLinkRequests(){const v=this.get('link_requests',[]); return Array.isArray(v)?v:[];},
+  setLinkRequests(r){this.set('link_requests',r);},
   getGdprDeletions(){const v=this.get('gdpr_deletions',[]); return Array.isArray(v)?v:[];},
   setGdprDeletions(r){this.set('gdpr_deletions',r);},
   getConversations(){const v=this.get('conversations',[]); return Array.isArray(v)?v:[];},
@@ -7756,10 +7758,267 @@ function renderSuperUserPanel(){
   </div>`;
 }
 
+let _suSearchResult=null;
+let _csvToLink=[];
+let _csvToInvite=[];
+
 function renderSuClients(){
-  const clients=DB.getUsers().filter(u=>u.superuserOwner===currentCompany.id);
-  if(clients.length===0)return`<div style="text-align:center;padding:60px 20px"><div style="font-size:36px;margin-bottom:14px">&#128101;</div><div style="font-size:15px;font-weight:600;color:#334155;margin-bottom:8px">Nessun cliente associato</div><div style="font-size:13px;color:#64748b">I tuoi clienti appariranno qui quando Studio Zamboni li collegherà al tuo profilo.</div></div>`;
-  return`<div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:8px">I miei clienti (${clients.length})</div>${clients.map(u=>{const co2=DB.getCompanies().find(c=>c.id===u.companyId);return`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:13px;font-weight:700;color:#041348">${esc(u.name)}</div><div style="font-size:12px;color:#64748b">${esc(u.email)}${co2?` · ${esc(co2.name)}`:''}</div></div><span style="background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px">Attivo</span></div>`;}).join('')}</div>`;
+  const co=currentCompany;
+  const clients=DB.getUsers().filter(u=>u.superuserOwner===co.id);
+  const pending=DB.getLinkRequests().filter(r=>r.superUserCompanyId===co.id&&r.status==='pending');
+  return`<div style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-primary" style="font-size:13px" onclick="suOpenAddClientModal()">+ Aggiungi cliente</button>
+      <button class="btn btn-ghost" style="font-size:13px" onclick="suOpenCsvImport()">&#11014; Importa CSV</button>
+      <input type="file" id="su-csv-input" accept=".csv" style="display:none" onchange="suProcessCsv(this.files[0]);this.value=''">
+    </div>
+    ${pending.length>0?`<div>
+      <div style="font-size:13px;font-weight:600;color:#92400E;margin-bottom:8px">Richieste in attesa (${pending.length})</div>
+      ${pending.map(r=>`<div class="card" style="padding:12px 16px;border-left:3px solid #F59E0B;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px">
+        <div><div style="font-size:12px;font-weight:600;color:#041348">${esc(r.targetEmail)}</div><div style="font-size:11px;color:#64748b">In attesa · ${formatDate(r.createdAt)}</div></div>
+        <span style="background:#FEF3C7;color:#92400E;font-size:11px;font-weight:600;padding:3px 8px;border-radius:999px">In attesa</span>
+      </div>`).join('')}
+    </div>`:''}
+    ${clients.length===0
+      ?`<div style="text-align:center;padding:40px 20px;background:#fff;border-radius:12px;border:1px solid #e2e8f0"><div style="font-size:32px;margin-bottom:12px">&#128101;</div><div style="font-size:14px;font-weight:600;color:#334155;margin-bottom:6px">Nessun cliente collegato</div><div style="font-size:12px;color:#64748b">Usa "Aggiungi cliente" o importa un CSV.</div></div>`
+      :`<div><div style="font-size:13px;font-weight:700;color:#041348;margin-bottom:8px">Clienti collegati (${clients.length})</div>${clients.map(u=>{const uco=DB.getCompanies().find(c=>c.id===u.companyId);return`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:13px;font-weight:700;color:#041348">${esc(u.name)}</div><div style="font-size:12px;color:#64748b">${esc(u.email)}${uco?` · ${esc(uco.name)}`:''}</div>${u.linkedAt?`<div style="font-size:11px;color:#94a3b8">Collegato: ${formatDate(u.linkedAt)}</div>`:''}</div><span style="background:#DCFCE7;color:#166534;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px">Attivo</span></div>`;}).join('')}</div>`}
+  </div>`;
+}
+
+function suOpenAddClientModal(){
+  const existing=document.getElementById('su-add-client-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='su-add-client-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:440px;width:100%">
+    <div class="modal-header">
+      <h2 class="modal-title">Aggiungi cliente</h2>
+      <button class="btn-icon" onclick="document.getElementById('su-add-client-overlay').remove()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="margin-bottom:16px">
+        <label class="input-label">Email cliente</label>
+        <div style="display:flex;gap:8px">
+          <input class="input" id="su-search-email" placeholder="email@esempio.it" type="email" onkeydown="if(event.key==='Enter')suSearchClient()">
+          <button class="btn btn-primary" onclick="suSearchClient()" style="white-space:nowrap">Cerca</button>
+        </div>
+      </div>
+      <div id="su-search-result"></div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>document.getElementById('su-search-email')?.focus(),100);
+}
+
+function suSearchClient(){
+  const emailInput=document.getElementById('su-search-email');
+  const email=(emailInput?.value||'').trim().toLowerCase();
+  const resultDiv=document.getElementById('su-search-result');
+  if(!email||!email.includes('@')){showToast('Inserisci una email valida','error');return;}
+  if(!resultDiv)return;
+  _suSearchResult=null;
+  if(DB.getUsers().some(u=>u.email===email&&u.superuserOwner===currentCompany.id)){
+    resultDiv.innerHTML=`<div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;padding:12px;font-size:13px;color:#92400E">Questo utente è già un tuo cliente.</div>`;return;}
+  if(DB.getLinkRequests().some(r=>r.targetEmail===email&&r.superUserCompanyId===currentCompany.id&&r.status==='pending')){
+    resultDiv.innerHTML=`<div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;padding:12px;font-size:13px;color:#92400E">Hai già una richiesta in attesa per questa email.</div>`;return;}
+  const user=DB.getUsers().find(u=>u.email===email&&u.role!=='admin');
+  if(user){
+    const uco=DB.getCompanies().find(c=>c.id===user.companyId);
+    _suSearchResult={type:'found',userId:user.id,companyId:user.companyId,name:user.name,email};
+    resultDiv.innerHTML=`<div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:14px"><div style="font-size:12px;font-weight:600;color:#166534;margin-bottom:8px">Utente trovato su MyEwallet</div><div style="font-size:13px;font-weight:700;color:#041348">${esc(user.name)}</div><div style="font-size:12px;color:#64748b;margin-bottom:12px">${esc(user.email)}${uco?` · ${esc(uco.name)}`:''}</div><button class="btn btn-primary" style="font-size:12px;width:100%" onclick="suSendLinkRequest()">Invia richiesta di collegamento</button></div>`;
+  }else{
+    _suSearchResult={type:'not_found',email};
+    resultDiv.innerHTML=`<div style="background:#FFF7ED;border:1px solid #FED7AA;border-radius:8px;padding:14px"><div style="font-size:12px;font-weight:600;color:#C2410C;margin-bottom:8px">Utente non registrato su MyEwallet</div><div style="font-size:12px;color:#64748b;margin-bottom:12px">Puoi invitare <strong>${esc(email)}</strong> a registrarsi.</div><button class="btn btn-primary" style="font-size:12px;width:100%" onclick="suSendInviteEmail()">Invia invito</button></div>`;
+  }
+}
+
+async function suSendSingleLinkRequest(userId,companyId,name,email,btn){
+  if(DB.getLinkRequests().some(r=>r.targetEmail===email&&r.superUserCompanyId===currentCompany.id&&r.status==='pending'))return;
+  const req={id:uid(),superUserCompanyId:currentCompany.id,superUserName:currentCompany.name,targetEmail:email,targetUserId:userId,targetCompanyId:companyId,status:'pending',createdAt:new Date().toISOString()};
+  const reqs=DB.getLinkRequests();reqs.push(req);DB.setLinkRequests(reqs);
+  const targetCo=DB.getCompanies().find(c=>c.id===companyId);
+  await createNotification({recipientId:userId,recipientRole:'user',companyId,companyName:targetCo?.name||'',message:`${currentCompany.name} ti ha inviato una richiesta di collegamento come Super User.`,type:'link_request',relatedRequestId:req.id,senderName:currentCompany.name});
+  if(btn){btn.textContent='Inviata';btn.disabled=true;}
+}
+
+async function suSendLinkRequest(){
+  if(!_suSearchResult||_suSearchResult.type!=='found')return;
+  const {userId,companyId,name,email}=_suSearchResult;
+  await suSendSingleLinkRequest(userId,companyId,name,email,null);
+  document.getElementById('su-add-client-overlay')?.remove();
+  showToast('Richiesta di collegamento inviata','success');
+  renderSuperUserPanel();
+}
+
+async function suSendInviteEmail(){
+  if(!_suSearchResult||_suSearchResult.type!=='not_found')return;
+  await _suSendInviteTo(_suSearchResult.email,'');
+  document.getElementById('su-add-client-overlay')?.remove();
+  showToast('Invito inviato','success');
+}
+
+async function _suSendInviteTo(email,toName){
+  const catLabel=suCatLabel(currentCompany.superuserCategory);
+  const html=`<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f0f4f8;margin:0;padding:20px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="560" style="background:#041348;border-radius:12px;overflow:hidden" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 36px;border-bottom:3px solid #C9A84C"><span style="color:#C9A84C;font-size:20px;font-weight:700">MyEwallet&#174;</span></td></tr><tr><td style="padding:28px 36px"><p style="color:#fff;font-size:15px;font-weight:700;margin:0 0 12px">Sei stato invitato da ${esc(currentCompany.name)}</p><p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin:0 0 20px"><strong style="color:#C9A84C">${esc(currentCompany.name)}</strong> (${esc(catLabel)}) ti invita a registrarti su MyEwallet&#174;, la piattaforma documentale professionale di Studio Zamboni.</p><div style="text-align:center;margin:24px 0"><a href="https://www.myewallet.it" style="background:#C9A84C;color:#041348;font-size:14px;font-weight:700;padding:12px 28px;border-radius:8px;text-decoration:none;display:inline-block">Registrati su MyEwallet&#174;</a></div><p style="color:#94a3b8;font-size:12px;margin:0">www.myewallet.it</p></td></tr><tr><td style="padding:14px 36px;background:#020d2e"><p style="color:#475569;font-size:11px;margin:0;text-align:center">Studio Zamboni &middot; MyEwallet&#174;</p></td></tr></table></td></tr></table></body></html>`;
+  try{await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({to:email,toName:toName||'',subject:'Invito a MyEwallet® da '+currentCompany.name,htmlContent:html})});}
+  catch(e){console.warn('Invite email error:',e);}
+}
+
+function suOpenCsvImport(){document.getElementById('su-csv-input')?.click();}
+
+async function suProcessCsv(file){
+  if(!file)return;
+  let text;
+  try{text=await file.text();}catch{showToast('Errore lettura file CSV','error');return;}
+  const lines=text.split(/\r?\n/).filter(l=>l.trim());
+  if(lines.length<2){showToast('CSV vuoto o senza righe dati','error');return;}
+  const sep=lines[0].includes(';')?';':',';
+  const parseCsvRow=row=>{const r=[];let cur='',inQ=false;for(let i=0;i<row.length;i++){const c=row[i];if(c==='"'){inQ=!inQ;}else if(c===sep&&!inQ){r.push(cur.trim());cur='';}else cur+=c;}r.push(cur.trim());return r;};
+  const headers=parseCsvRow(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,''));
+  const getCol=(cols,name)=>{const idx=headers.indexOf(name.toLowerCase().replace(/[^a-z0-9]/g,''));return idx>=0?(cols[idx]||'').replace(/^"|"$/g,'').trim():'';};
+  const toLink=[],toInvite=[],errors=[];
+  const alreadyClientEmails=new Set(DB.getUsers().filter(u=>u.superuserOwner===currentCompany.id).map(u=>u.email.toLowerCase()));
+  const pendingEmails=new Set(DB.getLinkRequests().filter(r=>r.superUserCompanyId===currentCompany.id&&r.status==='pending').map(r=>r.targetEmail.toLowerCase()));
+  const allUserEmails=new Set(DB.getUsers().map(u=>u.email.toLowerCase()));
+  const seenInFile=new Set();
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const cols=parseCsvRow(lines[i]);
+    const email=(getCol(cols,'email')||'').toLowerCase();
+    if(!email||!email.includes('@')||!email.includes('.')){errors.push({line:i+1,reason:'Email non valida',raw:lines[i].substring(0,40)});continue;}
+    if(seenInFile.has(email)){errors.push({line:i+1,reason:'Duplicato nel file',raw:email});continue;}
+    seenInFile.add(email);
+    if(alreadyClientEmails.has(email)){errors.push({line:i+1,reason:'Già cliente',raw:email});continue;}
+    if(pendingEmails.has(email)){errors.push({line:i+1,reason:'Richiesta già in attesa',raw:email});continue;}
+    const nome=getCol(cols,'nome')||getCol(cols,'titolare')||'';
+    if(allUserEmails.has(email)){
+      const user=DB.getUsers().find(u=>u.email.toLowerCase()===email);
+      toLink.push({email,userId:user?.id,companyId:user?.companyId,name:user?.name||nome});
+    }else{toInvite.push({email,nome});}
+  }
+  _csvToLink=toLink;_csvToInvite=toInvite;
+  suShowCsvReport(toLink,toInvite,errors);
+}
+
+function suShowCsvReport(toLink,toInvite,errors){
+  const existing=document.getElementById('su-csv-report-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='su-csv-report-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:600px;width:100%;max-height:90vh;overflow-y:auto">
+    <div class="modal-header">
+      <h2 class="modal-title">Risultati importazione CSV</h2>
+      <button class="btn-icon" onclick="document.getElementById('su-csv-report-overlay').remove()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:100px;background:#F0FDF4;border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:#166534">${toLink.length}</div><div style="font-size:11px;color:#166534;font-weight:600">Trovati</div></div>
+        <div style="flex:1;min-width:100px;background:#FFF7ED;border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:#C2410C">${toInvite.length}</div><div style="font-size:11px;color:#C2410C;font-weight:600">Da invitare</div></div>
+        <div style="flex:1;min-width:100px;background:#FEF2F2;border-radius:8px;padding:12px;text-align:center"><div style="font-size:22px;font-weight:700;color:#DC2626">${errors.length}</div><div style="font-size:11px;color:#DC2626;font-weight:600">Errori</div></div>
+      </div>
+      ${toLink.length>0?`<div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:700;color:#041348">Da collegare (${toLink.length})</div>
+          <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="suSendAllLinkRequests()">Invia tutte le richieste</button>
+        </div>
+        ${toLink.map((r,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#F8FAFC;border-radius:6px;margin-bottom:4px;gap:8px">
+          <div><div style="font-size:12px;font-weight:600;color:#041348">${esc(r.name)}</div><div style="font-size:11px;color:#64748b">${esc(r.email)}</div></div>
+          <button class="btn btn-ghost btn-sm" style="font-size:11px;white-space:nowrap" id="csv-link-btn-${i}" onclick="suSendCsvLinkRequest(${i},this)">Invia</button>
+        </div>`).join('')}
+      </div>`:''}
+      ${toInvite.length>0?`<div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:700;color:#041348">Da invitare (${toInvite.length})</div>
+          <button class="btn btn-primary btn-sm" style="font-size:11px" onclick="suSendAllInvites()">Invia tutti gli inviti</button>
+        </div>
+        ${toInvite.map((r,i)=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#F8FAFC;border-radius:6px;margin-bottom:4px;gap:8px">
+          <div><div style="font-size:12px;font-weight:600;color:#041348">${esc(r.nome||r.email)}</div><div style="font-size:11px;color:#64748b">${esc(r.email)}</div></div>
+          <button class="btn btn-ghost btn-sm" style="font-size:11px;white-space:nowrap" id="csv-inv-btn-${i}" onclick="suSendCsvInvite(${i},this)">Invia</button>
+        </div>`).join('')}
+      </div>`:''}
+      ${errors.length>0?`<div>
+        <div style="font-size:13px;font-weight:700;color:#DC2626;margin-bottom:8px">Errori (${errors.length})</div>
+        ${errors.map(e=>`<div style="padding:6px 10px;background:#FEF2F2;border-radius:4px;margin-bottom:3px;font-size:11px;color:#991B1B"><strong>Riga ${e.line}:</strong> ${esc(e.reason)} — ${esc(e.raw)}</div>`).join('')}
+      </div>`:''}
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+async function suSendCsvLinkRequest(idx,btn){
+  const r=_csvToLink[idx];if(!r)return;
+  await suSendSingleLinkRequest(r.userId,r.companyId,r.name,r.email,btn);
+  if(btn&&!btn.disabled){btn.textContent='Inviata';btn.disabled=true;}
+  showToast('Richiesta inviata','success');
+}
+
+async function suSendCsvInvite(idx,btn){
+  const r=_csvToInvite[idx];if(!r)return;
+  if(btn){btn.textContent='Inviato';btn.disabled=true;}
+  await _suSendInviteTo(r.email,r.nome||'');
+  showToast('Invito inviato','success');
+}
+
+async function suSendAllLinkRequests(){
+  let count=0;
+  for(let i=0;i<_csvToLink.length;i++){
+    const r=_csvToLink[i];
+    await suSendSingleLinkRequest(r.userId,r.companyId,r.name,r.email,null);
+    const btn=document.getElementById('csv-link-btn-'+i);
+    if(btn){btn.textContent='Inviata';btn.disabled=true;}
+    count++;
+  }
+  showToast(count+' richieste di collegamento inviate','success');
+  document.getElementById('su-csv-report-overlay')?.remove();
+  renderSuperUserPanel();
+}
+
+async function suSendAllInvites(){
+  let count=0;
+  for(let i=0;i<_csvToInvite.length;i++){
+    const r=_csvToInvite[i];
+    await _suSendInviteTo(r.email,r.nome||'');
+    const btn=document.getElementById('csv-inv-btn-'+i);
+    if(btn){btn.textContent='Inviato';btn.disabled=true;}
+    count++;
+  }
+  showToast(count+' inviti inviati','success');
+}
+
+async function acceptLinkRequest(requestId,notifId,event){
+  if(event)event.stopPropagation();
+  const reqs=DB.getLinkRequests();
+  const req=reqs.find(r=>r.id===requestId);
+  if(!req||req.status!=='pending')return;
+  req.status='accepted';req.acceptedAt=new Date().toISOString();
+  DB.setLinkRequests(reqs);
+  const users=DB.getUsers();
+  const user=users.find(u=>u.id===req.targetUserId);
+  if(user){user.superuserOwner=req.superUserCompanyId;user.linkedAt=new Date().toISOString();}
+  DB.setUsers(users);
+  const notifs=DB.getNotifications();
+  const n=notifs.find(x=>x.id===notifId);
+  if(n){n.linkHandled=true;n.read=true;}
+  DB.setNotifications(notifs);
+  showToast('Cliente collegato con successo','success');
+  renderNotifPanel();
+}
+
+async function rejectLinkRequest(requestId,notifId,event){
+  if(event)event.stopPropagation();
+  const reqs=DB.getLinkRequests();
+  const req=reqs.find(r=>r.id===requestId);
+  if(!req)return;
+  req.status='rejected';req.rejectedAt=new Date().toISOString();
+  DB.setLinkRequests(reqs);
+  const notifs=DB.getNotifications();
+  const n=notifs.find(x=>x.id===notifId);
+  if(n){n.linkHandled=true;n.read=true;}
+  DB.setNotifications(notifs);
+  showToast('Richiesta rifiutata','info');
+  renderNotifPanel();
 }
 
 function renderSuComm(){
@@ -10309,6 +10568,7 @@ function renderNotifPanel(){
           ${!n.read?'<span style="background:#EFF6FF;color:#1D4ED8;font-size:10px;font-weight:700;padding:1px 6px;border-radius:999px">Nuovo</span>':''}
         </div>
       </div>
+      ${n.type==='link_request'&&n.relatedRequestId&&!n.linkHandled?`<div style="display:flex;gap:8px;margin-top:8px;padding:8px 0 2px"><button class="btn btn-primary btn-sm" style="font-size:11px" onclick="acceptLinkRequest('${n.relatedRequestId}','${n.id}',event)">Accetta</button><button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="rejectLinkRequest('${n.relatedRequestId}','${n.id}',event)">Rifiuta</button></div>`:''}
       ${n.read?`<button class="notif-del" onclick="deleteNotif('${n.id}',event)" title="Elimina"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}
     </div>`).join('');
 }
