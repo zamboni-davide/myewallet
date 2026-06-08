@@ -2886,6 +2886,19 @@ async function doLogin(){
     if(!authError && authData?.user){
       const meta = authData.user.user_metadata || {};
       const companyId = meta.company_id;
+      // PATCH 5 — Blocco login account GDPR cancellati, prima di qualsiasi operazione su _mem
+      try{
+        const {data:_gdprRow}=await _supa.from('company_store')
+          .select('store_value').eq('company_id','co_admin').eq('store_key','gdpr_deletions').maybeSingle();
+        let _gdprList=[];
+        if(_gdprRow?.store_value){try{_gdprList=typeof _gdprRow.store_value==='string'?JSON.parse(_gdprRow.store_value):_gdprRow.store_value;}catch{}}
+        if(Array.isArray(_gdprList)&&_gdprList.some(r=>r.userEmail===email)){
+          await _supa.auth.signOut();
+          showAuthError('login','Account non disponibile. Contatta Studio Zamboni.');
+          if(btn){btn.disabled=false;btn.textContent=origText;}
+          return;
+        }
+      }catch(_p5e){console.warn('GDPR login block check failed:',_p5e);}
       await _supaLoadAll('co_admin');
       if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
       patchAdminCompany();
@@ -6441,6 +6454,8 @@ async function adminExecuteGdprDeletion(ticketId){
   DB.getUsers().filter(u=>u.companyId===tk.companyId).forEach(u=>{u.gdprDeleted=true;u.accountStatus='gdpr_deleted';});
   const _deletedCo=DB.getCompanies().find(c=>c.id===tk.companyId);
   if(_deletedCo){_deletedCo.gdprDeleted=true;_deletedCo.accountStatus='gdpr_deleted';}
+  // PATCH 6 — Sincronizza tombstone su Supabase PRIMA del filtro: gdprDeleted:true arriva su Supabase co_admin/users
+  await _supaSyncAwait('co_admin','users',DB.getUsers());
   // Elimina utenti e azienda da co_admin
   const allUsers = DB.getUsers().filter(u=>u.companyId!==tk.companyId);
   const allCos = DB.getCompanies().filter(c=>c.id!==tk.companyId);
