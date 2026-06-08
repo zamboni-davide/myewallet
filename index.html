@@ -2833,10 +2833,20 @@ function isTrustedAdmin(){
 // Account access gate — checked at every startApp entry point
 function isAccountBlocked(co){
   if(!co) return false;
+  if(co.role==='superuser') return !co.superuserActive; // superuser bloccato solo se disattivato
   return co.accountStatus==='billing_suspended' || co.accountStatus==='disabled' || co.accountStatus==='deletion_requested' || co.gdprDeleted===true;
 }
 
+function getIsSuperUser(co){
+  return co?.role==='superuser' && co?.superuserActive===true;
+}
+
 function showBlockedScreen(co){
+  if(co?.role==='superuser'&&!co?.superuserActive){
+    logout();
+    document.getElementById('auth-screen').innerHTML+=`<div id="blocked-overlay" style="position:fixed;inset:0;background:#041348;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px"><div style="background:#fff;border-radius:16px;padding:40px 36px;max-width:460px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)"><div style="width:56px;height:56px;background:#FEF9C3;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div style="font-size:17px;font-weight:700;color:#041348;margin-bottom:10px">Accesso Super User disattivato</div><div style="font-size:13px;color:#64748b;line-height:1.6;margin-bottom:28px">Il tuo accesso Super User è stato temporaneamente disattivato da Studio Zamboni.<br>Contatta lo Studio per riattivarlo.</div><div style="font-size:12px;color:#64748b;background:#f8fafc;border-radius:8px;padding:12px"><strong>Contatti:</strong> consulenzesardegna@pec.it</div></div></div>`;
+    return;
+  }
   logout();
   const reason = co?.accountStatus==='billing_suspended'
     ? 'Account sospeso per problemi di fatturazione'
@@ -3593,6 +3603,7 @@ function checkSignatureReminders(){
 }
 
 function startApp(user,co){
+  if(getIsSuperUser(co)){ renderSuperUserApp(user,co); return; }
   document.body.style.overflow='hidden';
   document.documentElement.style.overflow='hidden';
   currentUser=user; Object.freeze(currentUser); currentCompany=co;
@@ -4826,6 +4837,7 @@ function globalSearchInput(v){
 let adminCompanyFilter=''; // 'all'|'trial'|'active'|'expiring'|'expired'
 let adminCompanySearch='';
 let adminTab='companies';
+let suTab='clients';
 
 
 // ════════════════════════════════════════════════
@@ -6248,6 +6260,7 @@ function renderAdmin(main){
       <div class="admin-tab ${adminTab==='payments'?'active':''}" onclick="setAdminTab('payments')" style="position:relative"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> Pagamenti ${(()=>{const _c=DB.getPaymentRequests().filter(r=>r.status===PAYMENT_STATUS.PENDING_ADMIN||r.status===PAYMENT_STATUS.PAYMENT_PENDING).length;return _c>0?'<span style="position:absolute;top:6px;right:4px;min-width:14px;height:14px;border-radius:7px;background:#E74C3C;color:#fff;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;padding:0 3px">'+_c+'</span>':'';})()}</div>
       <div class="admin-tab ${adminTab==='subscriptions'?'active':''}" onclick="setAdminTab('subscriptions')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> Abbonamenti</div>
       <div class="admin-tab ${adminTab==='gdpr-archive'?'active':''}" onclick="setAdminTab('gdpr-archive')">⚖️ Archivio GDPR</div>
+      <div class="admin-tab ${adminTab==='superusers'?'active':''}" onclick="setAdminTab('superusers')">⭐ Super User</div>
       <div class="admin-tab ${adminTab==='new-company'?'active':''}" onclick="setAdminTab('new-company')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuova Azienda</div>
     </div>
     <div id="admin-tab-body"></div>`;
@@ -7412,6 +7425,8 @@ Importo: € ${tot.toFixed(2)} IVA incl."
         </div>
       </div>`:''}
     </div>`;
+  } else if(adminTab==='superusers'){
+    renderAdminSuperUsers(body);
   } else if(adminTab==='gdpr-archive'){
     const gdprRecs=DB.getGdprDeletions().slice().reverse();
     body.innerHTML=`<div style="display:flex;flex-direction:column;gap:12px">
@@ -7488,6 +7503,238 @@ Importo: € ${tot.toFixed(2)} IVA incl."
       </div>
     </div>`;
   }
+}
+
+// ── Super User — helpers & admin functions ───────────────────────────────────
+function suCatLabel(cat){
+  const m={commercialista:'Commercialista',consulente_lavoro:'Consulente del Lavoro',rspp:'RSPP',progettista_elettrico:'Progettista Elettrico',associazione_categoria:'Associazione di Categoria'};
+  return m[cat]||cat||'–';
+}
+
+function _genTempPwd(len){
+  len=len||8;
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  let r='';for(let i=0;i<len;i++)r+=c.charAt(Math.floor(Math.random()*c.length));
+  return r;
+}
+
+async function adminToggleSuperUser(coId){
+  const companies=DB.getCompanies();
+  const idx=companies.findIndex(c=>c.id===coId);
+  if(idx<0)return;
+  companies[idx].superuserActive=!companies[idx].superuserActive;
+  DB.setCompanies(companies);
+  await _supaSyncAwait('co_admin','companies',companies);
+  renderAdminTab();
+}
+
+async function adminCreateSuperUser(){
+  const nomeTit=document.getElementById('su-nome-tit')?.value.trim()||'';
+  const cognTit=document.getElementById('su-cogn-tit')?.value.trim()||'';
+  const nomeStudio=document.getElementById('su-nome-studio')?.value.trim()||'';
+  const categoria=document.getElementById('su-categoria')?.value||'commercialista';
+  const piva=document.getElementById('su-piva')?.value.trim()||'';
+  const cf=document.getElementById('su-cf')?.value.trim()||'';
+  const indirizzo=document.getElementById('su-addr')?.value.trim()||'';
+  const cap=document.getElementById('su-cap')?.value.trim()||'';
+  const citta=document.getElementById('su-city')?.value.trim()||'';
+  const prov=document.getElementById('su-prov')?.value.trim()||'';
+  const email=(document.getElementById('su-email')?.value.trim()||'').toLowerCase();
+  const pec=document.getElementById('su-pec')?.value.trim()||'';
+  const sdi=document.getElementById('su-sdi')?.value.trim()||'';
+  const tel=document.getElementById('su-tel')?.value.trim()||'';
+  if(!nomeStudio||!email){showToast('Nome Studio e Email sono obbligatori','error');return;}
+  const coId='co_'+uid();
+  const now=new Date().toISOString();
+  const tempPwd=_genTempPwd(8);
+  const co={id:coId,name:nomeStudio,role:'superuser',superuserActive:true,superuserCategory:categoria,ownerName:nomeTit,ownerLastName:cognTit,vatNumber:piva,fiscalCode:cf,address:indirizzo,cap,city:citta,province:prov,email,pec,sdiCode:sdi,phone:tel,plan:'SuperUser',trialMode:false,createdAt:now};
+  const user={id:'u_'+uid(),name:((nomeTit+' '+cognTit).trim()||nomeStudio),email,pwd:tempPwd,companyId:coId,role:'user',createdAt:now};
+  const companies=DB.getCompanies();companies.push(co);DB.setCompanies(companies);
+  const users=DB.getUsers();users.push(user);DB.setUsers(users);
+  await _supaSyncAwait('co_admin','companies',companies);
+  await _supaSyncAwait('co_admin','users',users);
+  const catLabel=suCatLabel(categoria);
+  const emailHtml=`<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f0f4f8;margin:0;padding:20px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="560" style="background:#041348;border-radius:12px;overflow:hidden" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 36px;border-bottom:3px solid #C9A84C"><span style="color:#C9A84C;font-size:20px;font-weight:700">MyEwallet&#174;</span><span style="color:#8892a4;font-size:12px;display:block;margin-top:4px">Piattaforma documentale professionale</span></td></tr><tr><td style="padding:28px 36px"><p style="color:#fff;font-size:16px;font-weight:700;margin:0 0 12px">Benvenuto, ${esc(nomeStudio)}!</p><p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin:0 0 20px">Il tuo accesso <strong style="color:#C9A84C">Super User</strong> su MyEwallet&#174; &egrave; stato attivato da Studio Zamboni.<br>Categoria: <strong style="color:#C9A84C">${esc(catLabel)}</strong></p><div style="background:#0d1f5c;border-radius:8px;padding:18px 20px;margin-bottom:20px"><p style="color:#C9A84C;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">Credenziali di accesso</p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Email:</span> <strong style="color:#fff">${esc(email)}</strong></p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Password temporanea:</span> <strong style="color:#C9A84C;font-size:15px;letter-spacing:2px">${esc(tempPwd)}</strong></p></div><p style="color:#94a3b8;font-size:12px;margin:0">Modifica la password dal tuo profilo al primo accesso.</p></td></tr><tr><td style="padding:14px 36px;background:#020d2e"><p style="color:#475569;font-size:11px;margin:0;text-align:center">Studio Zamboni &middot; MyEwallet&#174; &middot; Gestione documentale professionale</p></td></tr></table></td></tr></table></body></html>`;
+  try{
+    await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},
+      body:JSON.stringify({type:'email',to:email,subject:'Benvenuto su MyEwallet® — Accesso Super User',html:emailHtml})
+    });
+  }catch(e){console.warn('Welcome email SU:',e);}
+  showToast('Super User creato. Email di benvenuto inviata.','success');
+  renderAdminTab();
+}
+
+function renderAdminSuperUsers(body){
+  const superUsers=DB.getCompanies().filter(c=>c.role==='superuser');
+  body.innerHTML=`<div style="display:flex;flex-direction:column;gap:20px">
+    <div>
+      <div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-light)">Super User registrati (${superUsers.length})</div>
+      ${superUsers.length===0
+        ?`<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed var(--border)">Nessun Super User registrato.</div>`
+        :superUsers.map(su=>`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:36px;height:36px;background:#041348;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#C9A84C;font-size:14px;font-weight:700">${esc(su.name.charAt(0).toUpperCase())}</div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:#041348">${esc(su.name)}</div>
+                <div style="font-size:11px;color:var(--text-muted)">${esc(su.email||'–')} · ${esc(suCatLabel(su.superuserCategory))}</div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="background:${su.superuserActive?'#DCFCE7':'#FEE2E2'};color:${su.superuserActive?'#166534':'#991B1B'};font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px">${su.superuserActive?'Attivo':'Disattivo'}</span>
+              <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="adminToggleSuperUser('${su.id}')">${su.superuserActive?'Disattiva':'Attiva'}</button>
+            </div>
+          </div>`).join('')}
+    </div>
+    <div class="card" style="padding:24px">
+      <div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid var(--border-light)">Crea nuovo Super User</div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Nome Titolare</label><input class="input" id="su-nome-tit" placeholder="Mario"></div>
+          <div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Cognome Titolare</label><input class="input" id="su-cogn-tit" placeholder="Rossi"></div>
+        </div>
+        <div class="input-group"><label class="input-label">Nome Studio / Azienda *</label><input class="input" id="su-nome-studio" placeholder="Studio Rossi"></div>
+        <div class="input-group"><label class="input-label">Categoria Professionale *</label>
+          <select class="input" id="su-categoria">
+            <option value="commercialista">Commercialista</option>
+            <option value="consulente_lavoro">Consulente del Lavoro</option>
+            <option value="rspp">RSPP</option>
+            <option value="progettista_elettrico">Progettista Elettrico</option>
+            <option value="associazione_categoria">Associazione di Categoria</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Partita IVA</label><input class="input" id="su-piva" placeholder="IT01234567890"></div>
+          <div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Codice Fiscale</label><input class="input" id="su-cf" placeholder="RSSMRA80A01H501Z"></div>
+        </div>
+        <div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="su-addr" placeholder="Via Roma 1"></div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div class="input-group" style="flex:1;min-width:70px"><label class="input-label">CAP</label><input class="input" id="su-cap" placeholder="07100"></div>
+          <div class="input-group" style="flex:2;min-width:140px"><label class="input-label">Città</label><input class="input" id="su-city" placeholder="Sassari"></div>
+          <div class="input-group" style="flex:1;min-width:70px"><label class="input-label">Prov.</label><input class="input" id="su-prov" placeholder="SS"></div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div class="input-group" style="flex:1;min-width:180px"><label class="input-label">Email *</label><input class="input" type="email" id="su-email" placeholder="mario@studio.it"></div>
+          <div class="input-group" style="flex:1;min-width:180px"><label class="input-label">PEC</label><input class="input" id="su-pec" placeholder="mario@pec.it"></div>
+        </div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap">
+          <div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Codice SDI</label><input class="input" id="su-sdi" placeholder="XXXXXXX"></div>
+          <div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Telefono</label><input class="input" id="su-tel" placeholder="+39 079 000000"></div>
+        </div>
+        <button class="btn btn-primary" onclick="adminCreateSuperUser()" style="align-self:flex-start">Crea Super User</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── Super User — Panel ───────────────────────────────────────────────────────
+function renderSuperUserApp(user,co){
+  document.body.style.overflow='auto';
+  document.documentElement.style.overflow='auto';
+  currentUser=user; Object.freeze(currentUser); currentCompany=co;
+  document.getElementById('auth-screen').classList.add('hidden');
+  let suScreen=document.getElementById('superuser-screen');
+  if(!suScreen){
+    suScreen=document.createElement('div');
+    suScreen.id='superuser-screen';
+    suScreen.style.cssText='position:fixed;inset:0;overflow-y:auto;z-index:500;background:#f0f4f8';
+    document.body.appendChild(suScreen);
+  }
+  suScreen.style.display='';
+  suTab='clients';
+  renderSuperUserPanel();
+  _supaLoadAll(co.id).then(()=>renderSuperUserPanel()).catch(()=>{});
+}
+
+function setSuTab(t){suTab=t;renderSuperUserPanel();}
+
+function suLogout(){
+  const suScreen=document.getElementById('superuser-screen');
+  if(suScreen)suScreen.style.display='none';
+  document.getElementById('auth-screen')?.classList.remove('hidden');
+  logout();
+}
+
+function renderSuperUserPanel(){
+  const suScreen=document.getElementById('superuser-screen');
+  if(!suScreen)return;
+  const co=currentCompany;
+  const catLabel=suCatLabel(co.superuserCategory);
+  const tabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['profile','Il mio profilo']];
+  let content='';
+  if(suTab==='clients')content=renderSuClients();
+  else if(suTab==='comm')content=renderSuComm();
+  else if(suTab==='docs')content=renderSuDocs();
+  else if(suTab==='profile')content=renderSuProfile();
+  suScreen.innerHTML=`<div style="min-height:100vh;background:#f0f4f8">
+    <div style="background:#041348;border-bottom:3px solid #C9A84C;position:sticky;top:0;z-index:100">
+      <div style="max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:40px;height:40px;background:#C9A84C;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#041348;flex-shrink:0">${esc(co.name.charAt(0).toUpperCase())}</div>
+          <div>
+            <div style="color:#fff;font-size:15px;font-weight:700;line-height:1.2">${esc(co.name)}</div>
+            <div style="color:#8892a4;font-size:11px">${esc(catLabel)}</div>
+          </div>
+          <span style="background:#C9A84C;color:#041348;font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;letter-spacing:0.5px;white-space:nowrap">SUPER USER</span>
+        </div>
+        <button onclick="suLogout()" style="background:transparent;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0">Esci</button>
+      </div>
+      <div style="max-width:1100px;margin:0 auto;padding:0 24px;display:flex;overflow-x:auto">
+        ${tabs.map(([id,label])=>`<button onclick="setSuTab('${id}')" style="background:transparent;border:none;border-bottom:2px solid ${suTab===id?'#C9A84C':'transparent'};color:${suTab===id?'#C9A84C':'rgba(255,255,255,0.55)'};padding:11px 20px;font-size:13px;font-weight:${suTab===id?'700':'400'};cursor:pointer;white-space:nowrap">${label}</button>`).join('')}
+      </div>
+    </div>
+    <div style="max-width:1100px;margin:0 auto;padding:24px">${content}</div>
+  </div>`;
+}
+
+function renderSuClients(){
+  const clients=DB.getUsers().filter(u=>u.superuserOwner===currentCompany.id);
+  if(clients.length===0)return`<div style="text-align:center;padding:60px 20px"><div style="font-size:36px;margin-bottom:14px">&#128101;</div><div style="font-size:15px;font-weight:600;color:#334155;margin-bottom:8px">Nessun cliente associato</div><div style="font-size:13px;color:#64748b">I tuoi clienti appariranno qui quando Studio Zamboni li collegherà al tuo profilo.</div></div>`;
+  return`<div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:8px">I miei clienti (${clients.length})</div>${clients.map(u=>{const co2=DB.getCompanies().find(c=>c.id===u.companyId);return`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:13px;font-weight:700;color:#041348">${esc(u.name)}</div><div style="font-size:12px;color:#64748b">${esc(u.email)}${co2?` · ${esc(co2.name)}`:''}</div></div><span style="background:#EFF6FF;color:#1D4ED8;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px">Attivo</span></div>`;}).join('')}</div>`;
+}
+
+function renderSuComm(){
+  const clientCompIds=new Set(DB.getUsers().filter(u=>u.superuserOwner===currentCompany.id).map(u=>u.companyId));
+  const convs=DB.getConversations().filter(c=>clientCompIds.has(c.companyId));
+  if(convs.length===0)return`<div style="text-align:center;padding:60px 20px"><div style="font-size:36px;margin-bottom:14px">&#128172;</div><div style="font-size:15px;font-weight:600;color:#334155;margin-bottom:8px">Nessuna comunicazione</div><div style="font-size:13px;color:#64748b">Le comunicazioni con i tuoi clienti appariranno qui.</div></div>`;
+  return`<div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:8px">Comunicazioni (${convs.length})</div>${convs.map(cv=>{const lastMsg=cv.messages&&cv.messages.length>0?cv.messages[cv.messages.length-1]:null;return`<div class="card" style="padding:14px 18px"><div style="font-size:13px;font-weight:700;color:#041348;margin-bottom:4px">${esc(cv.companyName||'–')}</div>${lastMsg?`<div style="font-size:12px;color:#64748b">${esc((lastMsg.text||'').substring(0,80))}${(lastMsg.text||'').length>80?'…':''}</div>`:'<div style="font-size:12px;color:#94a3b8;font-style:italic">Nessun messaggio</div>'}<div style="font-size:11px;color:#94a3b8;margin-top:4px">${formatDate(lastMsg?lastMsg.at:cv.createdAt)}</div></div>`;}).join('')}</div>`;
+}
+
+function renderSuDocs(){
+  const shares=DB.getDocShares().filter(s=>s.ownerCompanyId===currentCompany.id&&s.active);
+  return`<div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:8px">Documenti condivisi (${shares.length})</div>${shares.length===0?`<div style="text-align:center;padding:40px;color:#64748b;background:#fff;border-radius:12px;border:1px solid #e2e8f0"><div style="font-size:32px;margin-bottom:12px">&#128196;</div><div style="font-size:13px">Nessun documento condiviso</div></div>`:shares.map(s=>`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:13px;font-weight:600;color:#041348">${esc(s.docName||'–')}</div><div style="font-size:11px;color:#64748b">Con: ${esc(s.recipientName||'–')} · ${formatDate(s.grantedAt)}</div></div><span style="background:${s.status==='pending'?'#FEF9C3':'#DCFCE7'};color:${s.status==='pending'?'#854D0E':'#166534'};font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px">${s.status==='pending'?'In attesa':'Accettato'}</span></div>`).join('')}</div>`;
+}
+
+function renderSuProfile(){
+  const co=currentCompany;
+  return`<div class="card" style="padding:28px;max-width:640px"><div style="font-size:15px;font-weight:700;color:#041348;margin-bottom:20px">Il mio profilo</div><div style="display:flex;flex-direction:column;gap:14px"><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Nome Titolare</label><input class="input" id="su-prof-nome" value="${esc(co.ownerName||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Cognome Titolare</label><input class="input" id="su-prof-cogn" value="${esc(co.ownerLastName||'')}"></div></div><div class="input-group"><label class="input-label">Nome Studio / Azienda</label><input class="input" id="su-prof-studio" value="${esc(co.name||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Partita IVA</label><input class="input" id="su-prof-piva" value="${esc(co.vatNumber||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Codice Fiscale</label><input class="input" id="su-prof-cf" value="${esc(co.fiscalCode||'')}"></div></div><div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="su-prof-addr" value="${esc(co.address||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">CAP</label><input class="input" id="su-prof-cap" value="${esc(co.cap||'')}"></div><div class="input-group" style="flex:2;min-width:140px"><label class="input-label">Città</label><input class="input" id="su-prof-city" value="${esc(co.city||'')}"></div><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">Prov.</label><input class="input" id="su-prof-prov" value="${esc(co.province||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">Email</label><input class="input" id="su-prof-email" value="${esc(co.email||'')}"></div><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">PEC</label><input class="input" id="su-prof-pec" value="${esc(co.pec||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Codice SDI</label><input class="input" id="su-prof-sdi" value="${esc(co.sdiCode||'')}"></div><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Telefono</label><input class="input" id="su-prof-tel" value="${esc(co.phone||'')}"></div></div><button class="btn btn-primary" onclick="saveSuProfile()" style="align-self:flex-start;margin-top:4px">Salva Modifiche</button></div></div>`;
+}
+
+async function saveSuProfile(){
+  const companies=DB.getCompanies();
+  const idx=companies.findIndex(c=>c.id===currentCompany.id);
+  if(idx<0){showToast('Errore: profilo non trovato','error');return;}
+  const c=companies[idx];
+  c.ownerName=document.getElementById('su-prof-nome')?.value.trim()||'';
+  c.ownerLastName=document.getElementById('su-prof-cogn')?.value.trim()||'';
+  const newName=document.getElementById('su-prof-studio')?.value.trim();
+  if(newName)c.name=newName;
+  c.vatNumber=document.getElementById('su-prof-piva')?.value.trim()||'';
+  c.fiscalCode=document.getElementById('su-prof-cf')?.value.trim()||'';
+  c.address=document.getElementById('su-prof-addr')?.value.trim()||'';
+  c.cap=document.getElementById('su-prof-cap')?.value.trim()||'';
+  c.city=document.getElementById('su-prof-city')?.value.trim()||'';
+  c.province=document.getElementById('su-prof-prov')?.value.trim()||'';
+  c.email=document.getElementById('su-prof-email')?.value.trim()||'';
+  c.pec=document.getElementById('su-prof-pec')?.value.trim()||'';
+  c.sdiCode=document.getElementById('su-prof-sdi')?.value.trim()||'';
+  c.phone=document.getElementById('su-prof-tel')?.value.trim()||'';
+  DB.setCompanies(companies);
+  currentCompany=c;
+  try{await _supaSyncAwait(currentCompany.id,'companies',companies);}catch{}
+  showToast('Profilo aggiornato','success');
+  renderSuperUserPanel();
 }
 
 function adminCreateCompany(){
