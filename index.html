@@ -2414,6 +2414,7 @@ async function _supaLoadAll(companyId) {
           if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
           if(Array.isArray(arr))arr.forEach(u=>{
             if(!u?.id)return;
+            if(u.gdprDeleted)return;
             if(mergedUMap.has(u.id)){Object.assign(mergedUMap.get(u.id),u);}
             else{merged.push(u);mergedUMap.set(u.id,u);}
           });
@@ -2831,7 +2832,7 @@ function isTrustedAdmin(){
 // Account access gate — checked at every startApp entry point
 function isAccountBlocked(co){
   if(!co) return false;
-  return co.accountStatus==='billing_suspended' || co.accountStatus==='disabled';
+  return co.accountStatus==='billing_suspended' || co.accountStatus==='disabled' || co.accountStatus==='deletion_requested' || co.gdprDeleted===true;
 }
 
 function showBlockedScreen(co){
@@ -6436,11 +6437,23 @@ async function adminExecuteGdprDeletion(ticketId){
   // Salva ticket aggiornato
   DB.setTickets(tickets);
   await _supaSyncAwait('co_admin','tickets',tickets);
-  // Elimina utenti e azienda
+  // PATCH 4 — Tombstone: marca user e company come gdprDeleted prima di rimuoverli
+  DB.getUsers().filter(u=>u.companyId===tk.companyId).forEach(u=>{u.gdprDeleted=true;u.accountStatus='gdpr_deleted';});
+  const _deletedCo=DB.getCompanies().find(c=>c.id===tk.companyId);
+  if(_deletedCo){_deletedCo.gdprDeleted=true;_deletedCo.accountStatus='gdpr_deleted';}
+  // Elimina utenti e azienda da co_admin
   const allUsers = DB.getUsers().filter(u=>u.companyId!==tk.companyId);
   const allCos = DB.getCompanies().filter(c=>c.id!==tk.companyId);
   DB.setUsers(allUsers);
   DB.setCompanies(allCos);
+  // PATCH 1 — Svuota la partizione Supabase dell'azienda cancellata per bloccare la resurrezione cross-partition
+  try{
+    await _supa.from('company_store').upsert(
+      [{company_id:tk.companyId,store_key:'users',store_value:[]},
+       {company_id:tk.companyId,store_key:'companies',store_value:[]}],
+      {onConflict:'company_id,store_key'}
+    );
+  }catch(e){console.warn('GDPR partition wipe failed:',e);}
   closeConfirm();
   showToast('Cancellazione GDPR eseguita. Record archiviato legalmente.','success');
   renderAdminTab();
