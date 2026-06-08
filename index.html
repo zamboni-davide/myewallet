@@ -2438,6 +2438,7 @@ async function _supaLoadAll(companyId) {
           if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
           if(Array.isArray(arr))arr.forEach(c=>{
             if(!c?.id)return;
+            if(c.gdprDeleted)return;
             if(mergedCoMap.has(c.id)){
               const t=mergedCoMap.get(c.id);
               if(c.gdprConsent!==undefined)t.gdprConsent=c.gdprConsent;
@@ -6461,14 +6462,20 @@ async function adminExecuteGdprDeletion(ticketId){
   const allCos = DB.getCompanies().filter(c=>c.id!==tk.companyId);
   DB.setUsers(allUsers);
   DB.setCompanies(allCos);
-  // PATCH 1 — Svuota la partizione Supabase dell'azienda cancellata per bloccare la resurrezione cross-partition
   try{
-    await _supa.from('company_store').upsert(
-      [{company_id:tk.companyId,store_key:'users',store_value:[]},
-       {company_id:tk.companyId,store_key:'companies',store_value:[]}],
-      {onConflict:'company_id,store_key'}
-    );
-  }catch(e){console.warn('GDPR partition wipe failed:',e);}
+    await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/gdpr-delete-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + SUPA_KEY
+      },
+      body: JSON.stringify({
+        companyId: tk.companyId,
+        userId: tk.userId,
+        userEmail: tk.userEmail
+      })
+    });
+  }catch(e){ console.warn('gdpr-delete-user edge function error:', e); }
   closeConfirm();
   showToast('Cancellazione GDPR eseguita. Record archiviato legalmente.','success');
   renderAdminTab();
@@ -6478,7 +6485,7 @@ function renderAdminTab(){
   const body=document.getElementById('admin-tab-body');
   if(!body) return;
   const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
-  const users=DB.getUsers().filter(u=>u.role!=='admin');
+  const users=DB.getUsers().filter(u=>u.role!=='admin'&&!u.gdprDeleted&&!DB.getGdprDeletions().some(r=>r.userEmail===u.email));
   if(adminTab==='notifs'){
     const adminNotifs=getMyNotifications();
     const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
