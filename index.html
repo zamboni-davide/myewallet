@@ -2918,6 +2918,19 @@ async function doLogin(){
       }catch(_p5e){console.warn('GDPR login block check failed:',_p5e);}
       await _supaLoadAll('co_admin');
       if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
+      // ── FASE 3: collaborator early-intercept (before company_id checks) ────────
+      if(!companyId){
+        const _suCoArr=DB.getCompanies().filter(c=>c.role==='superuser'&&c.superuserActive===true);
+        for(const _sCo of _suCoArr){
+          await _supaLoadAll(_sCo.id);
+          const _cRec=DB.getCollaboratori(_sCo.id).find(c=>c.email===email&&c.stato!=='revocato');
+          if(_cRec){
+            if(btn){btn.disabled=false;btn.textContent=origText;}
+            await _handleCollaboratoreLogin(_cRec,_sCo);
+            return;
+          }
+        }
+      }
       patchAdminCompany();
       // ── Repair trial purchase if missing in Supabase ────────────────────────
       // Idempotent: only fires when company is Trial but Supabase has no purchases.
@@ -3609,7 +3622,11 @@ function checkSignatureReminders(){
 }
 
 function startApp(user,co){
-  if(getIsSuperUser(co)){ renderSuperUserApp(user,co); return; }
+  if(getIsSuperUser(co)){
+    if(!co.dataOwnershipDeclared){_showManlevaModal(user,co);}
+    else{renderSuperUserApp(user,co);}
+    return;
+  }
   document.body.style.overflow='hidden';
   document.documentElement.style.overflow='hidden';
   currentUser=user; Object.freeze(currentUser); currentCompany=co;
@@ -4846,6 +4863,8 @@ let adminTab='companies';
 let suTab='clients';
 let _activeCollaborator=null;
 let _suCollPresenzaId=null;
+let _pendingManlevaUser=null;
+let _pendingManlevaCo=null;
 
 
 // ════════════════════════════════════════════════
@@ -7653,6 +7672,7 @@ function renderAdminSuperUsers(body){
               <div>
                 <div style="font-size:13px;font-weight:700;color:#041348">${esc(su.name)}</div>
                 <div style="font-size:11px;color:var(--text-muted)">${esc(su.email||'–')} · ${esc(suCatLabel(su.superuserCategory))}</div>
+                <div style="font-size:11px;margin-top:2px;color:${su.dataOwnershipDeclared?'#16a34a':'#DC2626'}">${su.dataOwnershipDeclared?'✅ Compliance dichiarata il '+formatDate(su.dataOwnershipDeclaredAt):'🔴 Primo accesso non ancora eseguito'}</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -7796,7 +7816,7 @@ function renderSuClients(){
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button class="btn btn-primary" style="font-size:13px" onclick="suOpenAddClientModal()">+ Aggiungi cliente</button>
       <button class="btn btn-ghost" style="font-size:13px" onclick="suOpenCsvImport()">&#11014; Importa CSV</button>
-      <button class="btn btn-ghost" style="font-size:13px" onclick="suDownloadCsvTemplate()">&#11015; Scarica template CSV</button>
+      <button class="btn btn-ghost" style="font-size:13px;display:${isCollaboratore()?'none':''}" onclick="suDownloadCsvTemplate()">&#11015; Scarica template CSV</button>
       <input type="file" id="su-csv-input" accept=".csv" style="display:none" onchange="suProcessCsv(this.files[0]);this.value=''">
     </div>
     ${pending.length>0?`<div>
@@ -8364,6 +8384,8 @@ async function suSaveNewCollaboratore(){
     datiContrattuali:{tipoContratto,dataInizio:dataInizioVal?new Date(dataInizioVal).toISOString():'',oreSettimanali,ferieAnnuali,permessiAnnuali},
     registroPresenze:[],
     passwordTemporanea:tempPwd,
+    firstLoginDone:false,
+    passwordChanged:false,
     createdAt:now,updatedAt:now,
     storico:[{at:now,azione:'creato',da:currentUser.name||currentCompany.name}]
   };
@@ -8372,8 +8394,17 @@ async function suSaveNewCollaboratore(){
   DB.setCollaboratori(currentCompany.id,colls);
   document.getElementById('su-new-coll-overlay')?.remove();
   showToast('Collaboratore creato','success');
-  const emailHtml=`<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f0f4f8;margin:0;padding:20px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="560" style="background:#041348;border-radius:12px;overflow:hidden" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 36px;border-bottom:3px solid #C9A84C"><span style="color:#C9A84C;font-size:20px;font-weight:700">MyEwallet&#174;</span></td></tr><tr><td style="padding:28px 36px"><p style="color:#fff;font-size:16px;font-weight:700;margin:0 0 12px">Benvenuto, ${esc(nome)} ${esc(cognome)}!</p><p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin:0 0 20px">Sei stato aggiunto come collaboratore di <strong style="color:#C9A84C">${esc(currentCompany.name)}</strong> su MyEwallet&#174;.<br>Ruolo: <strong style="color:#C9A84C">${esc(ruolo)}</strong></p><div style="background:#0d1f5c;border-radius:8px;padding:18px 20px;margin-bottom:20px"><p style="color:#C9A84C;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">Credenziali di accesso</p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Email:</span> <strong style="color:#fff">${esc(email)}</strong></p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Password temporanea:</span> <strong style="color:#C9A84C;font-size:15px;letter-spacing:2px">${esc(tempPwd)}</strong></p></div><p style="color:#94a3b8;font-size:12px;margin:0">Accedi a MyEwallet&#174; con le credenziali indicate.</p></td></tr><tr><td style="padding:14px 36px;background:#020d2e"><p style="color:#475569;font-size:11px;margin:0;text-align:center">Studio Zamboni &middot; MyEwallet&#174;</p></td></tr></table></td></tr></table></body></html>`;
-  try{await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({to:email,toName:`${nome} ${cognome}`,subject:`Benvenuto su MyEwallet® — ${currentCompany.name}`,htmlContent:emailHtml})});}
+  // Crea account Supabase Auth per il collaboratore
+  try{
+    const _cPayload={action:'create_auth_user',email,password:tempPwd,companyId:currentCompany.id};
+    await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/gdpr-delete-user',{
+      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},
+      body:JSON.stringify(_cPayload)
+    });
+  }catch(e){console.warn('Collab create_auth_user:',e);}
+  const studioName=currentCompany.name;
+  const emailHtml=`<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f0f4f8;margin:0;padding:20px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="560" style="background:#041348;border-radius:12px;overflow:hidden" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 36px;border-bottom:3px solid #C9A84C"><span style="color:#C9A84C;font-size:20px;font-weight:700">MyEwallet&#174;</span><span style="color:#8892a4;font-size:11px;display:block;margin-top:3px">${esc(studioName)}</span></td></tr><tr><td style="padding:28px 36px"><p style="color:#fff;font-size:16px;font-weight:700;margin:0 0 6px">Benvenuto, ${esc(nome)} ${esc(cognome)}!</p><p style="color:#C9A84C;font-size:13px;font-weight:700;margin:0 0 16px">${esc(studioName)} ti ha invitato su MyEwallet&#174;</p><p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin:0 0 20px">Sei stato aggiunto come collaboratore di <strong style="color:#C9A84C">${esc(studioName)}</strong>.<br>Ruolo assegnato: <strong style="color:#C9A84C">${esc(ruolo)}</strong></p><div style="background:#0d1f5c;border-radius:8px;padding:18px 20px;margin-bottom:16px"><p style="color:#C9A84C;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">Credenziali di accesso</p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Email:</span> <strong style="color:#fff">${esc(email)}</strong></p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Password temporanea:</span> <strong style="color:#C9A84C;font-size:15px;letter-spacing:2px">${esc(tempPwd)}</strong></p></div><p style="color:#FEF9C3;font-size:12px;background:rgba(201,168,76,0.15);border-radius:6px;padding:10px 12px;margin:0 0 16px">Al primo accesso ti verrà chiesto di impostare una nuova password e accettare i termini d'uso.</p><p style="color:#94a3b8;font-size:12px;margin:0">Accedi su MyEwallet&#174; con le credenziali indicate.</p></td></tr><tr><td style="padding:14px 36px;background:#020d2e"><p style="color:#475569;font-size:11px;margin:0;text-align:center">${esc(studioName)} &middot; MyEwallet&#174;</p></td></tr></table></td></tr></table></body></html>`;
+  try{await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({to:email,toName:`${nome} ${cognome}`,subject:`${studioName} ti ha invitato su MyEwallet®`,htmlContent:emailHtml})});}
   catch(e){console.warn('Collab welcome email:',e);}
   renderSuperUserPanel();
 }
@@ -8464,6 +8495,162 @@ function suSaveEditCollaboratore(collId){
   document.getElementById('su-edit-coll-overlay')?.remove();
   showToast('Collaboratore aggiornato','success');
   renderSuperUserPanel();
+}
+
+// ── FASE 3 — Compliance / Auth helpers ──────────────────────────────────────
+function isCollaboratore(){return _activeCollaborator!==null;}
+
+// Manleva titolarità dati — Super User primo accesso
+function _showManlevaModal(user,co){
+  _pendingManlevaUser=user;
+  _pendingManlevaCo=co;
+  const existing=document.getElementById('manleva-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='manleva-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:540px;width:100%">
+    <div class="modal-header">
+      <h2 class="modal-title">Dichiarazione di titolarità dei dati</h2>
+    </div>
+    <div class="modal-body">
+      <div style="background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:18px">
+        <p style="font-size:13px;color:#334155;line-height:1.65;margin:0"><strong style="display:block;margin-bottom:8px">Dichiarazione di titolarità e responsabilità dei dati</strong>Dichiari che i dati caricati su MyEwallet® sono di tua esclusiva proprietà o che hai pieno titolo a trattarli. In caso di utilizzo di banche dati acquisite da terze parti o tramite attività di lead generation, dichiari di manlevare Studio Zamboni da ogni responsabilità legale derivante dall'utilizzo di tali dati.</p>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:18px;padding:12px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px">
+        <input type="checkbox" id="manleva-check" onchange="const b=document.getElementById('manleva-btn');b.disabled=!this.checked;b.style.opacity=this.checked?'1':'0.5';" style="margin-top:2px;accent-color:#041348;width:15px;height:15px;flex-shrink:0">
+        <span style="font-size:13px;color:#0C4A6E;font-weight:600">Dichiaro e accetto</span>
+      </label>
+      <button id="manleva-btn" class="btn btn-primary" style="width:100%;opacity:0.5" disabled onclick="_acceptManleva()">Accetto e accedo</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('auth-screen')?.classList.add('hidden');
+}
+
+async function _acceptManleva(){
+  const btn=document.getElementById('manleva-btn');
+  if(btn){btn.disabled=true;btn.textContent='Salvataggio...';}
+  const user=_pendingManlevaUser;
+  const co=_pendingManlevaCo;
+  if(!user||!co){showToast('Errore: sessione scaduta','error');return;}
+  const companies=DB.getCompanies();
+  const idx=companies.findIndex(c=>c.id===co.id);
+  if(idx>=0){
+    companies[idx].dataOwnershipDeclared=true;
+    companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
+    DB.setCompanies(companies);
+    try{await _supaSyncAwait('co_admin','companies',companies);}catch{}
+  }
+  document.getElementById('manleva-overlay')?.remove();
+  _pendingManlevaUser=null;
+  _pendingManlevaCo=null;
+  renderSuperUserApp(user, idx>=0?companies[idx]:co);
+}
+
+// Collaboratore primo login — modal
+async function _handleCollaboratoreLogin(collRecord, suCo){
+  if(!collRecord.firstLoginDone){
+    _showCollabFirstLoginModal(collRecord, suCo);
+  } else {
+    _activeCollaborator=collRecord;
+    const synUser={id:'collab_'+collRecord.id,name:collRecord.nome+' '+collRecord.cognome,
+                   email:collRecord.email,role:'collaboratore',companyId:suCo.id,createdAt:collRecord.createdAt};
+    renderSuperUserApp(synUser, suCo);
+  }
+}
+
+function _showCollabFirstLoginModal(collRecord, suCo){
+  const existing=document.getElementById('collab-first-login-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='collab-first-login-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:460px;width:100%">
+    <div class="modal-header">
+      <h2 class="modal-title">Benvenuto — Imposta la tua password</h2>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0 0 16px">Ciao <strong>${esc(collRecord.nome)}</strong>, per completare il tuo primo accesso imposta una nuova password e accetta i termini.</p>
+      <div class="input-group" style="margin-bottom:10px">
+        <label class="input-label">Nuova password * (minimo 8 caratteri)</label>
+        <input class="input" type="password" id="cfl-pwd1" placeholder="Nuova password" oninput="_collFirstLoginCheck()">
+      </div>
+      <div class="input-group" style="margin-bottom:12px">
+        <label class="input-label">Conferma password *</label>
+        <input class="input" type="password" id="cfl-pwd2" placeholder="Ripeti la password" oninput="_collFirstLoginCheck()">
+      </div>
+      <div id="cfl-pwd-err" style="display:none;background:#FEE2E2;color:#991B1B;font-size:12px;border-radius:6px;padding:8px 10px;margin-bottom:12px">Le password non coincidono o sono troppo brevi (min. 8 caratteri)</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
+          <input type="checkbox" id="cfl-tc" onchange="_collFirstLoginCheck()" style="margin-top:2px;accent-color:#041348;flex-shrink:0">
+          <span style="font-size:12px;color:#334155">Accetto i <strong>Termini e Condizioni</strong> d'uso della piattaforma</span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
+          <input type="checkbox" id="cfl-pp" onchange="_collFirstLoginCheck()" style="margin-top:2px;accent-color:#041348;flex-shrink:0">
+          <span style="font-size:12px;color:#334155">Accetto la <strong>Privacy Policy</strong></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
+          <input type="checkbox" id="cfl-gdpr" onchange="_collFirstLoginCheck()" style="margin-top:2px;accent-color:#041348;flex-shrink:0">
+          <span style="font-size:12px;color:#334155">Accetto il trattamento dei dati personali ai sensi del <strong>GDPR</strong></span>
+        </label>
+      </div>
+      <button id="cfl-btn" class="btn btn-primary" style="width:100%;opacity:0.5;cursor:not-allowed" disabled onclick="_collFirstLoginSubmit('${collRecord.id}','${suCo.id}')">Conferma e accedi</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('auth-screen')?.classList.add('hidden');
+}
+
+function _collFirstLoginCheck(){
+  const p1=document.getElementById('cfl-pwd1')?.value||'';
+  const p2=document.getElementById('cfl-pwd2')?.value||'';
+  const tc=document.getElementById('cfl-tc')?.checked||false;
+  const pp=document.getElementById('cfl-pp')?.checked||false;
+  const gdpr=document.getElementById('cfl-gdpr')?.checked||false;
+  const pwdOk=p1.length>=8&&p1===p2;
+  const errEl=document.getElementById('cfl-pwd-err');
+  if(errEl)errEl.style.display=(p2.length>0&&!pwdOk)?'block':'none';
+  const ok=pwdOk&&tc&&pp&&gdpr;
+  const btn=document.getElementById('cfl-btn');
+  if(btn){btn.disabled=!ok;btn.style.opacity=ok?'1':'0.5';btn.style.cursor=ok?'pointer':'not-allowed';}
+}
+
+async function _collFirstLoginSubmit(collId,suCoId){
+  const p1=document.getElementById('cfl-pwd1')?.value||'';
+  const p2=document.getElementById('cfl-pwd2')?.value||'';
+  if(!p1||p1!==p2||p1.length<8){showToast('Password non valida o non coincidente','error');return;}
+  const btn=document.getElementById('cfl-btn');
+  if(btn){btn.disabled=true;btn.textContent='Salvataggio...';}
+  try{
+    const {error}=await _supa.auth.updateUser({password:p1});
+    if(error)throw error;
+  }catch(e){
+    showToast('Errore aggiornamento password: '+(e.message||''),'error');
+    if(btn){btn.disabled=false;btn.textContent='Conferma e accedi';}
+    return;
+  }
+  const now=new Date().toISOString();
+  const colls=DB.getCollaboratori(suCoId);
+  const idx=colls.findIndex(c=>c.id===collId);
+  if(idx<0){showToast('Record collaboratore non trovato','error');return;}
+  colls[idx].firstLoginDone=true;
+  colls[idx].passwordChanged=true;
+  colls[idx].tcAcceptedAt=now;
+  colls[idx].privacyAcceptedAt=now;
+  colls[idx].gdprAcceptedAt=now;
+  colls[idx].updatedAt=now;
+  if(!colls[idx].storico)colls[idx].storico=[];
+  colls[idx].storico.push({at:now,azione:'primo_login',da:colls[idx].email});
+  DB.setCollaboratori(suCoId,colls);
+  const collRecord=colls[idx];
+  document.getElementById('collab-first-login-overlay')?.remove();
+  _activeCollaborator=collRecord;
+  const suCo=DB.getCompanies().find(c=>c.id===suCoId);
+  if(!suCo){showToast('Studio non trovato','error');return;}
+  const synUser={id:'collab_'+collRecord.id,name:collRecord.nome+' '+collRecord.cognome,
+                 email:collRecord.email,role:'collaboratore',companyId:suCoId,createdAt:collRecord.createdAt};
+  renderSuperUserApp(synUser, suCo);
 }
 
 function adminCreateCompany(){
