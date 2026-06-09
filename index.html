@@ -2774,6 +2774,24 @@ function patchAdminCompany(){
   }
 }
 
+async function _migrateUserTypes(){
+  if(_mem['_userTypeMigrated']) return;
+  _mem['_userTypeMigrated']=true;
+  let companies=DB.getCompanies();
+  let changed=false;
+  companies=companies.map(c=>{
+    if(c.id==='co_admin'||c.role==='superuser'||c.role==='admin') return c;
+    if(c.userType===undefined||c.userType===null||c.userType===''){
+      changed=true;
+      return{...c,userType:'consumer'};
+    }
+    return c;
+  });
+  if(!changed) return;
+  DB.setCompanies(companies);
+  try{await _supaSyncAwait('co_admin','companies',companies);}catch{}
+}
+
 // ════════════════════════════════════════════════
 //  AUTH
 // ════════════════════════════════════════════════
@@ -2925,6 +2943,7 @@ async function doLogin(){
         }
       }
       patchAdminCompany();
+      await _migrateUserTypes();
       // ── Repair trial purchase if missing in Supabase ────────────────────────
       // Idempotent: only fires when company is Trial but Supabase has no purchases.
       // Covers: user confirmed email on different browser / cleared localStorage.
@@ -6152,7 +6171,7 @@ function _doCreatePaymentRequest(planName,billingCycle,paymentMethod,consents,bi
 function renderAdmin(main){
   if(!isTrustedAdmin()){main.innerHTML='<div class="empty-state"><div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="empty-state-title">Accesso non autorizzato</div></div>';return;}
   const _gdprKpi=new Set(DB.getGdprDeletions().map(r=>r.userEmail));
-  const companies=DB.getCompanies().filter(c=>c.id!=='co_admin'&&c.userType!=='consumer'&&!c.gdprDeleted);
+  const companies=DB.getCompanies().filter(c=>c.id!=='co_admin'&&!c.gdprDeleted&&(c.role==='superuser'||c.userType==='professional'||c.userType==='sme'||c.userType==='studio'));
   const users=DB.getUsers().filter(u=>u.role!=='admin'&&u.role!=='superuser'&&!u.gdprDeleted&&!_gdprKpi.has(u.email)&&(u.userType==='consumer'));
   const allDocs=DB.getAllDocs();
   main.innerHTML=`
@@ -6453,9 +6472,8 @@ function renderAdminTab(){
   const gdprEmails=new Set(DB.getGdprDeletions().map(r=>r.userEmail));
   const companies=DB.getCompanies().filter(c=>
     c.id!=='co_admin'&&
-    c.userType!=='consumer'&&
     !c.gdprDeleted&&
-    !c.gdprDeleted
+    (c.role==='superuser'||c.userType==='professional'||c.userType==='sme'||c.userType==='studio')
   );
   const users=DB.getUsers().filter(u=>
     u.role!=='admin'&&
@@ -13790,6 +13808,7 @@ async function saveNewPassword(){
       const email = data.session.user.email;
       await _supaLoadAll('co_admin');
       patchAdminCompany();
+      await _migrateUserTypes();
       localStorage.removeItem('pda_role'); // clear before fresh role check — prevents cross-session cache contamination
       const spRole = await requireRole();
       let user = users.find(u=>u.email===email);
