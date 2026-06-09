@@ -2715,7 +2715,10 @@ const DB = {
   getDocShares(){const v=this.get('doc_shares',[]); return Array.isArray(v)?v:[];},
   setDocShares(v){this.set('doc_shares',v);},
   getDocActivity(cid){const v=this.get('doc_activity_'+cid,[]); return Array.isArray(v)?v:[];},
-  setDocActivity(cid,v){this.set('doc_activity_'+cid,v);}
+  setDocActivity(cid,v){this.set('doc_activity_'+cid,v);},
+  // ── FASE 3 — Collaboratori (per-company, NON in _GLOBAL) ─────────────────
+  getCollaboratori(coId){const v=this.get('collaboratori_'+coId,[]); return Array.isArray(v)?v:[];},
+  setCollaboratori(coId,v){this.set('collaboratori_'+coId,v);}
 };
 
 // Seed admin
@@ -4841,6 +4844,8 @@ let adminCompanyFilter=''; // 'all'|'trial'|'active'|'expiring'|'expired'
 let adminCompanySearch='';
 let adminTab='companies';
 let suTab='clients';
+let _activeCollaborator=null;
+let _suCollPresenzaId=null;
 
 
 // ════════════════════════════════════════════════
@@ -7731,12 +7736,29 @@ function renderSuperUserPanel(){
   if(!suScreen)return;
   const co=currentCompany;
   const catLabel=suCatLabel(co.superuserCategory);
-  const tabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['profile','Il mio profilo']];
+  const ac=_activeCollaborator;
+  const allTabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['profile','Il mio profilo'],['collaboratori','Collaboratori']];
+  let visibleTabs;
+  if(ac){
+    visibleTabs=allTabs.filter(([id])=>{
+      if(id==='collaboratori'||id==='profile')return false;
+      if(id==='comm')return ac.permessi?.chat!==false;
+      if(id==='docs')return ac.permessi?.condivisioneDocumenti!==false;
+      if(id==='clients')return ac.permessi?.aggiuntaClienti!==false;
+      return true;
+    });
+  } else {
+    visibleTabs=allTabs;
+  }
+  if(!visibleTabs.find(([id])=>id===suTab)){suTab=visibleTabs[0]?.[0]||'clients';}
   let content='';
   if(suTab==='clients')content=renderSuClients();
   else if(suTab==='comm')content=renderSuComm();
   else if(suTab==='docs')content=renderSuDocs();
   else if(suTab==='profile')content=renderSuProfile();
+  else if(suTab==='collaboratori')content=renderSuCollaboratori();
+  const collsAttivi=!ac?DB.getCollaboratori(co.id).filter(c=>c.stato==='attivo'):[];
+  const acBanner=ac?`<div style="background:#051a4a;border-bottom:2px solid #C9A84C;padding:9px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="color:#fff;font-size:12px"><span style="color:#C9A84C;font-weight:700">Stai operando come:</span> ${esc(ac.nome)} ${esc(ac.cognome)} — <span style="color:#C9A84C">${esc(ac.ruolo)}</span></div><button onclick="suBackFromCollaboratore()" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:rgba(255,255,255,0.85);padding:4px 12px;border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap">Torna al profilo principale</button></div>`:'';
   suScreen.innerHTML=`<div style="min-height:100vh;background:#f0f4f8">
     <div style="background:#041348;border-bottom:3px solid #C9A84C;position:sticky;top:0;z-index:100">
       <div style="max-width:1100px;margin:0 auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
@@ -7748,10 +7770,14 @@ function renderSuperUserPanel(){
           </div>
           <span style="background:#C9A84C;color:#041348;font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;letter-spacing:0.5px;white-space:nowrap">SUPER USER</span>
         </div>
-        <button onclick="suLogout()" style="background:transparent;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0">Esci</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          ${!ac&&collsAttivi.length>0?`<button onclick="suOpenSwitchCollaboratoreModal()" style="background:rgba(201,168,76,0.15);border:1px solid #C9A84C;color:#C9A84C;padding:7px 14px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap">Passa a profilo collaboratore</button>`:''}
+          <button onclick="suLogout()" style="background:transparent;border:1px solid rgba(255,255,255,0.25);color:rgba(255,255,255,0.7);padding:7px 16px;border-radius:6px;font-size:12px;cursor:pointer;flex-shrink:0">Esci</button>
+        </div>
       </div>
+      ${acBanner}
       <div style="max-width:1100px;margin:0 auto;padding:0 24px;display:flex;overflow-x:auto">
-        ${tabs.map(([id,label])=>`<button onclick="setSuTab('${id}')" style="background:transparent;border:none;border-bottom:2px solid ${suTab===id?'#C9A84C':'transparent'};color:${suTab===id?'#C9A84C':'rgba(255,255,255,0.55)'};padding:11px 20px;font-size:13px;font-weight:${suTab===id?'700':'400'};cursor:pointer;white-space:nowrap">${label}</button>`).join('')}
+        ${visibleTabs.map(([id,label])=>`<button onclick="setSuTab('${id}')" style="background:transparent;border:none;border-bottom:2px solid ${suTab===id?'#C9A84C':'transparent'};color:${suTab===id?'#C9A84C':'rgba(255,255,255,0.55)'};padding:11px 20px;font-size:13px;font-weight:${suTab===id?'700':'400'};cursor:pointer;white-space:nowrap">${label}</button>`).join('')}
       </div>
     </div>
     <div style="max-width:1100px;margin:0 auto;padding:24px">${content}</div>
@@ -8072,6 +8098,371 @@ async function saveSuProfile(){
   currentCompany=c;
   try{await _supaSyncAwait(currentCompany.id,'companies',companies);}catch{}
   showToast('Profilo aggiornato','success');
+  renderSuperUserPanel();
+}
+
+// ── FASE 3 — Collaboratori ────────────────────────────────────────────────────
+function renderSuCollaboratori(){
+  const co=currentCompany;
+  const colls=DB.getCollaboratori(co.id);
+  const pL={invioDocumenti:'Invio Doc',aggiuntaClienti:'Clienti',chat:'Chat',condivisioneDocumenti:'Condividi Doc',gestioneTicket:'Ticket'};
+  return`<div style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div style="font-size:14px;font-weight:700;color:#041348">Collaboratori (${colls.length})</div>
+      <button class="btn btn-primary" style="font-size:13px" onclick="suOpenNewCollaboratoreModal()">+ Nuovo Collaboratore</button>
+    </div>
+    ${colls.length===0
+      ?`<div style="text-align:center;padding:40px 20px;background:#fff;border-radius:12px;border:1px solid #e2e8f0"><div style="font-size:32px;margin-bottom:12px">&#128101;</div><div style="font-size:14px;font-weight:600;color:#334155;margin-bottom:6px">Nessun collaboratore</div><div style="font-size:12px;color:#64748b">Aggiungi il primo collaboratore con il bottone in alto.</div></div>`
+      :colls.map(cl=>{
+        const pA=Object.entries(cl.permessi||{}).filter(([k,v])=>v).map(([k])=>pL[k]||k);
+        const stBg=cl.stato==='attivo'?'#DCFCE7':cl.stato==='sospeso'?'#FEF9C3':'#FEE2E2';
+        const stC=cl.stato==='attivo'?'#166534':cl.stato==='sospeso'?'#92400E':'#991B1B';
+        const isSel=_suCollPresenzaId===cl.id;
+        return`<div class="card" style="padding:14px 18px${isSel?';border-left:3px solid #6D28D9':''}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#041348">${esc(cl.nome)} ${esc(cl.cognome)}</div>
+              <div style="font-size:12px;color:#64748b;margin-top:2px">${esc(cl.ruolo)} · ${esc(cl.email)}</div>
+              <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+                <span style="background:${stBg};color:${stC};font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;text-transform:uppercase">${esc(cl.stato)}</span>
+                ${pA.map(p=>`<span style="background:#EFF6FF;color:#1D4ED8;font-size:10px;padding:2px 7px;border-radius:999px">${esc(p)}</span>`).join('')}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button onclick="suOpenEditCollaboratoreModal('${cl.id}')" style="background:#EFF6FF;color:#1D4ED8;border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer">Modifica</button>
+              ${cl.stato!=='revocato'?`<button onclick="suToggleSospensioneCollaboratore('${cl.id}')" style="background:${cl.stato==='attivo'?'#FEF9C3':'#DCFCE7'};color:${cl.stato==='attivo'?'#92400E':'#166534'};border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer">${cl.stato==='attivo'?'Sospendi':'Riattiva'}</button>`:''}
+              ${cl.stato!=='revocato'?`<button onclick="suRevokaCollaboratore('${cl.id}')" style="background:#FEE2E2;color:#991B1B;border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer">Revoca</button>`:''}
+              <button onclick="suOpenRegistroPresenze('${cl.id}')" style="background:${isSel?'#6D28D9':'#F5F3FF'};color:${isSel?'#fff':'#6D28D9'};border:none;padding:5px 12px;border-radius:6px;font-size:11px;cursor:pointer">Presenze</button>
+            </div>
+          </div>
+          ${isSel?_renderRegistroPresenzeSection(cl):''}
+        </div>`;
+      }).join('')}
+  </div>`;
+}
+
+function _renderRegistroPresenzeSection(cl){
+  const ow=cl.datiContrattuali?.oreSettimanali||0;
+  const reg=(cl.registroPresenze||[]).slice().reverse().slice(0,12);
+  const today=new Date();
+  const monday=new Date(today);monday.setDate(today.getDate()-((today.getDay()+6)%7));
+  const defWeek=monday.toISOString().slice(0,10);
+  return`<div style="margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0">
+    <div style="font-size:12px;font-weight:700;color:#6D28D9;margin-bottom:10px">Registro Presenze — contratto: ${ow}h/settimana</div>
+    <div style="background:#F5F3FF;border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="font-size:11px;font-weight:600;color:#6D28D9;margin-bottom:8px">Inserimento settimanale</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:#64748b">Settimana dal</label><input type="date" id="sp-week-${cl.id}" value="${defWeek}" style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></div>
+        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:#64748b">Ore effettive</label><input type="number" id="sp-eff-${cl.id}" min="0" max="80" placeholder="0" style="width:72px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></div>
+        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:#64748b">Ore ferie</label><input type="number" id="sp-fer-${cl.id}" min="0" max="80" placeholder="0" style="width:72px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></div>
+        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:#64748b">Ore permessi</label><input type="number" id="sp-per-${cl.id}" min="0" max="80" placeholder="0" style="width:72px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></div>
+        <div style="display:flex;flex-direction:column;gap:3px"><label style="font-size:10px;color:#64748b">Ore malattia</label><input type="number" id="sp-mal-${cl.id}" min="0" max="80" placeholder="0" style="width:72px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></div>
+        <div style="display:flex;flex-direction:column;gap:3px;flex:1;min-width:100px"><label style="font-size:10px;color:#64748b">Note</label><input type="text" id="sp-note-${cl.id}" placeholder="..." style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:12px;background:#fff"></div>
+        <button onclick="suSavePresenza('${cl.id}')" style="background:#6D28D9;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:12px;cursor:pointer;white-space:nowrap">Salva</button>
+      </div>
+    </div>
+    ${reg.length===0
+      ?`<div style="font-size:12px;color:#94a3b8;text-align:center;padding:12px">Nessun record presente</div>`
+      :`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr>${['Settimana','Effettive','Ferie','Permessi','Malattia','Note'].map(h=>`<th style="padding:5px 8px;text-align:left;color:#64748b;font-weight:600;border-bottom:1px solid #e2e8f0;white-space:nowrap">${h}</th>`).join('')}</tr></thead><tbody>${reg.map(r=>`<tr style="border-bottom:1px solid #f1f5f9"><td style="padding:5px 8px;color:#334155;white-space:nowrap">${formatDate(r.settimana)}</td><td style="padding:5px 8px">${r.oreEffettive||0}h</td><td style="padding:5px 8px">${r.oreFerie||0}h</td><td style="padding:5px 8px">${r.orePermessi||0}h</td><td style="padding:5px 8px">${r.oreMalattia||0}h</td><td style="padding:5px 8px;color:#64748b;max-width:160px;overflow:hidden;text-overflow:ellipsis">${esc(r.note||'')}</td></tr>`).join('')}</tbody></table></div>`}
+  </div>`;
+}
+
+function suOpenRegistroPresenze(collId){
+  _suCollPresenzaId=(_suCollPresenzaId===collId)?null:collId;
+  renderSuperUserPanel();
+}
+
+function suSavePresenza(collId){
+  const colls=DB.getCollaboratori(currentCompany.id);
+  const idx=colls.findIndex(c=>c.id===collId);
+  if(idx<0)return;
+  const week=document.getElementById('sp-week-'+collId)?.value;
+  if(!week){showToast('Seleziona la settimana di riferimento','error');return;}
+  const record={
+    id:uid(),
+    settimana:new Date(week).toISOString(),
+    oreEffettive:parseFloat(document.getElementById('sp-eff-'+collId)?.value)||0,
+    oreFerie:parseFloat(document.getElementById('sp-fer-'+collId)?.value)||0,
+    orePermessi:parseFloat(document.getElementById('sp-per-'+collId)?.value)||0,
+    oreMalattia:parseFloat(document.getElementById('sp-mal-'+collId)?.value)||0,
+    note:(document.getElementById('sp-note-'+collId)?.value||'').trim(),
+    createdAt:new Date().toISOString()
+  };
+  if(!colls[idx].registroPresenze)colls[idx].registroPresenze=[];
+  colls[idx].registroPresenze.push(record);
+  colls[idx].updatedAt=new Date().toISOString();
+  DB.setCollaboratori(currentCompany.id,colls);
+  showToast('Presenza salvata','success');
+  renderSuperUserPanel();
+}
+
+function suOpenSwitchCollaboratoreModal(){
+  const existing=document.getElementById('su-switch-collab-overlay');
+  if(existing)existing.remove();
+  const colls=DB.getCollaboratori(currentCompany.id).filter(c=>c.stato==='attivo');
+  if(colls.length===0){showToast('Nessun collaboratore attivo','error');return;}
+  const overlay=document.createElement('div');
+  overlay.id='su-switch-collab-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:440px;width:100%">
+    <div class="modal-header">
+      <h2 class="modal-title">Seleziona collaboratore</h2>
+      <button class="btn-icon" onclick="document.getElementById('su-switch-collab-overlay').remove()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:8px">
+      ${colls.map(cl=>`<button onclick="suSwitchToCollaboratore('${cl.id}')" style="background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;text-align:left;cursor:pointer" onmouseover="this.style.background='#EFF6FF'" onmouseout="this.style.background='#F8FAFC'">
+        <div style="font-size:13px;font-weight:700;color:#041348">${esc(cl.nome)} ${esc(cl.cognome)}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${esc(cl.ruolo)}</div>
+      </button>`).join('')}
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function suSwitchToCollaboratore(collId){
+  document.getElementById('su-switch-collab-overlay')?.remove();
+  const cl=DB.getCollaboratori(currentCompany.id).find(c=>c.id===collId);
+  if(!cl){showToast('Collaboratore non trovato','error');return;}
+  _activeCollaborator=cl;
+  suTab='clients';
+  renderSuperUserPanel();
+}
+
+function suBackFromCollaboratore(){
+  _activeCollaborator=null;
+  suTab='clients';
+  renderSuperUserPanel();
+}
+
+function suToggleSospensioneCollaboratore(collId){
+  const colls=DB.getCollaboratori(currentCompany.id);
+  const idx=colls.findIndex(c=>c.id===collId);
+  if(idx<0)return;
+  if(colls[idx].stato==='revocato')return;
+  const newStato=colls[idx].stato==='attivo'?'sospeso':'attivo';
+  colls[idx].stato=newStato;
+  colls[idx].updatedAt=new Date().toISOString();
+  if(!colls[idx].storico)colls[idx].storico=[];
+  colls[idx].storico.push({at:new Date().toISOString(),azione:newStato==='sospeso'?'sospeso':'riattivato',da:currentUser.name||currentCompany.name});
+  DB.setCollaboratori(currentCompany.id,colls);
+  if(_activeCollaborator?.id===collId)_activeCollaborator=null;
+  showToast(`Collaboratore ${newStato==='sospeso'?'sospeso':'riattivato'}`,'success');
+  renderSuperUserPanel();
+}
+
+function suRevokaCollaboratore(collId){
+  const colls=DB.getCollaboratori(currentCompany.id);
+  const cl=colls.find(c=>c.id===collId);
+  if(!cl||cl.stato==='revocato'){showToast('Già revocato','error');return;}
+  const name=`${cl.nome} ${cl.cognome}`;
+  document.getElementById('confirm-title').textContent='Revoca collaboratore';
+  document.getElementById('confirm-text').innerHTML=`Revocare l'accesso al collaboratore <strong>${esc(name)}</strong>?`;
+  const okBtn=document.getElementById('confirm-ok-btn');
+  okBtn.textContent='Procedi';okBtn.style.display='';
+  confirmCallback=()=>{
+    setTimeout(()=>{
+      document.getElementById('confirm-title').textContent='Conferma revoca definitiva';
+      document.getElementById('confirm-text').innerHTML=`<strong>ATTENZIONE: azione irreversibile.</strong><br><br>Revocare definitivamente l'accesso a <strong>${esc(name)}</strong>?`;
+      const okBtn2=document.getElementById('confirm-ok-btn');
+      okBtn2.textContent='Conferma revoca';okBtn2.style.display='';
+      confirmCallback=()=>{
+        const cs2=DB.getCollaboratori(currentCompany.id);
+        const i2=cs2.findIndex(c=>c.id===collId);
+        if(i2>=0){
+          cs2[i2].stato='revocato';
+          cs2[i2].updatedAt=new Date().toISOString();
+          if(!cs2[i2].storico)cs2[i2].storico=[];
+          cs2[i2].storico.push({at:new Date().toISOString(),azione:'revocato',da:currentUser.name||currentCompany.name});
+          DB.setCollaboratori(currentCompany.id,cs2);
+        }
+        if(_activeCollaborator?.id===collId)_activeCollaborator=null;
+        showToast('Collaboratore revocato','success');
+        renderSuperUserPanel();
+      };
+      document.getElementById('confirm-overlay').classList.remove('hidden');
+    },50);
+  };
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
+function suOpenNewCollaboratoreModal(){
+  const existing=document.getElementById('su-new-coll-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='su-new-coll-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:560px;width:100%;max-height:90vh;overflow-y:auto">
+    <div class="modal-header" style="position:sticky;top:0;background:#fff;z-index:1">
+      <h2 class="modal-title">Nuovo Collaboratore</h2>
+      <button class="btn-icon" onclick="document.getElementById('su-new-coll-overlay').remove()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;font-weight:700;color:#041348;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Dati anagrafici</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:1;min-width:120px"><label class="input-label">Nome *</label><input class="input" id="nc-nome" placeholder="Mario"></div>
+        <div class="input-group" style="flex:1;min-width:120px"><label class="input-label">Cognome *</label><input class="input" id="nc-cognome" placeholder="Rossi"></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:2;min-width:180px"><label class="input-label">Email *</label><input class="input" id="nc-email" type="email" placeholder="mario@example.it"></div>
+        <div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Ruolo</label><select class="input" id="nc-ruolo"><option value="Segreteria">Segreteria</option><option value="Consulente Junior">Consulente Junior</option><option value="Collaboratore">Collaboratore</option><option value="Responsabile">Responsabile</option><option value="Stagista">Stagista</option><option value="Tirocinante">Tirocinante</option></select></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#041348;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 10px">Permessi</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:10px">
+        ${[['invioDocumenti','Invio Documenti'],['aggiuntaClienti','Aggiunta Clienti'],['chat','Chat'],['condivisioneDocumenti','Condivisione Documenti'],['gestioneTicket','Gestione Ticket']].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:pointer"><input type="checkbox" id="nc-perm-${k}" style="accent-color:#041348;width:14px;height:14px"><span style="font-size:12px;color:#334155">${l}</span></label>`).join('')}
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#041348;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 10px">Dati contrattuali</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Tipologia contratto</label><select class="input" id="nc-contratto" onchange="suUpdateOreContratto()"><option value="full_time">Full Time 40h</option><option value="part_time_36">Part Time 36h</option><option value="part_time_24">Part Time 24h</option><option value="part_time_16">Part Time 16h</option></select></div>
+        <div class="input-group" style="flex:1;min-width:120px"><label class="input-label">Data inizio rapporto</label><input class="input" type="date" id="nc-datainizio"></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:1;min-width:100px"><label class="input-label">Ore settimanali</label><input class="input" type="number" id="nc-oresettimanali" value="40" min="1" max="60"></div>
+        <div class="input-group" style="flex:1;min-width:100px"><label class="input-label">Ore ferie annuali</label><input class="input" type="number" id="nc-ferie" placeholder="0" min="0"></div>
+        <div class="input-group" style="flex:1;min-width:100px"><label class="input-label">Ore permessi annuali</label><input class="input" type="number" id="nc-permessi" placeholder="0" min="0"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="suSaveNewCollaboratore()">Crea Collaboratore</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(()=>document.getElementById('nc-nome')?.focus(),100);
+}
+
+function suUpdateOreContratto(){
+  const oreMap={full_time:40,part_time_36:36,part_time_24:24,part_time_16:16};
+  const tipo=document.getElementById('nc-contratto')?.value;
+  const el=document.getElementById('nc-oresettimanali');
+  if(el&&oreMap[tipo]!==undefined)el.value=oreMap[tipo];
+}
+
+async function suSaveNewCollaboratore(){
+  const nome=(document.getElementById('nc-nome')?.value||'').trim();
+  const cognome=(document.getElementById('nc-cognome')?.value||'').trim();
+  const email=(document.getElementById('nc-email')?.value||'').trim().toLowerCase();
+  if(!nome||!cognome||!email){showToast('Nome, cognome ed email sono obbligatori','error');return;}
+  if(!email.includes('@')){showToast('Email non valida','error');return;}
+  const ruolo=document.getElementById('nc-ruolo')?.value||'Collaboratore';
+  const permessi={
+    invioDocumenti:document.getElementById('nc-perm-invioDocumenti')?.checked||false,
+    aggiuntaClienti:document.getElementById('nc-perm-aggiuntaClienti')?.checked||false,
+    chat:document.getElementById('nc-perm-chat')?.checked||false,
+    condivisioneDocumenti:document.getElementById('nc-perm-condivisioneDocumenti')?.checked||false,
+    gestioneTicket:document.getElementById('nc-perm-gestioneTicket')?.checked||false
+  };
+  const tipoContratto=document.getElementById('nc-contratto')?.value||'full_time';
+  const dataInizioVal=document.getElementById('nc-datainizio')?.value||'';
+  const oreSettimanali=parseFloat(document.getElementById('nc-oresettimanali')?.value)||40;
+  const ferieAnnuali=parseFloat(document.getElementById('nc-ferie')?.value)||0;
+  const permessiAnnuali=parseFloat(document.getElementById('nc-permessi')?.value)||0;
+  const tempPwd=_genTempPwd();
+  const now=new Date().toISOString();
+  const coll={
+    id:'coll_'+uid(),
+    superUserCompanyId:currentCompany.id,
+    nome,cognome,email,ruolo,
+    stato:'attivo',
+    permessi,
+    datiContrattuali:{tipoContratto,dataInizio:dataInizioVal?new Date(dataInizioVal).toISOString():'',oreSettimanali,ferieAnnuali,permessiAnnuali},
+    registroPresenze:[],
+    passwordTemporanea:tempPwd,
+    createdAt:now,updatedAt:now,
+    storico:[{at:now,azione:'creato',da:currentUser.name||currentCompany.name}]
+  };
+  const colls=DB.getCollaboratori(currentCompany.id);
+  colls.push(coll);
+  DB.setCollaboratori(currentCompany.id,colls);
+  document.getElementById('su-new-coll-overlay')?.remove();
+  showToast('Collaboratore creato','success');
+  const emailHtml=`<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f0f4f8;margin:0;padding:20px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="560" style="background:#041348;border-radius:12px;overflow:hidden" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 36px;border-bottom:3px solid #C9A84C"><span style="color:#C9A84C;font-size:20px;font-weight:700">MyEwallet&#174;</span></td></tr><tr><td style="padding:28px 36px"><p style="color:#fff;font-size:16px;font-weight:700;margin:0 0 12px">Benvenuto, ${esc(nome)} ${esc(cognome)}!</p><p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin:0 0 20px">Sei stato aggiunto come collaboratore di <strong style="color:#C9A84C">${esc(currentCompany.name)}</strong> su MyEwallet&#174;.<br>Ruolo: <strong style="color:#C9A84C">${esc(ruolo)}</strong></p><div style="background:#0d1f5c;border-radius:8px;padding:18px 20px;margin-bottom:20px"><p style="color:#C9A84C;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">Credenziali di accesso</p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Email:</span> <strong style="color:#fff">${esc(email)}</strong></p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Password temporanea:</span> <strong style="color:#C9A84C;font-size:15px;letter-spacing:2px">${esc(tempPwd)}</strong></p></div><p style="color:#94a3b8;font-size:12px;margin:0">Accedi a MyEwallet&#174; con le credenziali indicate.</p></td></tr><tr><td style="padding:14px 36px;background:#020d2e"><p style="color:#475569;font-size:11px;margin:0;text-align:center">Studio Zamboni &middot; MyEwallet&#174;</p></td></tr></table></td></tr></table></body></html>`;
+  try{await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({to:email,toName:`${nome} ${cognome}`,subject:`Benvenuto su MyEwallet® — ${currentCompany.name}`,htmlContent:emailHtml})});}
+  catch(e){console.warn('Collab welcome email:',e);}
+  renderSuperUserPanel();
+}
+
+function suOpenEditCollaboratoreModal(collId){
+  const colls=DB.getCollaboratori(currentCompany.id);
+  const cl=colls.find(c=>c.id===collId);
+  if(!cl)return;
+  const existing=document.getElementById('su-edit-coll-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='su-edit-coll-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:560px;width:100%;max-height:90vh;overflow-y:auto">
+    <div class="modal-header" style="position:sticky;top:0;background:#fff;z-index:1">
+      <h2 class="modal-title">Modifica — ${esc(cl.nome)} ${esc(cl.cognome)}</h2>
+      <button class="btn-icon" onclick="document.getElementById('su-edit-coll-overlay').remove()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:11px;font-weight:700;color:#041348;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px">Dati anagrafici</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:1;min-width:120px"><label class="input-label">Nome</label><input class="input" id="ec-nome" value="${esc(cl.nome)}"></div>
+        <div class="input-group" style="flex:1;min-width:120px"><label class="input-label">Cognome</label><input class="input" id="ec-cognome" value="${esc(cl.cognome)}"></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:2;min-width:180px"><label class="input-label">Email</label><input class="input" id="ec-email" type="email" value="${esc(cl.email)}"></div>
+        <div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Ruolo</label><select class="input" id="ec-ruolo">${['Segreteria','Consulente Junior','Collaboratore','Responsabile','Stagista','Tirocinante'].map(r=>`<option value="${r}"${cl.ruolo===r?' selected':''}>${r}</option>`).join('')}</select></div>
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#041348;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 10px">Permessi</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:10px">
+        ${[['invioDocumenti','Invio Documenti'],['aggiuntaClienti','Aggiunta Clienti'],['chat','Chat'],['condivisioneDocumenti','Condivisione Documenti'],['gestioneTicket','Gestione Ticket']].map(([k,l])=>`<label style="display:flex;align-items:center;gap:8px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:10px 12px;cursor:pointer"><input type="checkbox" id="ec-perm-${k}" ${(cl.permessi||{})[k]?'checked':''} style="accent-color:#041348;width:14px;height:14px"><span style="font-size:12px;color:#334155">${l}</span></label>`).join('')}
+      </div>
+      <div style="font-size:11px;font-weight:700;color:#041348;text-transform:uppercase;letter-spacing:0.5px;margin:14px 0 10px">Dati contrattuali</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Tipologia contratto</label><select class="input" id="ec-contratto" onchange="suUpdateOreContrattoEdit()">${[['full_time','Full Time 40h'],['part_time_36','Part Time 36h'],['part_time_24','Part Time 24h'],['part_time_16','Part Time 16h']].map(([v,l])=>`<option value="${v}"${(cl.datiContrattuali||{}).tipoContratto===v?' selected':''}>${l}</option>`).join('')}</select></div>
+        <div class="input-group" style="flex:1;min-width:120px"><label class="input-label">Data inizio</label><input class="input" type="date" id="ec-datainizio" value="${(cl.datiContrattuali?.dataInizio)?new Date(cl.datiContrattuali.dataInizio).toISOString().slice(0,10):''}"></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <div class="input-group" style="flex:1;min-width:100px"><label class="input-label">Ore settimanali</label><input class="input" type="number" id="ec-oresettimanali" value="${(cl.datiContrattuali?.oreSettimanali)||40}" min="1" max="60"></div>
+        <div class="input-group" style="flex:1;min-width:100px"><label class="input-label">Ore ferie annuali</label><input class="input" type="number" id="ec-ferie" value="${(cl.datiContrattuali?.ferieAnnuali)||0}" min="0"></div>
+        <div class="input-group" style="flex:1;min-width:100px"><label class="input-label">Ore permessi annuali</label><input class="input" type="number" id="ec-permessi" value="${(cl.datiContrattuali?.permessiAnnuali)||0}" min="0"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="suSaveEditCollaboratore('${collId}')">Salva Modifiche</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function suUpdateOreContrattoEdit(){
+  const oreMap={full_time:40,part_time_36:36,part_time_24:24,part_time_16:16};
+  const tipo=document.getElementById('ec-contratto')?.value;
+  const el=document.getElementById('ec-oresettimanali');
+  if(el&&oreMap[tipo]!==undefined)el.value=oreMap[tipo];
+}
+
+function suSaveEditCollaboratore(collId){
+  const colls=DB.getCollaboratori(currentCompany.id);
+  const idx=colls.findIndex(c=>c.id===collId);
+  if(idx<0)return;
+  const nome=(document.getElementById('ec-nome')?.value||'').trim();
+  const cognome=(document.getElementById('ec-cognome')?.value||'').trim();
+  const email=(document.getElementById('ec-email')?.value||'').trim().toLowerCase();
+  if(!nome||!cognome||!email){showToast('Nome, cognome ed email sono obbligatori','error');return;}
+  colls[idx].nome=nome;
+  colls[idx].cognome=cognome;
+  colls[idx].email=email;
+  colls[idx].ruolo=document.getElementById('ec-ruolo')?.value||colls[idx].ruolo;
+  colls[idx].permessi={
+    invioDocumenti:document.getElementById('ec-perm-invioDocumenti')?.checked||false,
+    aggiuntaClienti:document.getElementById('ec-perm-aggiuntaClienti')?.checked||false,
+    chat:document.getElementById('ec-perm-chat')?.checked||false,
+    condivisioneDocumenti:document.getElementById('ec-perm-condivisioneDocumenti')?.checked||false,
+    gestioneTicket:document.getElementById('ec-perm-gestioneTicket')?.checked||false
+  };
+  const diVal=document.getElementById('ec-datainizio')?.value||'';
+  colls[idx].datiContrattuali={
+    tipoContratto:document.getElementById('ec-contratto')?.value||'full_time',
+    dataInizio:diVal?new Date(diVal).toISOString():'',
+    oreSettimanali:parseFloat(document.getElementById('ec-oresettimanali')?.value)||40,
+    ferieAnnuali:parseFloat(document.getElementById('ec-ferie')?.value)||0,
+    permessiAnnuali:parseFloat(document.getElementById('ec-permessi')?.value)||0
+  };
+  colls[idx].updatedAt=new Date().toISOString();
+  if(!colls[idx].storico)colls[idx].storico=[];
+  colls[idx].storico.push({at:new Date().toISOString(),azione:'modificato',da:currentUser.name||currentCompany.name});
+  DB.setCollaboratori(currentCompany.id,colls);
+  if(_activeCollaborator?.id===collId)_activeCollaborator={..._activeCollaborator,...colls[idx]};
+  document.getElementById('su-edit-coll-overlay')?.remove();
+  showToast('Collaboratore aggiornato','success');
   renderSuperUserPanel();
 }
 
