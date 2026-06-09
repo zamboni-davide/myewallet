@@ -6151,8 +6151,9 @@ function _doCreatePaymentRequest(planName,billingCycle,paymentMethod,consents,bi
 
 function renderAdmin(main){
   if(!isTrustedAdmin()){main.innerHTML='<div class="empty-state"><div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="empty-state-title">Accesso non autorizzato</div></div>';return;}
-  const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
-  const users=DB.getUsers().filter(u=>u.role!=='admin');
+  const _gdprKpi=new Set(DB.getGdprDeletions().map(r=>r.userEmail));
+  const companies=DB.getCompanies().filter(c=>c.id!=='co_admin'&&c.role!=='consumer'&&!c.gdprDeleted&&!_gdprKpi.has(c.email));
+  const users=DB.getUsers().filter(u=>u.role!=='admin'&&u.role!=='superuser'&&!u.gdprDeleted&&!_gdprKpi.has(u.email));
   const allDocs=DB.getAllDocs();
   main.innerHTML=`
     <div class="page-header"><h1 class="page-title">Pannello Amministratore</h1><p class="page-subtitle">Gestione piattaforma Studio Zamboni</p></div>
@@ -6167,7 +6168,7 @@ function renderAdmin(main){
       <div style="background:#041348;border-radius:var(--radius);padding:20px 18px;position:relative;overflow:hidden;">
         <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#1A52D4;margin-bottom:8px;">Utenti registrati</div>
         <div style="font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:#fff;line-height:1">${users.length}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">${DB.getUsers().filter(u=>u.role!=='admin'&&u.selfRegistered).length} auto-registrati</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px">${users.filter(u=>u.selfRegistered).length} auto-registrati</div>
         <div style="position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:36px;opacity:0.12"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
       </div>
       <div style="background:#041348;border-radius:var(--radius);padding:20px 18px;position:relative;overflow:hidden;">
@@ -6449,8 +6450,19 @@ async function adminExecuteGdprDeletion(ticketId){
 function renderAdminTab(){
   const body=document.getElementById('admin-tab-body');
   if(!body) return;
-  const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
-  const users=DB.getUsers().filter(u=>u.role!=='admin'&&!u.gdprDeleted&&!DB.getGdprDeletions().some(r=>r.userEmail===u.email));
+  const gdprEmails=new Set(DB.getGdprDeletions().map(r=>r.userEmail));
+  const companies=DB.getCompanies().filter(c=>
+    c.id!=='co_admin'&&
+    c.role!=='consumer'&&
+    !c.gdprDeleted&&
+    !gdprEmails.has(c.email)
+  );
+  const users=DB.getUsers().filter(u=>
+    u.role!=='admin'&&
+    u.role!=='superuser'&&
+    !u.gdprDeleted&&
+    !gdprEmails.has(u.email)
+  );
   if(adminTab==='notifs'){
     const adminNotifs=getMyNotifications();
     const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
@@ -6593,7 +6605,7 @@ function renderAdminTab(){
         <th>Abbonamento</th><th><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Storage</th><th>Acquistato</th><th>Doc.</th><th>Azioni</th>
       </tr></thead>
       <tbody>${filteredCos.map(co=>{
-        const coUsers=DB.getUsers().filter(u=>u.companyId===co.id);
+        const coUsers=DB.getUsers().filter(u=>u.companyId===co.id&&!u.gdprDeleted&&!gdprEmails.has(u.email));
         const coDocs=DB.getDocs(co.id);
         const ti=getTrialInfo(co);
         const ps=getPlanStatus(co);
