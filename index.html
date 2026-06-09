@@ -1396,6 +1396,7 @@ textarea.input{resize:vertical;min-height:80px;}
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -7459,7 +7460,7 @@ Importo: € ${tot.toFixed(2)} IVA incl."
     body.innerHTML=`<div style="display:flex;flex-direction:column;gap:12px">
       <div style="display:flex;justify-content:space-between;align-items:center;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
         <span style="font-size:14px;font-weight:700;color:#7F1D1D">⚖️ Archivio GDPR art.17 — Cancellazioni eseguite (${gdprRecs.length})</span>
-        <span style="font-size:11px;color:var(--text-muted)">Conservare per obbligo legale</span>
+        <button onclick="exportGdprArchivePdf()" style="background:#041348;color:#C9A84C;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">⬇ Esporta PDF</button>
       </div>
       ${gdprRecs.length===0
         ?`<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">Nessuna cancellazione GDPR eseguita.</div>`
@@ -7663,7 +7664,10 @@ function renderAdminSuperUsers(body){
   const superUsers=DB.getCompanies().filter(c=>c.role==='superuser');
   body.innerHTML=`<div style="display:flex;flex-direction:column;gap:20px">
     <div>
-      <div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-light)">Super User registrati (${superUsers.length})</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
+        <span style="font-size:14px;font-weight:700;color:#041348">Super User registrati (${superUsers.length})</span>
+        <button onclick="exportSuperUserCompliancePdf()" style="background:#041348;color:#C9A84C;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">⬇ Esporta PDF Compliance</button>
+      </div>
       ${superUsers.length===0
         ?`<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;background:#f8fafc;border-radius:8px;border:1px dashed var(--border)">Nessun Super User registrato.</div>`
         :superUsers.map(su=>`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:8px">
@@ -7678,6 +7682,7 @@ function renderAdminSuperUsers(body){
             <div style="display:flex;align-items:center;gap:10px">
               <span style="background:${su.superuserActive?'#DCFCE7':'#FEE2E2'};color:${su.superuserActive?'#166534':'#991B1B'};font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px">${su.superuserActive?'Attivo':'Disattivo'}</span>
               <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="adminToggleSuperUser('${su.id}')">${su.superuserActive?'Disattiva':'Attiva'}</button>
+              <button style="background:#F5F3FF;color:#6D28D9;border:none;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer" onclick="exportCollaboratoriPdf('${su.id}')">PDF Collab.</button>
               <button class="btn btn-sm" style="font-size:11px;color:#DC2626;border:1px solid #FCA5A5;background:transparent" onclick="adminDeleteSuperUser('${su.id}')">Elimina</button>
             </div>
           </div>`).join('')}
@@ -7721,6 +7726,221 @@ function renderAdminSuperUsers(body){
       </div>
     </div>
   </div>`;
+}
+
+// ── PDF Export helpers ────────────────────────────────────────────────────────
+function _pdfInit(title){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const W=210,margin=14;
+  const now=new Date().toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  // Header band
+  doc.setFillColor(4,19,72);
+  doc.rect(0,0,W,22,'F');
+  doc.setFillColor(201,168,76);
+  doc.rect(0,22,W,1.5,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(13);
+  doc.setTextColor(201,168,76);
+  doc.text('MyEwallet®',margin,10);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(180,190,210);
+  doc.text('Studio Zamboni',margin,16);
+  doc.setTextColor(180,190,210);
+  doc.text('Generato il '+now,W-margin,16,{align:'right'});
+  // Title
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(12);
+  doc.setTextColor(4,19,72);
+  doc.text(title,margin,32);
+  doc.setDrawColor(201,168,76);
+  doc.setLineWidth(0.4);
+  doc.line(margin,34,W-margin,34);
+  return {doc,W,margin,y:38,now};
+}
+
+function _pdfFooter(doc,W,margin){
+  const pageCount=doc.internal.getNumberOfPages();
+  for(let i=1;i<=pageCount;i++){
+    doc.setPage(i);
+    doc.setFillColor(4,19,72);
+    doc.rect(0,286,W,11,'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.setTextColor(140,150,170);
+    doc.text('Studio Zamboni · MyEwallet® · Documento riservato',margin,293);
+    doc.text('Pagina '+i+' di '+pageCount,W-margin,293,{align:'right'});
+  }
+}
+
+function _pdfAddLine(ctx,label,value){
+  const {doc,W,margin}=ctx;
+  if(ctx.y>270){doc.addPage();ctx.y=20;}
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8);
+  doc.setTextColor(4,19,72);
+  doc.text(label+':',margin,ctx.y);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(50,50,50);
+  const lines=doc.splitTextToSize(String(value||'–'),W-margin-45);
+  doc.text(lines,margin+42,ctx.y);
+  ctx.y+=4.5*lines.length;
+}
+
+function _pdfSectionTitle(ctx,title){
+  const {doc,W,margin}=ctx;
+  if(ctx.y>265){doc.addPage();ctx.y=20;}
+  ctx.y+=3;
+  doc.setFillColor(4,19,72);
+  doc.rect(margin,ctx.y,W-margin*2,6,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(9);
+  doc.setTextColor(201,168,76);
+  doc.text(title,margin+2,ctx.y+4.2);
+  ctx.y+=9;
+}
+
+function _pdfSubSection(ctx,title){
+  const {doc,W,margin}=ctx;
+  if(ctx.y>268){doc.addPage();ctx.y=20;}
+  ctx.y+=2;
+  doc.setFillColor(240,244,248);
+  doc.rect(margin,ctx.y,W-margin*2,5.5,'F');
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(4,19,72);
+  doc.text(title,margin+2,ctx.y+3.8);
+  ctx.y+=8;
+}
+
+function exportGdprArchivePdf(){
+  if(!window.jspdf){showToast('jsPDF non disponibile','error');return;}
+  const recs=DB.getGdprDeletions().slice().reverse();
+  const ctx=_pdfInit('Archivio GDPR art.17 — Registro Cancellazioni');
+  const {doc,W,margin}=ctx;
+  if(recs.length===0){
+    doc.setFont('helvetica','italic');doc.setFontSize(10);doc.setTextColor(100,100,100);
+    doc.text('Nessuna cancellazione registrata.',margin,ctx.y);ctx.y+=10;
+  }
+  recs.forEach((r,i)=>{
+    _pdfSectionTitle(ctx,`#${i+1} — ${r.userName||'–'} (${r.userEmail||'–'})`);
+    _pdfAddLine(ctx,'Nome utente',r.userName);
+    _pdfAddLine(ctx,'Email',r.userEmail);
+    _pdfAddLine(ctx,'Azienda',r.companyName);
+    _pdfAddLine(ctx,'Data richiesta',r.requestedAt?new Date(r.requestedAt).toLocaleString('it-IT'):'–');
+    _pdfAddLine(ctx,'Data esecuzione',r.executedAt?new Date(r.executedAt).toLocaleString('it-IT'):'–');
+    _pdfAddLine(ctx,'Eseguita da',r.executedBy);
+    _pdfAddLine(ctx,'ID record',r.id);
+    if((r.timeline||[]).length>0){
+      _pdfSubSection(ctx,'Timeline eventi');
+      r.timeline.forEach(e=>{
+        if(ctx.y>272){doc.addPage();ctx.y=20;}
+        doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(4,19,72);
+        const ts=new Date(e.at).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        doc.text('['+ts+'] '+esc(e.event||'')+'  '+esc(e.byName||''),margin+2,ctx.y);
+        ctx.y+=4;
+        if(e.text){
+          doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(80,80,80);
+          const tl=doc.splitTextToSize(esc(e.text),W-margin*2-6);
+          doc.text(tl,margin+4,ctx.y);ctx.y+=4*tl.length;
+        }
+      });
+    }
+    ctx.y+=4;
+  });
+  _pdfFooter(doc,W,margin);
+  doc.save('GDPR_Archivio_'+new Date().toISOString().slice(0,10)+'.pdf');
+}
+
+function exportSuperUserCompliancePdf(){
+  if(!window.jspdf){showToast('jsPDF non disponibile','error');return;}
+  const superUsers=DB.getCompanies().filter(c=>c.role==='superuser');
+  const ctx=_pdfInit('Compliance Super User — Registro Dichiarazioni');
+  const {doc,W,margin}=ctx;
+  if(superUsers.length===0){
+    doc.setFont('helvetica','italic');doc.setFontSize(10);doc.setTextColor(100,100,100);
+    doc.text('Nessun Super User registrato.',margin,ctx.y);ctx.y+=10;
+  }
+  superUsers.forEach((su,i)=>{
+    _pdfSectionTitle(ctx,`#${i+1} — ${su.name||'–'}`);
+    _pdfAddLine(ctx,'Nome studio',su.name);
+    _pdfAddLine(ctx,'Titolare',((su.ownerName||'')+' '+(su.ownerLastName||'')).trim()||'–');
+    _pdfAddLine(ctx,'Email',su.email);
+    _pdfAddLine(ctx,'P.IVA',su.vatNumber);
+    _pdfAddLine(ctx,'Codice Fiscale',su.fiscalCode);
+    _pdfAddLine(ctx,'Indirizzo',su.address);
+    _pdfAddLine(ctx,'CAP / Città',((su.cap||'')+' '+(su.city||'')+' '+(su.province?'('+su.province+')':'')).trim()||'–');
+    _pdfAddLine(ctx,'Categoria',suCatLabel(su.superuserCategory));
+    _pdfAddLine(ctx,'Stato account',su.superuserActive?'Attivo':'Disattivo');
+    _pdfSubSection(ctx,'Compliance / Manleva dati');
+    _pdfAddLine(ctx,'Stato compliance',su.dataOwnershipDeclared?'Dichiarata':'Primo accesso non ancora eseguito');
+    _pdfAddLine(ctx,'Data dichiarazione',su.dataOwnershipDeclaredAt?new Date(su.dataOwnershipDeclaredAt).toLocaleString('it-IT'):'–');
+    _pdfAddLine(ctx,'Creato il',su.createdAt?new Date(su.createdAt).toLocaleString('it-IT'):'–');
+    ctx.y+=4;
+  });
+  _pdfFooter(doc,W,margin);
+  doc.save('Compliance_SuperUser_'+new Date().toISOString().slice(0,10)+'.pdf');
+}
+
+function exportCollaboratoriPdf(suCoId){
+  if(!window.jspdf){showToast('jsPDF non disponibile','error');return;}
+  const su=DB.getCompanies().find(c=>c.id===suCoId);
+  if(!su){showToast('Studio non trovato','error');return;}
+  const colls=DB.getCollaboratori(suCoId);
+  const ctx=_pdfInit('Collaboratori — '+esc(su.name));
+  const {doc,W,margin}=ctx;
+  doc.setFont('helvetica','normal');doc.setFontSize(8.5);doc.setTextColor(80,80,80);
+  doc.text('Studio: '+esc(su.name)+'  ·  Email: '+esc(su.email||'–')+'  ·  Totale collaboratori: '+colls.length,margin,ctx.y);
+  ctx.y+=8;
+  if(colls.length===0){
+    doc.setFont('helvetica','italic');doc.setFontSize(10);doc.setTextColor(100,100,100);
+    doc.text('Nessun collaboratore registrato per questo studio.',margin,ctx.y);ctx.y+=10;
+  }
+  colls.forEach((cl,i)=>{
+    _pdfSectionTitle(ctx,`#${i+1} — ${cl.nome||''} ${cl.cognome||''} (${cl.ruolo||'–'})`);
+    _pdfAddLine(ctx,'Nome',cl.nome);
+    _pdfAddLine(ctx,'Cognome',cl.cognome);
+    _pdfAddLine(ctx,'Email',cl.email);
+    _pdfAddLine(ctx,'Ruolo',cl.ruolo);
+    _pdfAddLine(ctx,'Stato',cl.stato);
+    _pdfAddLine(ctx,'Creato il',cl.createdAt?new Date(cl.createdAt).toLocaleString('it-IT'):'–');
+    _pdfAddLine(ctx,'Aggiornato il',cl.updatedAt?new Date(cl.updatedAt).toLocaleString('it-IT'):'–');
+    _pdfSubSection(ctx,'Dati contrattuali');
+    const dc=cl.datiContrattuali||{};
+    _pdfAddLine(ctx,'Tipo contratto',dc.tipoContratto);
+    _pdfAddLine(ctx,'Data inizio',dc.dataInizio?new Date(dc.dataInizio).toLocaleDateString('it-IT'):'–');
+    _pdfAddLine(ctx,'Ore settimanali',dc.oreSettimanali);
+    _pdfAddLine(ctx,'Ore ferie annuali',dc.ferieAnnuali);
+    _pdfAddLine(ctx,'Ore permessi annuali',dc.permessiAnnuali);
+    _pdfSubSection(ctx,'Permessi piattaforma');
+    const pm=cl.permessi||{};
+    _pdfAddLine(ctx,'Invio Documenti',pm.invioDocumenti?'SI':'NO');
+    _pdfAddLine(ctx,'Aggiunta Clienti',pm.aggiuntaClienti?'SI':'NO');
+    _pdfAddLine(ctx,'Chat',pm.chat?'SI':'NO');
+    _pdfAddLine(ctx,'Condivisione Documenti',pm.condivisioneDocumenti?'SI':'NO');
+    _pdfAddLine(ctx,'Gestione Ticket',pm.gestioneTicket?'SI':'NO');
+    _pdfSubSection(ctx,'Accettazione termini (primo accesso)');
+    _pdfAddLine(ctx,'Primo login completato',cl.firstLoginDone?'SI':'NO');
+    _pdfAddLine(ctx,'Password cambiata',cl.passwordChanged?'SI':'NO');
+    _pdfAddLine(ctx,'T&C accettati il',cl.tcAcceptedAt?new Date(cl.tcAcceptedAt).toLocaleString('it-IT'):'–');
+    _pdfAddLine(ctx,'Privacy accettata il',cl.privacyAcceptedAt?new Date(cl.privacyAcceptedAt).toLocaleString('it-IT'):'–');
+    _pdfAddLine(ctx,'GDPR accettato il',cl.gdprAcceptedAt?new Date(cl.gdprAcceptedAt).toLocaleString('it-IT'):'–');
+    if((cl.storico||[]).length>0){
+      _pdfSubSection(ctx,'Storico azioni');
+      cl.storico.forEach(s=>{
+        if(ctx.y>274){doc.addPage();ctx.y=20;}
+        doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(60,60,60);
+        const ts=new Date(s.at).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+        const stxt='['+ts+']  '+esc(s.azione||'')+'  —  '+esc(s.da||'');
+        const sl=doc.splitTextToSize(stxt,W-margin*2-4);
+        doc.text(sl,margin+2,ctx.y);ctx.y+=4.2*sl.length;
+      });
+    }
+    ctx.y+=5;
+  });
+  _pdfFooter(doc,W,margin);
+  doc.save('Collaboratori_'+esc(su.name).replace(/\s+/g,'_')+'_'+new Date().toISOString().slice(0,10)+'.pdf');
 }
 
 // ── Super User — Panel ───────────────────────────────────────────────────────
