@@ -1701,15 +1701,7 @@ textarea.input{resize:vertical;min-height:80px;}
         © <span id="footer-year"></span> <strong>Studio Zamboni</strong> di Davide Pasquale Zamboni · Via Perantoni Satta, 14 – 07100 Sassari · MyEwallet® tutti i diritti riservati
       </div>
       <div class="app-footer-links">
-        <a onclick="showTermsReadOnly()">Privacy &amp; Condizioni</a>
-        <a onclick="downloadTermsPDF()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          T&amp;C PDF
-        </a>
-        <a onclick="downloadContractPDF()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
-          Contratto
-        </a>
+        <a href="javascript:void(0)" onclick="showDocPopup(typeof currentCompany!=='undefined'&&currentCompany?.userType==='consumer'?TC_CONSUMER_HTML:TC_B2B_HTML)">Documenti Legali</a>
       </div>
     </footer>
 
@@ -8244,7 +8236,27 @@ function renderSuDocs(){
 
 function renderSuProfile(){
   const co=currentCompany;
-  return`<div class="card" style="padding:28px;max-width:640px"><div style="font-size:15px;font-weight:700;color:#041348;margin-bottom:20px">Il mio profilo</div><div style="display:flex;flex-direction:column;gap:14px"><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Nome Titolare</label><input class="input" id="su-prof-nome" value="${esc(co.ownerName||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Cognome Titolare</label><input class="input" id="su-prof-cogn" value="${esc(co.ownerLastName||'')}"></div></div><div class="input-group"><label class="input-label">Nome Studio / Azienda</label><input class="input" id="su-prof-studio" value="${esc(co.name||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Partita IVA</label><input class="input" id="su-prof-piva" value="${esc(co.vatNumber||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Codice Fiscale</label><input class="input" id="su-prof-cf" value="${esc(co.fiscalCode||'')}"></div></div><div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="su-prof-addr" value="${esc(co.address||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">CAP</label><input class="input" id="su-prof-cap" value="${esc(co.cap||'')}"></div><div class="input-group" style="flex:2;min-width:140px"><label class="input-label">Città</label><input class="input" id="su-prof-city" value="${esc(co.city||'')}"></div><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">Prov.</label><input class="input" id="su-prof-prov" value="${esc(co.province||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">Email</label><input class="input" id="su-prof-email" value="${esc(co.email||'')}"></div><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">PEC</label><input class="input" id="su-prof-pec" value="${esc(co.pec||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Codice SDI</label><input class="input" id="su-prof-sdi" value="${esc(co.sdiCode||'')}"></div><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Telefono</label><input class="input" id="su-prof-tel" value="${esc(co.phone||'')}"></div></div><button class="btn btn-primary" onclick="saveSuProfile()" style="align-self:flex-start;margin-top:4px">Salva Modifiche</button></div></div>`;
+  return`<div class="card" style="padding:28px;max-width:640px"><div style="font-size:15px;font-weight:700;color:#041348;margin-bottom:20px">Il mio profilo</div><div style="display:flex;flex-direction:column;gap:14px"><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Nome Titolare</label><input class="input" id="su-prof-nome" value="${esc(co.ownerName||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Cognome Titolare</label><input class="input" id="su-prof-cogn" value="${esc(co.ownerLastName||'')}"></div></div><div class="input-group"><label class="input-label">Nome Studio / Azienda</label><input class="input" id="su-prof-studio" value="${esc(co.name||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Partita IVA</label><input class="input" id="su-prof-piva" value="${esc(co.vatNumber||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Codice Fiscale</label><input class="input" id="su-prof-cf" value="${esc(co.fiscalCode||'')}"></div></div><div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="su-prof-addr" value="${esc(co.address||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">CAP</label><input class="input" id="su-prof-cap" value="${esc(co.cap||'')}"></div><div class="input-group" style="flex:2;min-width:140px"><label class="input-label">Città</label><input class="input" id="su-prof-city" value="${esc(co.city||'')}"></div><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">Prov.</label><input class="input" id="su-prof-prov" value="${esc(co.province||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">Email</label><input class="input" id="su-prof-email" value="${esc(co.email||'')}"></div><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">PEC</label><input class="input" id="su-prof-pec" value="${esc(co.pec||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Codice SDI</label><input class="input" id="su-prof-sdi" value="${esc(co.sdiCode||'')}"></div><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Telefono</label><input class="input" id="su-prof-tel" value="${esc(co.phone||'')}"></div></div><button class="btn btn-primary" onclick="saveSuProfile()" style="align-self:flex-start;margin-top:4px">Salva Modifiche</button></div></div>
+  ${(()=>{
+    const _ac=_activeCollaborator;
+    if(_ac){
+      const _docs=[
+        {label:'T&C B2B v1.2',html:'TC_B2B_HTML',ts:_ac.tcAcceptedAt},
+        {label:'Privacy Policy v1.0',html:'PRIVACY_POLICY_HTML',ts:_ac.privacyAcceptedAt},
+        {label:'Informativa GDPR v1.0',html:'GDPR_INFO_HTML',ts:_ac.gdprAcceptedAt}
+      ];
+      return'<div class="card" style="padding:20px;max-width:640px;margin-top:16px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:14px">Documenti legali accettati</div><div style="display:flex;flex-wrap:wrap;gap:12px">'+_docs.map(d=>'<div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('+d.html+')">'+d.label+'</button>'+(d.ts?'<div style="font-size:10px;color:#64748b">Accettato il '+formatDate(d.ts)+'</div>':'<div style="font-size:10px;color:#94a3b8">Non ancora accettato</div>')+'</div>').join('')+'</div></div>';
+    } else {
+      const _suTcTs=currentUser?.termsAcceptedAt||'';
+      const _suNlTs=co.dataOwnershipDeclaredAt||'';
+      const _docs=[
+        {label:'T&C B2B v1.2',html:'TC_B2B_HTML',ts:_suTcTs},
+        {label:'Privacy Policy v1.0',html:'PRIVACY_POLICY_HTML',ts:_suTcTs},
+        {label:'Note Legali v1.0',html:'NOTE_LEGALI_HTML',ts:_suNlTs}
+      ];
+      return'<div class="card" style="padding:20px;max-width:640px;margin-top:16px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:14px">Documenti legali accettati</div><div style="display:flex;flex-wrap:wrap;gap:12px">'+_docs.map(d=>'<div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('+d.html+')">'+d.label+'</button>'+(d.ts?'<div style="font-size:10px;color:#64748b">Accettato il '+formatDate(d.ts)+'</div>':'<div style="font-size:10px;color:#94a3b8">Non ancora registrato</div>')+'</div>').join('')+'</div></div>';
+    }
+  })()}`;
 }
 
 async function saveSuProfile(){
@@ -9449,6 +9461,9 @@ function renderSettings(main){
   const daysText=ps.daysLeft===null?'Nessuna scadenza':ps.daysLeft<0?`Scaduto da ${Math.abs(ps.daysLeft)} giorni`:`${ps.daysLeft} giorni rimanenti`;
 
   const renewalHistory=DB.getRenewalRequests().filter(r=>r.companyId===co.id).slice(-3).reverse();
+  const _isConsumer=(co.userType==='consumer');
+  const _tcTs=currentUser?.termsAcceptedAt||'';
+  const _ppTs=co.gdprConsentTimestamp||co.consentTimestamp||_tcTs;
 
   main.innerHTML=`
     <div class="page-header"><h1 class="page-title">Il mio Account</h1><p class="page-subtitle">Gestisci il profilo aziendale, piano e preferenze</p></div>
@@ -9769,11 +9784,22 @@ function renderSettings(main){
       '<\/tbody><tfoot><tr style=\"background:var(--bg);font-weight:700;border-top:2px solid var(--navy)\"><td colspan=\"7\" style=\"padding:8px 12px;text-align:right;color:var(--text-muted)\">Totale complessivo:<\/td><td style=\"padding:8px 12px;text-align:right;color:var(--navy);font-size:14px\">€ '+purchases.reduce((s,p)=>s+(p.total||0),0).toFixed(2)+'<\/td><\/tr><\/tfoot><\/table><\/div><\/div>';
     })():''}
      <div class="settings-section" style="margin-top:0">
-      <div class="settings-section-title">Documenti Legali</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="showTermsReadOnly()">Condizioni d'Uso</button>
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="downloadTermsPDF()">Privacy PDF</button>
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 12px" onclick="downloadContractPDF()">Contratto generico</button>
+      <div class="settings-section-title">I miei documenti legali</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(${_isConsumer?'TC_CONSUMER_HTML':'TC_B2B_HTML'})">${_isConsumer?'T&amp;C Consumer v1.1':'T&amp;C B2B v1.2'}</button>
+          ${_tcTs?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(_tcTs)}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(PRIVACY_POLICY_HTML)">Privacy Policy v1.0</button>
+          ${_tcTs?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(_tcTs)}</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(GDPR_INFO_HTML)">Informativa GDPR v1.0</button>
+          ${_ppTs?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(_ppTs)}</div>`:''}
+        </div>
+      </div>
+      <div style="margin-top:12px">
         <button class="btn" style="font-size:12px;padding:6px 12px;background:#FEF2F2;border:1px solid #FCA5A5;color:#DC2626" onclick="openDeleteAccountModal()">&#x26A0; Richiedi cancellazione account (art.17 GDPR)</button>
       </div>
     </div>
