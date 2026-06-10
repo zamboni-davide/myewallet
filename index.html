@@ -9031,12 +9031,19 @@ function adminExtendPlan(coId){
   renderAdminTab();
 }
 
-function adminDeleteCompany(coId){
-  confirmCallback=()=>{
-    const companies=DB.getCompanies().filter(c=>c.id!==coId);DB.setCompanies(companies);
-    const users=DB.getUsers().filter(u=>u.companyId!==coId);DB.setUsers(users);
+async function adminDeleteCompany(coId){
+  confirmCallback=async()=>{
+    const companies=DB.getCompanies().filter(c=>c.id!==coId);
+    DB.setCompanies(companies);
+    const users=DB.getUsers().filter(u=>u.companyId!==coId);
+    DB.setUsers(users);
     localStorage.removeItem('pda_docs_'+coId);
-    showToast('Azienda eliminata','success');
+    localStorage.removeItem('collaboratori_'+coId);
+    try{
+      await _supaSyncAwait('co_admin','companies',companies);
+      await _supaSyncAwait('co_admin','users',users);
+    }catch(e){console.warn('Sync delete failed',e);}
+    showToast('Azienda eliminata definitivamente','success');
     renderAdmin(document.getElementById('main-page'));
   };
   document.getElementById('confirm-title').textContent='Elimina azienda';
