@@ -3380,7 +3380,13 @@ function showDocPopup(doc){
     'note-legali':'note-legali.html'
   };
   const url=urls[doc]||doc;
-  window.open(url,'_blank','noopener');
+  const a=document.createElement('a');
+  a.href=url;
+  a.target='_blank';
+  a.rel='noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 function downloadUserDoc(type){
@@ -3388,7 +3394,7 @@ function downloadUserDoc(type){
 }
 function showRegTermsPreview(){
   const ut=document.getElementById('reg-usertype')?.value;
-  showDocPopup(ut==='consumer'?TC_CONSUMER_HTML:TC_B2B_HTML);
+  showDocPopup(ut==='consumer'?'tc-consumer':'tc-b2b');
 }
 function showPrivacyPreview(){
   showDocPopup('privacy');
