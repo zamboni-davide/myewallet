@@ -9219,7 +9219,14 @@ function renderSettingsMobile(main){
         ${(()=>{
           const _pendingP=DB.getPurchaseRequests().find(r=>r.companyId===co.id&&PURCHASE_PENDING_STATES.includes(r.status));
           if(!ti.isTrial) return `<button onclick="requestMobilePurchase()" style="width:100%;margin-top:14px;background:var(--navy);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700">Rinnova / Cambia piano</button>`;
-          if(_pendingP) return `<div style="margin-top:12px;padding:12px;background:#FFFBEB;border:1.5px solid #FCD34D;border-radius:10px;font-size:13px;color:#92400E;font-weight:600">⏳ Richiesta di acquisto in attesa · Piano ${esc(_pendingP.planRequested)} · in elaborazione da Studio Zamboni</div>`;
+          if(_pendingP) return `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-top:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:13px;font-weight:700;color:#0f2557">⏳ Richiesta di acquisto in corso</div>
+              <div style="font-size:11px;color:#64748b">${formatDate(_pendingP.requestedAt)}</div>
+            </div>
+            <div style="font-size:12px;color:#475569;margin-bottom:10px">Piano <strong>${_pendingP.planRequested}</strong> · ${_pendingP.paymentMethod||''}</div>
+            ${renderTimeline(_pendingP.status, null)}
+          </div>`;
           return `
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-light)">
               <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px">Acquista un piano</div>
@@ -9575,12 +9582,13 @@ function renderSettings(main){
           <div style="padding:16px 20px;background:#fff">
             ${ti.isExpired?`<div style="padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:var(--radius-sm);margin-bottom:14px;font-size:13px;color:#C0392B;font-weight:600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:5px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Il periodo di prova è scaduto. Seleziona un piano per riattivare l'accesso.</div>`:''}
             ${pendingPurchase?`
-              <div style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--warning-bg);border-radius:var(--radius-sm);border:1px solid rgba(180,83,9,0.2)">
-                <span style="font-size:18px">⏳</span>
-                <div style="flex:1">
-                  <div style="font-size:13px;font-weight:600;color:var(--warning)">Richiesta di acquisto in attesa</div>
-                  <div style="font-size:12px;color:var(--text-muted)">Piano ${esc(pendingPurchase.planRequested)} · Inviata il ${formatDate(pendingPurchase.requestedAt)} · In elaborazione da Studio Zamboni</div>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                  <div style="font-size:13px;font-weight:700;color:#0f2557">⏳ Richiesta di acquisto in corso</div>
+                  <div style="font-size:11px;color:#64748b">${formatDate(pendingPurchase.requestedAt)}</div>
                 </div>
+                <div style="font-size:12px;color:#475569;margin-bottom:10px">Piano <strong>${pendingPurchase.planRequested}</strong> · ${pendingPurchase.paymentMethod||''}</div>
+                ${renderTimeline(pendingPurchase.status, null)}
               </div>`:`
               <div style="margin-bottom:12px">
                 <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px">Scegli il tuo piano</div>
