@@ -11466,28 +11466,42 @@ function renderTimeline(status, purchaseId){
     isSigned=isCompleted||!!(p&&p.clientSignedAt&&!p.pendingClientSignature);
   }
 
-  return `<div class="req-timeline">
-    ${steps.map((s,i)=>{
-      let cls='';
-      if(s.key==='signed'){
-        cls=isSigned?'done':'';
-        return `<div class="req-step ${cls}">
-          <div class="req-step-dot">${isSigned?'✔':'5'}</div>
-          <div class="req-step-label">${s.label}</div>
+  const _ss=(s,i)=>{
+    if(s.key==='signed') return isSigned?'done':'pending';
+    if(isRejected) return i===0?'done':'skipped';
+    if(isPayFailed) return i<2?'done':i===2?'failed':'pending';
+    if(currentIdx<0) return 'pending';
+    if(i<currentIdx) return 'done';
+    if(i===currentIdx) return 'active';
+    return 'pending';
+  };
+  const _st=steps.map((s,i)=>_ss(s,i));
+  return `<div style="margin:14px 0 6px">
+    <style>.rt-act{animation:rt-pulse 1.4s ease-in-out infinite}@keyframes rt-pulse{0%,100%{box-shadow:0 0 0 0 rgba(212,168,67,.45)}60%{box-shadow:0 0 0 7px rgba(212,168,67,0)}}</style>
+    <div style="display:flex;align-items:flex-start">
+      ${steps.map((s,i)=>{
+        const st=_st[i];
+        const isLast=i===steps.length-1;
+        const dotBg  =st==='done'?'#041348':st==='active'?'#D4A843':st==='failed'?'#DC2626':st==='skipped'?'#9CA3AF':'#fff';
+        const dotBord=st==='pending'?'2px solid #D1D5DB':st==='done'?'2px solid #041348':st==='active'?'2px solid #D4A843':st==='failed'?'2px solid #DC2626':'2px solid #9CA3AF';
+        const dotTxt =st==='done'?'✔':st==='failed'?'✕':st==='skipped'?'–':'';
+        const dotCol =st==='pending'?'#9CA3AF':'#fff';
+        const lblCol =st==='done'?'#041348':st==='active'?'#B45309':st==='failed'?'#DC2626':'#9CA3AF';
+        const lblW   =st==='active'?'700':'400';
+        const connL  =i===0?'transparent':(_st[i-1]==='done'?'#041348':'#E5E7EB');
+        const connR  =isLast?'transparent':(st==='done'?'#041348':'#E5E7EB');
+        return `<div style="display:flex;flex-direction:column;align-items:center;flex:1;min-width:0">
+          <div style="display:flex;align-items:center;width:100%">
+            <div style="flex:1;height:2px;background:${connL}"></div>
+            <div class="${st==='active'?'rt-act':''}" style="width:22px;height:22px;border-radius:50%;background:${dotBg};border:${dotBord};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:${dotCol};flex-shrink:0;transition:all .2s">${dotTxt}</div>
+            <div style="flex:1;height:2px;background:${connR}"></div>
+          </div>
+          <span style="font-size:9px;color:${lblCol};font-weight:${lblW};margin-top:4px;text-align:center;line-height:1.3;white-space:nowrap">${s.label}</span>
         </div>`;
-      }
-      if(isRejected){ cls= i===0?'done':'skipped'; }
-      else if(isPayFailed){ cls= i<2?'done': i===2?'failed':''; }
-      else if(currentIdx<0){ cls=''; }
-      else if(i<currentIdx){ cls='done'; }
-      else if(i===currentIdx){ cls='active'; }
-      return `<div class="req-step ${cls}">
-        <div class="req-step-dot">${cls==='done'?'✔':cls==='failed'?'×':cls==='skipped'?'–':(i+1)}</div>
-        <div class="req-step-label">${s.label}</div>
-      </div>`;
-    }).join('')}
-    ${isRejected?`<div class="req-step rejected"><div class="req-step-dot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div><div class="req-step-label">Rifiutata</div></div>`:''}
-    ${isPayFailed?`<div class="req-step failed"><div class="req-step-dot"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div><div class="req-step-label">Pag. fallito</div></div>`:''}
+      }).join('')}
+    </div>
+    ${isRejected?`<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#DC2626;font-weight:600;background:#FEE2E2;padding:3px 8px;border-radius:20px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Rifiutata</div>`:''}
+    ${isPayFailed?`<div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#DC2626;font-weight:600;background:#FEE2E2;padding:3px 8px;border-radius:20px"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Pag. fallito</div>`:''}
   </div>`;
 }
 
