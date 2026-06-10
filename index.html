@@ -5675,6 +5675,19 @@ function adminRejectPaymentRequest(prId){
   renderAdminTab();
 }
 
+async function adminDeletePaymentRequest(prId){
+  confirmCallback=async()=>{
+    const requests=DB.getPaymentRequests().filter(r=>r.id!==prId);
+    DB.setPaymentRequests(requests);
+    try{await _supaSyncAwait('co_admin','payment_requests',requests);}catch(e){}
+    showToast('Richiesta eliminata','success');
+    renderAdminTab();
+  };
+  document.getElementById('confirm-title').textContent='Elimina richiesta';
+  document.getElementById('confirm-text').textContent='Questa operazione è irreversibile.';
+  document.getElementById('confirm-overlay').classList.remove('hidden');
+}
+
 function adminManualSuspend(subId){
   if(!confirm('Sospendere questo abbonamento?')) return;
   const reason=prompt('Motivo della sospensione:','mancato_pagamento');
@@ -7108,6 +7121,7 @@ Importo: € ${tot.toFixed(2)} IVA incl."
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                   Fattura
                 </button>`:''}
+                <button onclick="adminDeletePaymentRequest('${pr.id}')" style="background:transparent;color:#DC2626;border:1px solid #FCA5A5;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;margin-left:4px">Elimina</button>
               </div>
             </div>
             ${pr.status===PAYMENT_STATUS.PENDING_ADMIN?`
