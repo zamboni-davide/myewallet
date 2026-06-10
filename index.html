@@ -7054,7 +7054,7 @@ Importo: € ${tot.toFixed(2)} IVA incl."
       ${allPR.length===0
         ?`<div class="empty-state"><div class="empty-state-title">Nessuna richiesta di pagamento</div></div>`
         :allPR.map(pr=>{
-          const co=companies.find(x=>x.id===pr.companyId);
+          const co=DB.getCompanies().find(x=>x.id===pr.companyId);
           const inv=DB.getInvoices().find(i=>i.id===pr.invoiceId);
           const isCritical=pr.status===PAYMENT_STATUS.PENDING_ADMIN||pr.status===PAYMENT_STATUS.PAYMENT_PENDING;
           return`<div class="card" style="padding:18px;border-left:3px solid ${statusColor(pr.status)}">
