@@ -6074,10 +6074,27 @@ function confirmCheckout(planName, billingCycle, paymentMethod){
 }
 
 function _doCreatePaymentRequest(planName,billingCycle,paymentMethod,consents,billing){
-  const pr=createPaymentRequest(
-    currentCompany.id,currentUser.id,planName,billingCycle,paymentMethod,
-    {billingData:billing,consents}
-  );
+  const note=document.getElementById('purchase-note')?.value?.trim()||'';
+  const pr={
+    id:'pr_'+uid(),
+    type:'purchase',
+    companyId:currentCompany.id,
+    companyName:currentCompany.name,
+    planRequested:planName,
+    billingCycle,
+    paymentMethod,
+    note,
+    billingData:billing,
+    consents,
+    requestedAt:new Date().toISOString(),
+    status:'submitted',
+    adminNote:'',
+    paymentInstructions:'',
+    history:[{status:'submitted',at:new Date().toISOString(),by:'user'}]
+  };
+  const allPR=DB.getPurchaseRequests();
+  allPR.push(pr);
+  DB.setPurchaseRequests(allPR);
   showToast('Richiesta inviata a Studio Zamboni','success');
   // Notifica admin
   createNotification({
