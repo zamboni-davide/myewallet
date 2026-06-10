@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:Arial,sans-serif;font-size:14px;line-height:1.7;color:#222;background:#fff;}
+.header{background:#041348;padding:16px 28px;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+.header-logo{color:#c9a84c;font-size:16px;font-weight:700;}
+.header-sub{color:rgba(255,255,255,0.6);font-size:12px;}
+.toolbar{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 28px;display:flex;gap:8px;justify-content:flex-end;z-index:10;}
+.btn-print{background:#041348;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:600;}
+.btn-close{background:#fff;color:#041348;border:1px solid #e2e8f0;border-radius:6px;padding:8px 18px;font-size:13px;cursor:pointer;}
+.content{padding:36px 48px;max-width:760px;margin:0 auto;}
+h1{color:#041348;font-size:18px;margin-bottom:6px;}
+h2{color:#041348;font-size:15px;margin-top:28px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #c9a84c;}
+h3{color:#041348;font-size:14px;margin-top:20px;margin-bottom:8px;font-weight:700;}
+h4{color:#041348;font-size:13px;margin-top:16px;margin-bottom:6px;font-weight:700;}
+p,li{margin-bottom:8px;}
+ul,ol{padding-left:20px;margin-bottom:10px;}
+strong{font-weight:700;}
+table{border-collapse:collapse;width:100%;margin:12px 0;}
+th{background:#041348;color:#fff;padding:8px 12px;text-align:left;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+td{border:1px solid #e2e8f0;padding:8px 12px;font-size:13px;}
+.footer-doc{margin-top:40px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#888;text-align:center;}
+hr{border:none;border-top:1px solid #e2e8f0;margin:20px 0;}
+@media print{.toolbar{display:none;}.header{page-break-inside:avoid;}}
+@media(max-width:600px){.content{padding:20px 16px;}}
+</style>
+<title>T&C B2B v1.2 — MyEwallet®</title>
+</head>
+<body>
+<div class="header">
+  <span class="header-logo">MyEwallet®</span>
+  <span class="header-sub">Studio Zamboni · www.myewallet.it</span>
+</div>
+<div class="toolbar">
+  <button class="btn-close" onclick="window.close()">✕ Chiudi</button>
+  <button class="btn-print" onclick="window.print()">⬇ Stampa / PDF</button>
+</div>
+<div class="content">
+<h1>TERMINI E CONDIZIONI DI SERVIZIO — MyEwallet®</h1>
+<h2>Piattaforma SaaS di Gestione Documentale Professionale</h2>
+<p><strong>Versione 1.2 — Giugno 2026</strong></p>
+<p><strong>Fornitore:</strong> Studio Zamboni — Via Perantoni Gavino Satta 14, 07100 Sassari — P.IVA IT03065200903</p>
+<p><strong>Contatto:</strong> zamboni@consulenzesardegna.com</p>
+
+
+
+<h2>PREMESSE</h2>
+
+<p>Il presente contratto disciplina il rapporto tra Studio Zamboni, titolare della piattaforma MyEwallet® (di seguito "Fornitore"), e il soggetto giuridico che accede al servizio in qualità di utente professionale (di seguito "Utente Azienda").</p>
+
+<p>Il servizio MyEwallet® è destinato esclusivamente a soggetti che agiscono nell'esercizio della propria attività professionale, commerciale o imprenditoriale. Non è destinato a consumatori ai sensi del D.Lgs. 206/2005.</p>
+
+<hr>
+
+<h2>ART. 1 — DEFINIZIONI</h2>
+
+<p><strong>1.1</strong> "Fornitore": Studio Zamboni, titolare e gestore della piattaforma MyEwallet®.</p>
+
+<p><strong>1.2</strong> "Utente Azienda": il soggetto giuridico (persona fisica o giuridica) titolare del rapporto contrattuale con il Fornitore, che accede al servizio nell'esercizio della propria attività professionale o d'impresa.</p>
+
+<p><strong>1.3</strong> "Super User": utente interno all'Utente Azienda, designato con funzioni amministrative e operative sul servizio, che agisce sempre entro il perimetro del contratto principale.</p>
+
+<p><strong>1.4</strong> "Collaboratori": utenti creati o gestiti dal Super User, che operano sotto la responsabilità dell'Utente Azienda e non instaurano rapporti contrattuali autonomi con il Fornitore.</p>
+
+<p><strong>1.5</strong> "Servizio": la piattaforma SaaS MyEwallet® accessibile all'indirizzo www.myewallet.it, comprensiva di tutte le funzionalità rese disponibili secondo il piano sottoscritto.</p>
+
+<p><strong>1.6</strong> "Piano": il profilo di servizio attivato dall'Utente Azienda, nelle versioni Trial Free o Piano a Pagamento.</p>
+
+<p><strong>1.7</strong> "Dati": qualsiasi contenuto, documento, file o informazione caricata o generata dall'Utente Azienda sulla piattaforma.</p>
+
+<hr>
+
+<h2>ART. 2 — OGGETTO DEL CONTRATTO</h2>
+
+<p><strong>2.1</strong> Il presente contratto ha per oggetto la concessione di una licenza d'uso non esclusiva, non trasferibile, della piattaforma MyEwallet® per la gestione documentale digitale, nei limiti e alle condizioni del piano attivato.</p>
+
+<p><strong>2.2</strong> Il contratto principale è sempre e unicamente tra il Fornitore e l'Utente Azienda. Super User e Collaboratori agiscono esclusivamente entro il perimetro del contratto principale. Non esistono rapporti contrattuali autonomi tra il Fornitore e i singoli utenti interni.</p>
+
+<p><strong>2.3</strong> L'Utente Azienda è responsabile in via esclusiva dell'utilizzo del servizio da parte di Super User e Collaboratori, del rispetto dei presenti Termini da parte di questi ultimi, e della correttezza dei dati caricati sulla piattaforma.</p>
+
+<hr>
+
+<h2>ART. 3 — PIANI DI SERVIZIO</h2>
+
+<h3>3.1 Piano Trial Free</h3>
+
+<p><strong>Utente Azienda:</strong> accesso gratuito per 30 (trenta) giorni dalla data di attivazione dell'account, con limite di storage di 200 MB. Costituisce una condizione promozionale di accesso al servizio base, non garantita nel tempo.</p>
+
+<p><strong>Super User — Piano Super User:</strong> accesso gratuito a tempo illimitato, con storage base di 700 MB condivisi con i Collaboratori eventualmente attivati (v. art. 3.3). L'attivazione di Collaboratori non è obbligatoria. Il Piano Super User è distinto dal Piano Trial Free destinato agli altri utenti e non ha scadenza. Il Fornitore si riserva di modificarne le condizioni per esigenze tecniche, organizzative o di evoluzione del servizio, con preavviso di almeno 60 giorni.</p>
+
+<p><strong>Collaboratori del Super User:</strong> accesso gratuito a tempo illimitato, subordinato al mantenimento attivo del profilo Super User di riferimento. I Collaboratori non dispongono di storage autonomo — utilizzano lo storage condiviso del Super User nei limiti del Piano Super User o del piano a pagamento da questi sottoscritto (v. art. 3.3).</p>
+
+<p>I limiti tecnici sono parametri del servizio e non diritti contrattuali garantiti.</p>
+
+<h3>3.2 Piani a Pagamento</h3>
+
+<p>Tutti i Piani a Pagamento hanno durata determinata di 12 (dodici) mesi, decorrenti dalla data di conferma del pagamento. Il rinnovo non è automatico.</p>
+
+<table>
+<tr><th>Piano</th><th>Imponibile</th><th>IVA 22%</th><th>Totale</th><th>Storage</th></tr>
+<tr><td>Standard</td><td>€ 39,99</td><td>€ 8,80</td><td>€ 48,79</td><td>200 MB</td></tr>
+<tr><td>Professional</td><td>€ 59,99</td><td>€ 13,20</td><td>€ 73,19</td><td>400 MB</td></tr>
+<tr><td>Enterprise</td><td>€ 99,00</td><td>€ 21,78</td><td>€ 120,78</td><td>700 MB</td></tr>
+</table>
+
+<p><strong>3.2.1</strong> I prezzi si intendono per anno per singolo account, IVA inclusa come indicato.</p>
+
+<p><strong>3.2.2</strong> Il Fornitore invierà comunicazione di scadenza con almeno 30 giorni di anticipo all'indirizzo email registrato.</p>
+
+<p><strong>3.2.3</strong> Le modifiche di prezzi e condizioni dei Piani a Pagamento non sono retroattive per i contratti in essere non rinnovati e non scaduti. Le nuove condizioni si applicano ai nuovi contratti e ai rinnovi.</p>
+
+<p><strong>3.2.4</strong> Il Fornitore comunicherà eventuali variazioni unilaterali di prezzi e condizioni all'Utente Azienda via email con almeno 60 (sessanta) giorni di anticipo rispetto alla scadenza del contratto in essere. L'Utente Azienda che non intenda accettare le nuove condizioni ha diritto di non rinnovare il contratto senza penali.</p>
+
+<h3>3.3 Storage Condiviso Super User e Collaboratori</h3>
+
+<p>Il Piano Super User include uno storage base di 700 MB condivisi tra il Super User e i Collaboratori eventualmente attivati. Il limite di storage si applica in modo aggregato all'intero gruppo. A titolo esemplificativo: un Super User con Piano Super User (700 MB) che attiva 3 Collaboratori dispone di 700 MB totali condivisi tra tutti i 4 soggetti. In assenza di Collaboratori, i 700 MB sono interamente disponibili per il Super User.</p>
+
+<p>Il Super User può abilitare i propri Collaboratori a proporre l'acquisto di piani aggiuntivi o l'incremento dello storage. La proposta viene sottoposta al Super User che può accettarla e procedere all'acquisto, oppure acquistare direttamente.</p>
+
+<h3>3.4 Modalità di Pagamento</h3>
+
+<p>Sono accettate le seguenti modalità di pagamento: Bonifico Bancario; Link POS / Carta di Debito e Credito; QR Code / Carta di Debito e Credito; PayPal.</p>
+
+<h3>3.5 Super User e Collaboratori — Parametri di servizio</h3>
+
+<p>Il regime di accesso di Super User e Collaboratori è regolato dalle condizioni tecniche del servizio. I limiti tecnici (storage aggregato, funzionalità) sono parametri del servizio e non condizioni negoziabili individualmente da Super User o Collaboratori.</p>
+
+<hr>
+
+<h2>ART. 3-BIS — RESTRIZIONI OPERATIVE COLLABORATORI E DIVIETI DI UTILIZZO FRAUDOLENTO</h2>
+
+<p><strong>3-bis.1 — Perimetro di accesso del Collaboratore</strong></p>
+
+<p>Il Collaboratore può accedere esclusivamente ai dati, ai documenti e alle informazioni relativi ai clienti espressamente assegnati dal Super User di riferimento. È fatto divieto assoluto al Collaboratore di:</p>
+
+<p>a) accedere, consultare o acquisire dati di utenti Consumer, utenti Azienda o altri Super User non appartenenti alla base clienti del proprio Super User;</p>
+
+<p>b) effettuare ricerche, interrogazioni o qualsiasi altra operazione finalizzata all'acquisizione di dati di contatto di soggetti esterni alla base clienti assegnata;</p>
+
+<p>c) utilizzare le funzionalità della piattaforma per attività di scouting, data harvesting o lead generation non autorizzate dal Super User.</p>
+
+<p><strong>3-bis.2 — Divieto di registrazione parallela</strong></p>
+
+<p>Il Collaboratore non può in nessun caso:</p>
+
+<p>a) registrarsi alla piattaforma come utente Consumer o utente Azienda autonomo, utilizzando le stesse credenziali o credenziali diverse, al fine di accedere a funzionalità o dati non consentiti dal proprio profilo Collaboratore;</p>
+
+<p>b) utilizzare codici referral, piani Trial Free o qualsiasi altra modalità di accesso per creare account paralleli finalizzati all'acquisizione di dati di altri utenti della piattaforma;</p>
+
+<p>c) trasferire, copiare o esportare dati di utenti della piattaforma verso account propri o di terzi, con qualsiasi mezzo.</p>
+
+<p><strong>3-bis.3 — Divieto di utilizzo fraudolento del sistema Referral</strong></p>
+
+<p>È fatto divieto a tutti gli utenti, inclusi Super User e Collaboratori, di:</p>
+
+<p>a) utilizzare il sistema referral per finalità diverse dall'invito genuino di nuovi utenti alla piattaforma;</p>
+
+<p>b) creare account multipli o fittizi al fine di generare artificialmente crediti referral;</p>
+
+<p>c) effettuare attività di sniffing, intercettazione o acquisizione non autorizzata di dati di altri utenti attraverso il sistema referral o qualsiasi altra funzionalità della piattaforma.</p>
+
+<p><strong>3-bis.4 — Responsabilità del Super User</strong></p>
+
+<p>Il Super User è direttamente e solidalmente responsabile verso il Fornitore per qualsiasi violazione dei divieti di cui al presente articolo commessa dai propri Collaboratori. Il Super User è tenuto a:</p>
+
+<p>a) informare i propri Collaboratori dei divieti previsti dal presente articolo;</p>
+
+<p>b) revocare immediatamente l'accesso al Collaboratore che violi o tenti di violare i presenti divieti;</p>
+
+<p>c) comunicare tempestivamente al Fornitore qualsiasi comportamento anomalo o sospetto rilevato.</p>
+
+<p><strong>3-bis.5 — Conseguenze delle violazioni</strong></p>
+
+<p>La violazione dei divieti di cui al presente articolo costituisce inadempimento grave e legittima il Fornitore a:</p>
+
+<p>a) sospendere immediatamente l'accesso del Collaboratore e/o del Super User senza preavviso;</p>
+
+<p>b) risolvere il contratto con effetto immediato ai sensi dell'art. 1456 c.c.;</p>
+
+<p>c) richiedere il risarcimento di tutti i danni subiti, inclusi quelli da violazione del GDPR, della normativa sulla privacy e della normativa sulla concorrenza sleale;</p>
+
+<p>d) segnalare il comportamento alle autorità competenti, incluso il Garante per la Protezione dei Dati Personali.</p>
+
+<p><strong>3-bis.6 — Controlli tecnici</strong></p>
+
+<p>Il Fornitore si riserva di implementare controlli tecnici automatizzati per rilevare comportamenti anomali, accessi non autorizzati e utilizzi fraudolenti della piattaforma. I log di accesso e le attività degli utenti sono conservati ai fini di sicurezza e conformità normativa per il periodo previsto dalla legge applicabile.</p>
+
+<hr>
+
+<h2>ART. 4 — OBBLIGHI DEL FORNITORE</h2>
+
+<p><strong>4.1</strong> Il Fornitore si impegna a:</p>
+
+<p>a) rendere disponibile il servizio con continuità ragionevole, salvo manutenzioni programmate comunicate con preavviso di 48 ore;</p>
+
+<p>b) garantire la sicurezza dei dati mediante misure tecniche e organizzative adeguate ai sensi del Reg. UE 2016/679 (GDPR);</p>
+
+<p>c) conservare i dati dell'Utente Azienda per la durata del contratto e per il periodo successivo previsto dalla normativa applicabile;</p>
+
+<p>d) garantire la possibilità di esportare i propri dati in formato standard in caso di cessazione del rapporto contrattuale.</p>
+
+<hr>
+
+<h2>ART. 5 — OBBLIGHI DELL'UTENTE AZIENDA</h2>
+
+<p><strong>5.1</strong> L'Utente Azienda si impegna a:</p>
+
+<p>a) utilizzare il servizio nel rispetto della normativa vigente e dei presenti Termini;</p>
+
+<p>b) non caricare sulla piattaforma dati illeciti, contenuti in violazione di diritti di terzi, o dati acquisiti in assenza dei presupposti di legge;</p>
+
+<p>c) garantire che i dati di terzi caricati sulla piattaforma siano trattati nel rispetto del Reg. UE 2016/679 (GDPR) e della normativa applicabile;</p>
+
+<p>d) dichiarare, sotto la propria responsabilità, di essere titolare o di avere pieno titolo al trattamento dei dati caricati, manlevando il Fornitore da ogni responsabilità derivante da utilizzo illecito di banche dati di terzi o acquisite tramite attività di lead generation.</p>
+
+<p><strong>5.2</strong> La dichiarazione di cui all'art. 5.1 lett. d) è resa con accettazione esplicita al primo accesso alla piattaforma e viene archiviata con timestamp dal sistema.</p>
+
+<hr>
+
+<h2>ART. 6 — TITOLARITÀ DEI DATI</h2>
+
+<p><strong>6.1</strong> I dati caricati dall'Utente Azienda rimangono di esclusiva proprietà dell'Utente Azienda. Il Fornitore non acquisisce alcun diritto sui dati, se non quelli strettamente necessari all'erogazione del servizio.</p>
+
+<p><strong>6.2</strong> Il Fornitore non utilizzerà i dati dell'Utente Azienda per finalità diverse dall'erogazione del servizio contrattuale, salvo obbligo di legge.</p>
+
+<hr>
+
+<h2>ART. 7 — RESPONSABILITÀ</h2>
+
+<p><strong>7.1</strong> Il Fornitore è responsabile per i danni diretti causati da inadempimento contrattuale imputabile a dolo o colpa grave, nei limiti di quanto previsto dall'art. 1229 c.c. Qualsiasi clausola che limiti o escluda la responsabilità per dolo o colpa grave è da intendersi nulla.</p>
+
+<p><strong>7.2</strong> Nei casi diversi dal dolo e dalla colpa grave, la responsabilità complessiva del Fornitore nei confronti dell'Utente Azienda è limitata all'importo dei corrispettivi effettivamente versati nei 12 (dodici) mesi precedenti all'evento dannoso.</p>
+
+<p><strong>7.3</strong> Nei limiti consentiti dalla legge, il Fornitore non risponde per danni indiretti, perdita di profitto, perdita di dati, perdita di chance o interruzione dell'attività, comunque derivanti dall'utilizzo o dalla mancata disponibilità del servizio.</p>
+
+<p><strong>7.4</strong> Il Fornitore non è responsabile per i contenuti e i dati caricati dall'Utente Azienda, né per l'utilizzo che Super User e Collaboratori fanno del servizio nell'ambito del contratto principale.</p>
+
+<hr>
+
+<h2>ART. 8 — RECESSO E RISOLUZIONE</h2>
+
+<p><strong>8.1</strong> L'Utente Azienda può recedere dal contratto con preavviso scritto di 30 (trenta) giorni, da inviarsi a mezzo PEC o email certificata. Il recesso ha effetti ex nunc e non dà diritto a rimborso del corrispettivo già versato per il periodo in corso, salvo diversa previsione espressa o norme inderogabili applicabili.</p>
+
+<p><strong>8.2</strong> Il Fornitore può recedere dal contratto con preavviso scritto di 30 (trenta) giorni in caso di modifica sostanziale del modello di servizio. In tale caso, l'Utente Azienda ha diritto al rimborso proporzionale del corrispettivo pagato per il periodo non fruito.</p>
+
+<p><strong>8.3</strong> Il Fornitore può risolvere il contratto con effetto immediato, previa diffida scritta rimasta senza riscontro per 15 giorni, in caso di:</p>
+
+<p>a) utilizzo del servizio in violazione di norme di legge;</p>
+<p>b) mancato pagamento del corrispettivo;</p>
+<p>c) violazione grave e reiterata dei presenti Termini.</p>
+
+<p><strong>8.4</strong> In caso di cessazione del rapporto contrattuale per qualsiasi causa, il Fornitore garantisce all'Utente Azienda la possibilità di esportare i propri dati entro 30 giorni dalla cessazione.</p>
+
+<hr>
+
+<h2>ART. 9 — RISERVATEZZA</h2>
+
+<p><strong>9.1</strong> Ciascuna parte si impegna a mantenere riservate le informazioni confidenziali dell'altra parte di cui venga a conoscenza nell'ambito del rapporto contrattuale.</p>
+
+<p><strong>9.2</strong> L'obbligo di riservatezza sopravvive alla cessazione del contratto per un periodo di 3 anni.</p>
+
+<hr>
+
+<h2>ART. 10 — PROTEZIONE DEI DATI PERSONALI</h2>
+
+<p><strong>10.1</strong> Il trattamento dei dati personali è disciplinato dall'Informativa Privacy allegata ai presenti Termini, redatta ai sensi del Reg. UE 2016/679 (GDPR).</p>
+
+<p><strong>10.2</strong> In relazione ai dati personali di terzi eventualmente trattati tramite la piattaforma, l'Utente Azienda agisce in qualità di titolare del trattamento. Il Fornitore agisce in qualità di responsabile del trattamento ai sensi dell'art. 28 GDPR, secondo i termini del Data Processing Agreement allegato.</p>
+
+<hr>
+
+<h2>ART. 11 — MODIFICHE AL SERVIZIO E AI TERMINI</h2>
+
+<p><strong>11.1</strong> Il Fornitore si riserva di modificare i presenti Termini con preavviso di almeno 30 giorni, comunicato all'indirizzo email registrato.</p>
+
+<p><strong>11.2</strong> L'utilizzo continuato del servizio dopo la scadenza del preavviso costituisce accettazione delle modifiche. In caso di mancata accettazione, l'Utente Azienda ha diritto di recedere senza penali entro il termine del preavviso.</p>
+
+<hr>
+
+<h2>ART. 12 — CLAUSOLE EX ARTT. 1341–1342 C.C. — APPROVAZIONE SPECIFICA</h2>
+
+<p>Ai sensi e per gli effetti degli artt. 1341 e 1342 del Codice Civile, l'Utente Azienda dichiara di approvare specificamente le seguenti clausole, che ha letto e compreso:</p>
+
+<p>- <strong>Art. 3.1</strong> — Natura promozionale e modificabilità del Piano Trial Free per esigenze tecniche, organizzative o di evoluzione del servizio</p>
+<p>- <strong>Art. 3.1</strong> — Piano Super User: preavviso 60 giorni per modifiche alle condizioni</p>
+<p>- <strong>Art. 3.2</strong> — Durata determinata 12 mesi del Piano a Pagamento; assenza di rinnovo automatico</p>
+<p>- <strong>Art. 3.3</strong> — Storage condiviso Super User e Collaboratori come parametro aggregato non negoziabile individualmente</p>
+<p>- <strong>Art. 3.5</strong> — Limiti tecnici del servizio come parametri non negoziabili individualmente da Super User o Collaboratori</p>
+<p>- <strong>Art. 3-bis.1/3-bis.2/3-bis.3</strong> — Divieti assoluti di accesso non autorizzato, registrazione parallela e utilizzo fraudolento del sistema referral</p>
+<p>- <strong>Art. 3-bis.4</strong> — Responsabilità solidale del Super User per le violazioni dei Collaboratori</p>
+<p>- <strong>Art. 3-bis.5</strong> — Risoluzione immediata ex art. 1456 c.c. per violazione dei divieti</p>
+<p>- <strong>Art. 5.1 lett. d)</strong> — Manleva del Fornitore per utilizzo di dati di terzi</p>
+<p>- <strong>Art. 7.2</strong> — Limitazione della responsabilità ai corrispettivi degli ultimi 12 mesi</p>
+<p>- <strong>Art. 7.3</strong> — Esclusione di responsabilità per danni indiretti, perdita di profitto, perdita di dati, perdita di chance e interruzione dell'attività nei limiti di legge</p>
+<p>- <strong>Art. 8.1</strong> — Preavviso di recesso 30 giorni; irripetibilità del corrispettivo versato salvo norme inderogabili</p>
+<p>- <strong>Art. 8.3</strong> — Risoluzione per inadempimento con preavviso di 15 giorni</p>
+<p>- <strong>Art. 11.1</strong> — Diritto del Fornitore di modificare i presenti Termini con preavviso di 30 giorni</p>
+<p>- <strong>Art. 11.2</strong> — Accettazione tacita delle modifiche per utilizzo continuato del servizio dopo il preavviso</p>
+<p>- <strong>Art. 13</strong> — Foro di Sassari con tendenziale esclusività nei limiti consentiti dalla legge</p>
+
+<hr>
+
+<h2>ART. 13 — LEGGE APPLICABILE E FORO COMPETENTE</h2>
+
+<p><strong>13.1</strong> Il presente contratto è regolato dalla legge italiana.</p>
+
+<p><strong>13.2</strong> Per qualsiasi controversia derivante dal presente contratto, le parti convengono la competenza del Foro di Sassari con tendenziale esclusività, nei limiti consentiti dalla normativa applicabile e dall'art. 28 c.p.c., avendo le parti espressamente approvato tale clausola ai sensi dell'art. 1341 c.c.</p>
+
+<p><strong>13.3</strong> Le parti si impegnano a tentare una risoluzione amichevole della controversia entro 30 giorni dalla notifica formale del disaccordo, prima di adire le vie giudiziarie.</p>
+
+<hr>
+
+<h2>ART. 14 — DISPOSIZIONI FINALI</h2>
+
+<p><strong>14.1</strong> Il presente contratto costituisce l'accordo integrale tra le parti in relazione all'oggetto. Eventuali accordi precedenti o comunicazioni informative sono sostituiti dal presente testo.</p>
+
+<p><strong>14.2</strong> La nullità o inefficacia di singole clausole non comporta la nullità dell'intero contratto.</p>
+
+<p><strong>14.3</strong> La mancata esercizio di un diritto contrattuale non costituisce rinuncia al medesimo.</p>
+
+<hr>
+
+<p><em>Versione 1.2 — Giugno 2026</em></p>
+<p><em>Studio Zamboni — MyEwallet® — www.myewallet.it</em></p>
+
+<div class="footer-doc">Studio Zamboni &mdash; MyEwallet&reg; &mdash; www.myewallet.it</div>
+</div>
+</body>
+</html>
