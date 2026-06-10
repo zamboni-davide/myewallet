@@ -6097,8 +6097,19 @@ function _doCreatePaymentRequest(planName,billingCycle,paymentMethod,consents,bi
 
 function renderAdmin(main){
   if(!isTrustedAdmin()){main.innerHTML='<div class="empty-state"><div class="empty-state-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="empty-state-title">Accesso non autorizzato</div></div>';return;}
-  const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
-  const users=DB.getUsers().filter(u=>u.role!=='admin');
+  const _gdprKpi=new Set(DB.getGdprDeletions().map(r=>r.userEmail));
+  const companies=DB.getCompanies().filter(c=>
+    c.id!=='co_admin'&&
+    !c.gdprDeleted&&
+    (c.role==='superuser'||c.userType==='professional'||c.userType==='sme'||c.userType==='studio')
+  );
+  const users=DB.getUsers().filter(u=>
+    u.role!=='admin'&&
+    u.role!=='superuser'&&
+    !u.gdprDeleted&&
+    !_gdprKpi.has(u.email)&&
+    u.userType==='consumer'
+  );
   const allDocs=DB.getAllDocs();
   main.innerHTML=`
     <div class="page-header"><h1 class="page-title">Pannello Amministratore</h1><p class="page-subtitle">Gestione piattaforma Studio Zamboni</p></div>
@@ -6395,8 +6406,19 @@ async function adminExecuteGdprDeletion(ticketId){
 function renderAdminTab(){
   const body=document.getElementById('admin-tab-body');
   if(!body) return;
-  const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
-  const users=DB.getUsers().filter(u=>u.role!=='admin'&&!u.gdprDeleted&&!DB.getGdprDeletions().some(r=>r.userEmail===u.email));
+  const gdprEmails=new Set(DB.getGdprDeletions().map(r=>r.userEmail));
+  const companies=DB.getCompanies().filter(c=>
+    c.id!=='co_admin'&&
+    !c.gdprDeleted&&
+    (c.role==='superuser'||c.userType==='professional'||c.userType==='sme'||c.userType==='studio')
+  );
+  const users=DB.getUsers().filter(u=>
+    u.role!=='admin'&&
+    u.role!=='superuser'&&
+    !u.gdprDeleted&&
+    !gdprEmails.has(u.email)&&
+    u.userType==='consumer'
+  );
   if(adminTab==='notifs'){
     const adminNotifs=getMyNotifications();
     const companies=DB.getCompanies().filter(c=>c.id!=='co_admin');
@@ -6539,7 +6561,7 @@ function renderAdminTab(){
         <th>Abbonamento</th><th><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Storage</th><th>Acquistato</th><th>Doc.</th><th>Azioni</th>
       </tr></thead>
       <tbody>${filteredCos.map(co=>{
-        const coUsers=DB.getUsers().filter(u=>u.companyId===co.id);
+        const coUsers=DB.getUsers().filter(u=>u.companyId===co.id&&!u.gdprDeleted);
         const coDocs=DB.getDocs(co.id);
         const ti=getTrialInfo(co);
         const ps=getPlanStatus(co);
