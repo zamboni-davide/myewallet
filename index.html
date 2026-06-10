@@ -1701,7 +1701,7 @@ textarea.input{resize:vertical;min-height:80px;}
         © <span id="footer-year"></span> <strong>Studio Zamboni</strong> di Davide Pasquale Zamboni · Via Perantoni Satta, 14 – 07100 Sassari · MyEwallet® tutti i diritti riservati
       </div>
       <div class="app-footer-links">
-        <a href="javascript:void(0)" onclick="showDocPopup(typeof currentCompany!=='undefined'&&currentCompany?.userType==='consumer'?TC_CONSUMER_HTML:TC_B2B_HTML)">Documenti Legali</a>
+        <a href="javascript:void(0)" onclick="showDocPopup(typeof currentCompany!=='undefined'&&currentCompany?.userType==='consumer'?'tc-consumer':'tc-b2b')">Documenti Legali</a>
       </div>
     </footer>
 
@@ -3371,42 +3371,27 @@ const GDPR_INFO_HTML=`<div style="font-family:Arial,sans-serif;font-size:13px;li
 
 const NOTE_LEGALI_HTML=`<div style="font-family:Arial,sans-serif;font-size:13px;line-height:1.6;color:#222"><h3 style="color:#041348">Note Legali — MyEwallet® v1.0</h3><p>MyEwallet® è marchio e piattaforma SaaS di proprietà esclusiva di Studio Zamboni. Tutti i diritti riservati.</p><h4>Divieti generali</h4><p>Vietati: accesso non autorizzato a dati altrui; scraping e data harvesting; bot o script automatizzati; intercettazione comunicazioni; utilizzo non contrattuale della piattaforma.</p><h4>Divieti specifici Collaboratori</h4><p>Il Collaboratore non può: accedere a dati esterni alla base clienti assegnata; registrarsi come utente autonomo per acquisire dati; usare referral per account paralleli; esportare contatti non autorizzati; condividere credenziali.</p><h4>Divieti sistema Referral</h4><p>Vietati: utilizzo referral per finalità non genuine; account multipli per crediti artificiali; scouting dati tramite referral; cessione codici a terzi.</p><h4>Conseguenze violazioni</h4><p>Sospensione immediata; risoluzione ex art.1456 c.c.; risarcimento danni inclusi quelli da violazione GDPR; segnalazione al Garante e autorità giudiziaria.</p><h4>Responsabilità Super User</h4><p>Il Super User risponde solidalmente per le violazioni dei Collaboratori.</p><p style="font-size:11px;color:#666;margin-top:16px">Versione 1.0 — Giugno 2026 · Studio Zamboni · MyEwallet® · www.myewallet.it</p></div>`;
 
-function showDocPopup(htmlContent){
-  const w=window.open('','_blank','width=820,height=700');
-  w.document.write(`<!DOCTYPE html><html lang="it"><head><meta charset="UTF-8"><title>MyEwallet® — Studio Zamboni<\/title><style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:Arial,sans-serif;font-size:13px;line-height:1.7;color:#222;background:#fff;}
-.header{background:#041348;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-.header-title{color:#c9a84c;font-size:15px;font-weight:700;}
-.header-sub{color:rgba(255,255,255,0.6);font-size:11px;}
-.content{padding:28px 32px;max-width:700px;margin:0 auto;}
-h3{color:#041348;font-size:15px;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid #c9a84c;}
-h4{color:#041348;font-size:13px;margin:16px 0 6px;font-weight:700;}
-p{margin-bottom:10px;}
-.toolbar{position:sticky;top:0;background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 24px;display:flex;gap:8px;justify-content:flex-end;z-index:10;}
-.btn-print{background:#041348;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:600;}
-.btn-close{background:#f1f5f9;color:#041348;border:1px solid #e2e8f0;border-radius:6px;padding:8px 18px;font-size:13px;cursor:pointer;}
-@media print{.toolbar{display:none;}}
-<\/style><\/head><body>
-<div class="header">
-  <span class="header-title">MyEwallet®<\/span>
-  <span class="header-sub">Studio Zamboni · www.myewallet.it<\/span>
-<\/div>
-<div class="toolbar no-print">
-  <button class="btn-close" onclick="window.close()">✕ Chiudi<\/button>
-  <button class="btn-print" onclick="window.print()">⬇ Stampa \/ PDF<\/button>
-<\/div>
-<div class="content">${htmlContent}<\/div>
-<\/body><\/html>`);
-  w.document.close();
+function showDocPopup(doc){
+  const urls={
+    'tc-consumer':'tc-consumer.html',
+    'tc-b2b':'tc-b2b.html',
+    'privacy':'privacy-policy.html',
+    'gdpr':'gdpr-info.html',
+    'note-legali':'note-legali.html'
+  };
+  const url=urls[doc]||doc;
+  window.open(url,'_blank','noopener');
 }
 
+function downloadUserDoc(type){
+  alert('Funzione in arrivo');
+}
 function showRegTermsPreview(){
   const ut=document.getElementById('reg-usertype')?.value;
   showDocPopup(ut==='consumer'?TC_CONSUMER_HTML:TC_B2B_HTML);
 }
 function showPrivacyPreview(){
-  showDocPopup(PRIVACY_POLICY_HTML);
+  showDocPopup('privacy');
 }
 
 function showAuthError(form,msg){
@@ -8194,7 +8179,7 @@ function renderSuDocs(){
 
 function renderSuProfile(){
   const co=currentCompany;
-  return`<div class="card" style="padding:28px;max-width:640px"><div style="font-size:15px;font-weight:700;color:#041348;margin-bottom:20px">Il mio profilo</div><div style="display:flex;flex-direction:column;gap:14px"><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Nome Titolare</label><input class="input" id="su-prof-nome" value="${esc(co.ownerName||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Cognome Titolare</label><input class="input" id="su-prof-cogn" value="${esc(co.ownerLastName||'')}"></div></div><div class="input-group"><label class="input-label">Nome Studio / Azienda</label><input class="input" id="su-prof-studio" value="${esc(co.name||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Partita IVA</label><input class="input" id="su-prof-piva" value="${esc(co.vatNumber||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Codice Fiscale</label><input class="input" id="su-prof-cf" value="${esc(co.fiscalCode||'')}"></div></div><div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="su-prof-addr" value="${esc(co.address||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">CAP</label><input class="input" id="su-prof-cap" value="${esc(co.cap||'')}"></div><div class="input-group" style="flex:2;min-width:140px"><label class="input-label">Città</label><input class="input" id="su-prof-city" value="${esc(co.city||'')}"></div><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">Prov.</label><input class="input" id="su-prof-prov" value="${esc(co.province||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">Email</label><input class="input" id="su-prof-email" value="${esc(co.email||'')}"></div><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">PEC</label><input class="input" id="su-prof-pec" value="${esc(co.pec||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Codice SDI</label><input class="input" id="su-prof-sdi" value="${esc(co.sdiCode||'')}"></div><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Telefono</label><input class="input" id="su-prof-tel" value="${esc(co.phone||'')}"></div></div><button class="btn btn-primary" onclick="saveSuProfile()" style="align-self:flex-start;margin-top:4px">Salva Modifiche</button></div></div><div class="card" style="padding:20px;max-width:640px;margin-top:16px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:14px">Documenti legali accettati</div><div style="display:flex;flex-wrap:wrap;gap:12px"><div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(TC_B2B_HTML)">T&C B2B v1.2</button>${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(PRIVACY_POLICY_HTML)">Privacy Policy v1.0</button>${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(NOTE_LEGALI_HTML)">Note Legali v1.0</button>${co.dataOwnershipDeclaredAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(co.dataOwnershipDeclaredAt)}</div>`:''}</div></div></div>`;
+  return`<div class="card" style="padding:28px;max-width:640px"><div style="font-size:15px;font-weight:700;color:#041348;margin-bottom:20px">Il mio profilo</div><div style="display:flex;flex-direction:column;gap:14px"><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Nome Titolare</label><input class="input" id="su-prof-nome" value="${esc(co.ownerName||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Cognome Titolare</label><input class="input" id="su-prof-cogn" value="${esc(co.ownerLastName||'')}"></div></div><div class="input-group"><label class="input-label">Nome Studio / Azienda</label><input class="input" id="su-prof-studio" value="${esc(co.name||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Partita IVA</label><input class="input" id="su-prof-piva" value="${esc(co.vatNumber||'')}"></div><div class="input-group" style="flex:1;min-width:160px"><label class="input-label">Codice Fiscale</label><input class="input" id="su-prof-cf" value="${esc(co.fiscalCode||'')}"></div></div><div class="input-group"><label class="input-label">Indirizzo</label><input class="input" id="su-prof-addr" value="${esc(co.address||'')}"></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">CAP</label><input class="input" id="su-prof-cap" value="${esc(co.cap||'')}"></div><div class="input-group" style="flex:2;min-width:140px"><label class="input-label">Città</label><input class="input" id="su-prof-city" value="${esc(co.city||'')}"></div><div class="input-group" style="flex:1;min-width:70px"><label class="input-label">Prov.</label><input class="input" id="su-prof-prov" value="${esc(co.province||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">Email</label><input class="input" id="su-prof-email" value="${esc(co.email||'')}"></div><div class="input-group" style="flex:1;min-width:180px"><label class="input-label">PEC</label><input class="input" id="su-prof-pec" value="${esc(co.pec||'')}"></div></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Codice SDI</label><input class="input" id="su-prof-sdi" value="${esc(co.sdiCode||'')}"></div><div class="input-group" style="flex:1;min-width:140px"><label class="input-label">Telefono</label><input class="input" id="su-prof-tel" value="${esc(co.phone||'')}"></div></div><button class="btn btn-primary" onclick="saveSuProfile()" style="align-self:flex-start;margin-top:4px">Salva Modifiche</button></div></div><div class="card" style="padding:20px;max-width:640px;margin-top:16px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:14px">Documenti legali accettati</div><div style="display:flex;flex-wrap:wrap;gap:12px"><div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('tc-b2b')">T&C B2B v1.2</button>${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('privacy')">Privacy Policy v1.0</button>${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px"><button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('note-legali')">Note Legali v1.0</button>${co.dataOwnershipDeclaredAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(co.dataOwnershipDeclaredAt)}</div>`:''}</div></div></div>`;
 }
 
 async function saveSuProfile(){
@@ -8686,15 +8671,15 @@ function _showCollabFirstLoginModal(collRecord, suCo){
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
           <input type="checkbox" id="cfl-tc" onchange="_collFirstLoginCheck()" style="margin-top:2px;accent-color:#041348;flex-shrink:0">
-          <span style="font-size:12px;color:#334155">Accetto i <strong>Termini e Condizioni</strong> d'uso della piattaforma — <a href="javascript:void(0)" onclick="showDocPopup(TC_B2B_HTML)" style="color:#041348;text-decoration:underline">Leggi</a></span>
+          <span style="font-size:12px;color:#334155">Accetto i <strong>Termini e Condizioni</strong> d'uso della piattaforma — <a href="javascript:void(0)" onclick="showDocPopup('tc-b2b')" style="color:#041348;text-decoration:underline">Leggi</a></span>
         </label>
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
           <input type="checkbox" id="cfl-pp" onchange="_collFirstLoginCheck()" style="margin-top:2px;accent-color:#041348;flex-shrink:0">
-          <span style="font-size:12px;color:#334155">Accetto la <strong>Privacy Policy</strong> — <a href="javascript:void(0)" onclick="showDocPopup(PRIVACY_POLICY_HTML)" style="color:#041348;text-decoration:underline">Leggi</a></span>
+          <span style="font-size:12px;color:#334155">Accetto la <strong>Privacy Policy</strong> — <a href="javascript:void(0)" onclick="showDocPopup('privacy')" style="color:#041348;text-decoration:underline">Leggi</a></span>
         </label>
         <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
           <input type="checkbox" id="cfl-gdpr" onchange="_collFirstLoginCheck()" style="margin-top:2px;accent-color:#041348;flex-shrink:0">
-          <span style="font-size:12px;color:#334155">Accetto il trattamento dei dati personali ai sensi del <strong>GDPR</strong> — <a href="javascript:void(0)" onclick="showDocPopup(GDPR_INFO_HTML)" style="color:#041348;text-decoration:underline">Leggi</a></span>
+          <span style="font-size:12px;color:#334155">Accetto il trattamento dei dati personali ai sensi del <strong>GDPR</strong> — <a href="javascript:void(0)" onclick="showDocPopup('gdpr')" style="color:#041348;text-decoration:underline">Leggi</a></span>
         </label>
       </div>
       <button id="cfl-btn" class="btn btn-primary" style="width:100%;opacity:0.5;cursor:not-allowed" disabled onclick="_collFirstLoginSubmit('${collRecord.id}','${suCo.id}')">Conferma e accedi</button>
@@ -9274,15 +9259,15 @@ function renderSettingsMobile(main){
     const privacyContent=`<div style="padding-top:12px;display:flex;flex-direction:column;gap:12px">
       <div style="font-size:13px;color:var(--text-muted);line-height:1.5">Gestisci le tue preferenze sulla privacy e i tuoi diritti GDPR.</div>
       <div style="display:flex;flex-direction:column;gap:3px">
-        <button onclick="showDocPopup(currentCompany?.userType==='consumer'?TC_CONSUMER_HTML:TC_B2B_HTML)" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer">${currentCompany?.userType==='consumer'?'T&C Consumer v1.1':'T&C B2B v1.2'}</button>
+        <button onclick="downloadUserDoc('tc')" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer">${currentCompany?.userType==='consumer'?'T&C Consumer v1.1':'T&C B2B v1.2'}</button>
         ${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:var(--text-muted);padding:0 4px">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;gap:3px">
-        <button onclick="showDocPopup(PRIVACY_POLICY_HTML)" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer">Privacy Policy v1.0</button>
+        <button onclick="downloadUserDoc('privacy')" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer">Privacy Policy v1.0</button>
         ${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:var(--text-muted);padding:0 4px">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;gap:3px">
-        <button onclick="showDocPopup(GDPR_INFO_HTML)" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer">Informativa GDPR v1.0</button>
+        <button onclick="downloadUserDoc('gdpr')" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer">Informativa GDPR v1.0</button>
         ${currentCompany?.gdprConsentTimestamp?`<div style="font-size:10px;color:var(--text-muted);padding:0 4px">Accettato il ${formatDate(currentCompany.gdprConsentTimestamp)}</div>`:''}
       </div>
       <button onclick="showCookiePolicy()" style="width:100%;background:var(--bg);border:1.5px solid var(--border-light);color:var(--navy);border-radius:10px;padding:13px;font-size:14px;font-weight:600;text-align:left;cursor:pointer;display:flex;align-items:center;gap:10px">
@@ -9721,15 +9706,15 @@ function renderSettings(main){
       <div class="settings-section-title">I miei documenti legali</div>
       <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
-          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(currentCompany?.userType==='consumer'?TC_CONSUMER_HTML:TC_B2B_HTML)">${currentCompany?.userType==='consumer'?'T&C Consumer v1.1':'T&C B2B v1.2'}</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="downloadUserDoc('tc')">${currentCompany?.userType==='consumer'?'T&C Consumer v1.1':'T&C B2B v1.2'}</button>
           ${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
-          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(PRIVACY_POLICY_HTML)">Privacy Policy v1.0</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="downloadUserDoc('privacy')">Privacy Policy v1.0</button>
           ${currentUser?.termsAcceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(currentUser.termsAcceptedAt)}</div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
-          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup(GDPR_INFO_HTML)">Informativa GDPR v1.0</button>
+          <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="downloadUserDoc('gdpr')">Informativa GDPR v1.0</button>
           ${currentCompany?.gdprConsentTimestamp?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(currentCompany.gdprConsentTimestamp)}</div>`:''}
         </div>
       </div>
