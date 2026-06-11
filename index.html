@@ -11553,6 +11553,7 @@ function requestPurchase(){
     history:[{status:'submitted',at:new Date().toISOString(),by:'user'}]
   });
   DB.setPurchaseRequests(requests);
+  _supaSyncAwait('co_admin', 'purchase_requests', requests);
   // Notify admin
   createNotification({recipientId:'admin',recipientRole:'admin',
     companyId:currentCompany.id,companyName:currentCompany.name,
@@ -11640,13 +11641,14 @@ function adminForceStatus(type, reqId, newStatus){
   reqs[idx].updatedAt = new Date().toISOString();
   if(['approved','rejected','completed'].includes(newStatus)) reqs[idx].resolvedAt = new Date().toISOString();
   setter(reqs);
+  _supaSyncAwait('co_admin', type==='purchase' ? 'purchase_requests' : 'renewal_requests', reqs);
   updatePurchaseBadge();
   updateRenewalBadge();
   showToast('Stato aggiornato: '+old+' → '+newStatus,'success');
   renderAdminTab();
 }
 
-function adminSetRequestStatus(dbGetter, dbSetter, reqId, newStatus, extraFields){
+function adminSetRequestStatus(dbGetter, dbSetter, reqId, newStatus, extraFields, storeKey){
   const requests=dbGetter();
   const req=requests.find(r=>r.id===reqId);
   if(!req)return null;
@@ -11656,6 +11658,7 @@ function adminSetRequestStatus(dbGetter, dbSetter, reqId, newStatus, extraFields
   req.history.push({status:newStatus,at:new Date().toISOString(),by:'admin',...extraFields});
   Object.assign(req,extraFields);
   dbSetter(requests);
+  _supaSyncAwait('co_admin', storeKey, requests);
   return req;
 }
 
@@ -11665,7 +11668,7 @@ function adminPurchaseProcess(reqId){
   const note=document.getElementById('apur-note-'+reqId)?.value.trim()||'';
   if(!instr){showToast('Inserisci le istruzioni di pagamento per il cliente','error');return;}
   adminSetRequestStatus(DB.getPurchaseRequests.bind(DB),DB.setPurchaseRequests.bind(DB),
-    reqId,'processing',{paymentInstructions:instr,adminNote:note});
+    reqId,'processing',{paymentInstructions:instr,adminNote:note},'purchase_requests');
   // Notify user
   const _req1=DB.getPurchaseRequests().find(r=>r.id===reqId);
   if(_req1){const _us1=DB.getUsers().filter(u=>u.companyId===_req1.companyId);
@@ -11681,7 +11684,7 @@ function adminPurchaseProcess(reqId){
 function adminPurchaseConfirmPaid(reqId){
   const note=document.getElementById('apur-note2-'+reqId)?.value.trim()||'';
   adminSetRequestStatus(DB.getPurchaseRequests.bind(DB),DB.setPurchaseRequests.bind(DB),
-    reqId,'paid',{adminNote:note,paidAt:new Date().toISOString()});
+    reqId,'paid',{adminNote:note,paidAt:new Date().toISOString()},'purchase_requests');
   // Notify user
   const _req2=DB.getPurchaseRequests().find(r=>r.id===reqId);
   if(_req2){const _us2=DB.getUsers().filter(u=>u.companyId===_req2.companyId);
@@ -11697,7 +11700,7 @@ function adminPurchaseConfirmPaid(reqId){
 function adminPurchasePayFailed(reqId){
   const note=document.getElementById('apur-note2-'+reqId)?.value.trim()||'';
   adminSetRequestStatus(DB.getPurchaseRequests.bind(DB),DB.setPurchaseRequests.bind(DB),
-    reqId,'payment_failed',{adminNote:note});
+    reqId,'payment_failed',{adminNote:note},'purchase_requests');
   // Notify user
   const _req3=DB.getPurchaseRequests().find(r=>r.id===reqId);
   if(_req3){const _us3=DB.getUsers().filter(u=>u.companyId===_req3.companyId);
@@ -11808,7 +11811,7 @@ function adminApprovePurchase(reqId){
   const note=document.getElementById('apur-note3-'+reqId)?.value.trim()||'';
   const now=new Date();
   const req=adminSetRequestStatus(DB.getPurchaseRequests.bind(DB),DB.setPurchaseRequests.bind(DB),
-    reqId,'approved',{adminNote:note,resolvedAt:now.toISOString()});
+    reqId,'approved',{adminNote:note,resolvedAt:now.toISOString()},'purchase_requests');
   if(!req)return;
   const companies=DB.getCompanies();
   const coIdx=companies.findIndex(c=>c.id===req.companyId);
@@ -11916,7 +11919,7 @@ function adminApprovePurchase(reqId){
 function adminRejectPurchase(reqId){
   const note=document.getElementById('apur-note-rej-'+reqId)?.value.trim()||'';
   adminSetRequestStatus(DB.getPurchaseRequests.bind(DB),DB.setPurchaseRequests.bind(DB),
-    reqId,'rejected',{adminNote:note,resolvedAt:new Date().toISOString()});
+    reqId,'rejected',{adminNote:note,resolvedAt:new Date().toISOString()},'purchase_requests');
   // Notify user
   const _reqRj=DB.getPurchaseRequests().find(r=>r.id===reqId);
   if(_reqRj){const _usRj=DB.getUsers().filter(u=>u.companyId===_reqRj.companyId);
@@ -11935,7 +11938,7 @@ function adminRenewalProcess(reqId){
   const note=document.getElementById('aren-note-'+reqId)?.value.trim()||'';
   if(!instr){showToast('Inserisci le istruzioni di pagamento per il cliente','error');return;}
   adminSetRequestStatus(DB.getRenewalRequests.bind(DB),DB.setRenewalRequests.bind(DB),
-    reqId,'processing',{paymentInstructions:instr,adminNote:note});
+    reqId,'processing',{paymentInstructions:instr,adminNote:note},'renewal_requests');
   const _reqRP=DB.getRenewalRequests().find(r=>r.id===reqId);
   if(_reqRP){const _usRP=DB.getUsers().filter(u=>u.companyId===_reqRP.companyId);
     _usRP.forEach(u=>createNotification({recipientId:u.id,recipientRole:'user',
@@ -11950,7 +11953,7 @@ function adminRenewalProcess(reqId){
 function adminRenewalConfirmPaid(reqId){
   const note=document.getElementById('aren-note2-'+reqId)?.value.trim()||'';
   adminSetRequestStatus(DB.getRenewalRequests.bind(DB),DB.setRenewalRequests.bind(DB),
-    reqId,'paid',{adminNote:note,paidAt:new Date().toISOString()});
+    reqId,'paid',{adminNote:note,paidAt:new Date().toISOString()},'renewal_requests');
   const _reqRCP=DB.getRenewalRequests().find(r=>r.id===reqId);
   if(_reqRCP){const _usRCP=DB.getUsers().filter(u=>u.companyId===_reqRCP.companyId);
     _usRCP.forEach(u=>createNotification({recipientId:u.id,recipientRole:'user',
@@ -11965,7 +11968,7 @@ function adminRenewalConfirmPaid(reqId){
 function adminRenewalPayFailed(reqId){
   const note=document.getElementById('aren-note2-'+reqId)?.value.trim()||'';
   adminSetRequestStatus(DB.getRenewalRequests.bind(DB),DB.setRenewalRequests.bind(DB),
-    reqId,'payment_failed',{adminNote:note});
+    reqId,'payment_failed',{adminNote:note},'renewal_requests');
   const _reqRPF=DB.getRenewalRequests().find(r=>r.id===reqId);
   if(_reqRPF){const _usRPF=DB.getUsers().filter(u=>u.companyId===_reqRPF.companyId);
     _usRPF.forEach(u=>createNotification({recipientId:u.id,recipientRole:'user',
@@ -11982,7 +11985,7 @@ function adminApproveRenewal(reqId){
   const note=document.getElementById('aren-note3-'+reqId)?.value.trim()||'';
   const now=new Date();
   const req=adminSetRequestStatus(DB.getRenewalRequests.bind(DB),DB.setRenewalRequests.bind(DB),
-    reqId,'approved',{adminNote:note,resolvedAt:now.toISOString()});
+    reqId,'approved',{adminNote:note,resolvedAt:now.toISOString()},'renewal_requests');
   if(!req)return;
   const companies=DB.getCompanies();
   const coIdx=companies.findIndex(c=>c.id===req.companyId);
@@ -12040,7 +12043,7 @@ function adminApproveRenewal(reqId){
 function adminRejectRenewal(reqId){
   const note=document.getElementById('aren-note-rej-'+reqId)?.value.trim()||'';
   adminSetRequestStatus(DB.getRenewalRequests.bind(DB),DB.setRenewalRequests.bind(DB),
-    reqId,'rejected',{adminNote:note,resolvedAt:new Date().toISOString()});
+    reqId,'rejected',{adminNote:note,resolvedAt:new Date().toISOString()},'renewal_requests');
   // Notify user
   const _reqRJR=DB.getRenewalRequests().find(r=>r.id===reqId);
   if(_reqRJR){const _usRJR=DB.getUsers().filter(u=>u.companyId===_reqRJR.companyId);
