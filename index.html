@@ -8727,6 +8727,7 @@ async function _acceptManleva(){
   if(!user||!co){showToast('Errore: sessione scaduta','error');return;}
   const companies=DB.getCompanies();
   const idx=companies.findIndex(c=>c.id===co.id);
+  console.log('[manleva-debug] co.id=', co.id, 'idx=', idx, 'companies.length=', companies.length, 'ids=', companies.map(c=>c.id));
   if(idx>=0){
     companies[idx].dataOwnershipDeclared=true;
     if(!companies[idx].dataOwnershipDeclaredAt) companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
