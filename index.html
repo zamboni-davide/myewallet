@@ -8638,15 +8638,33 @@ function _showManlevaModal(user,co){
       <div style="background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:18px">
         <p style="font-size:13px;color:#334155;line-height:1.65;margin:0"><strong style="display:block;margin-bottom:8px">Dichiarazione di titolarità e responsabilità dei dati</strong>Dichiari che i dati caricati su MyEwallet® sono di tua esclusiva proprietà o che hai pieno titolo a trattarli. In caso di utilizzo di banche dati acquisite da terze parti o tramite attività di lead generation, dichiari di manlevare Studio Zamboni da ogni responsabilità legale derivante dall'utilizzo di tali dati.</p>
       </div>
-      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:18px;padding:12px;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:8px">
-        <input type="checkbox" id="manleva-check" onchange="const b=document.getElementById('manleva-btn');b.disabled=!this.checked;b.style.opacity=this.checked?'1':'0.5';" style="margin-top:2px;accent-color:#041348;width:15px;height:15px;flex-shrink:0">
-        <span style="font-size:13px;color:#0C4A6E;font-weight:600">Dichiaro e accetto</span>
-      </label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
+          <input type="checkbox" id="manleva-check" onchange="_manlevaCheck()" style="margin-top:2px;accent-color:#041348;width:15px;height:15px;flex-shrink:0">
+          <span style="font-size:13px;color:#0C4A6E;font-weight:600">Dichiaro e accetto la titolarità e responsabilità dei dati</span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
+          <input type="checkbox" id="manleva-tc" onchange="_manlevaCheck()" style="margin-top:2px;accent-color:#041348;width:15px;height:15px;flex-shrink:0">
+          <span style="font-size:13px;color:#334155">Accetto i <strong>Termini e Condizioni B2B</strong> — <a href="javascript:void(0)" onclick="showDocPopup('tc-b2b')" style="color:#041348;text-decoration:underline">Leggi</a></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
+          <input type="checkbox" id="manleva-pp" onchange="_manlevaCheck()" style="margin-top:2px;accent-color:#041348;width:15px;height:15px;flex-shrink:0">
+          <span style="font-size:13px;color:#334155">Accetto la <strong>Privacy Policy</strong> — <a href="javascript:void(0)" onclick="showDocPopup('privacy')" style="color:#041348;text-decoration:underline">Leggi</a></span>
+        </label>
+      </div>
       <button id="manleva-btn" class="btn btn-primary" style="width:100%;opacity:0.5" disabled onclick="_acceptManleva()">Accetto e accedo</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
   document.getElementById('auth-screen')?.classList.add('hidden');
+}
+
+function _manlevaCheck(){
+  const ok=document.getElementById('manleva-check')?.checked&&
+           document.getElementById('manleva-tc')?.checked&&
+           document.getElementById('manleva-pp')?.checked;
+  const b=document.getElementById('manleva-btn');
+  if(b){b.disabled=!ok;b.style.opacity=ok?'1':'0.5';}
 }
 
 async function _acceptManleva(){
@@ -8660,6 +8678,12 @@ async function _acceptManleva(){
   if(idx>=0){
     companies[idx].dataOwnershipDeclared=true;
     companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
+    const tosV=getCurrentTermsVersion('tos');
+    const privV=getCurrentTermsVersion('privacy');
+    saveUserConsent(user.id,'tos',tosV.version,tosV.contentHash,
+      {label:"Accetto i Termini e Condizioni B2B"});
+    saveUserConsent(user.id,'privacy',privV.version,privV.contentHash,
+      {label:"Accetto la Privacy Policy"});
     DB.setCompanies(companies);
     try{await _supaSyncAwait('co_admin','companies',companies);}catch{}
   }
