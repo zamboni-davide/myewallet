@@ -7903,18 +7903,16 @@ function renderSuLegali(){
   const user=currentUser;
   const co=currentCompany;
   const acceptedAt=user.termsAcceptedAt;
-  const tosV=getCurrentTermsVersion('tos');
-  const privV=getCurrentTermsVersion('privacy');
   const manlevaDate=co.dataOwnershipDeclaredAt;
   return `<div class="settings-section">
     <div class="settings-section-title">Documenti Legali</div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('tc-b2b')">T&amp;C B2B v${esc(tosV.version)}</button>
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('tc-b2b')">T&amp;C B2B v1.2</button>
         ${acceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('privacy')">Privacy Policy v${esc(privV.version)}</button>
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('privacy')">Privacy Policy v1.0</button>
         ${acceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
@@ -8732,8 +8730,10 @@ async function _acceptManleva(){
   if(idx>=0){
     companies[idx].dataOwnershipDeclared=true;
     companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
+    co.dataOwnershipDeclared=true;
+    co.dataOwnershipDeclaredAt=companies[idx].dataOwnershipDeclaredAt;
     DB.setCompanies(companies);
-    try{await _supaSyncAwait('co_admin','companies',companies);}catch{}
+    try{await _supaSyncAwait('co_admin','companies',companies);}catch(e){console.error('[manleva] sync companies fallita:',e);}
     const allUsers=DB.getUsers();
     const uIdx=allUsers.findIndex(u=>u.id===user.id);
     if(uIdx>=0&&!allUsers[uIdx].termsAcceptedAt){
