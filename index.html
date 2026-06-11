@@ -2318,7 +2318,7 @@ async function _supaLoadAll(companyId) {
   // Keys whose arrays must be MERGED (not replaced) with localStorage.
   // Prevents losing records written locally when Supabase sync was blocked
   // (e.g. non-admin RLS write rejection) or lost due to logout race condition.
-  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations','p2p_convs','contacts','doc_shares']);
+  const _MERGE_KEYS = new Set(['users','companies','notifications','conversations','p2p_convs','contacts','doc_shares','purchase_requests','renewal_requests']);
   try {
     const { data, error } = await _supa.from('company_store')
       .select('store_key,store_value')
