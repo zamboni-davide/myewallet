@@ -8729,7 +8729,7 @@ async function _acceptManleva(){
   const idx=companies.findIndex(c=>c.id===co.id);
   if(idx>=0){
     companies[idx].dataOwnershipDeclared=true;
-    companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
+    if(!companies[idx].dataOwnershipDeclaredAt) companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
     co.dataOwnershipDeclared=true;
     co.dataOwnershipDeclaredAt=companies[idx].dataOwnershipDeclaredAt;
     DB.setCompanies(companies);
