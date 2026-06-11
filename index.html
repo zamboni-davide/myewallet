@@ -7876,17 +7876,66 @@ function suLogout(){
   logout();
 }
 
+function showManlevaTextModal(){
+  const existing=document.getElementById('manleva-read-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='manleva-read-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:540px;width:100%">
+    <div class="modal-header" style="display:flex;align-items:center;justify-content:space-between">
+      <h2 class="modal-title">Dichiarazione di titolarità dei dati</h2>
+      <button onclick="document.getElementById('manleva-read-overlay').remove()" style="background:transparent;border:none;font-size:20px;cursor:pointer;color:#64748b;line-height:1">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:16px">
+        <p style="font-size:13px;color:#334155;line-height:1.65;margin:0"><strong style="display:block;margin-bottom:8px">Dichiarazione di titolarità e responsabilità dei dati</strong>Dichiari che i dati caricati su MyEwallet® sono di tua esclusiva proprietà o che hai pieno titolo a trattarli. In caso di utilizzo di banche dati acquisite da terze parti o tramite attività di lead generation, dichiari di manlevare Studio Zamboni da ogni responsabilità legale derivante dall'utilizzo di tali dati.</p>
+      </div>
+      <div style="margin-top:16px;text-align:right">
+        <button class="btn btn-secondary" onclick="document.getElementById('manleva-read-overlay').remove()">Chiudi</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function renderSuLegali(){
+  const user=currentUser;
+  const co=currentCompany;
+  const consents=DB.getUserConsents().filter(c=>c.userId===user.id&&c.isValid);
+  const tosC=consents.filter(c=>c.docType==='tos').sort((a,b)=>new Date(b.acceptedAt)-new Date(a.acceptedAt))[0];
+  const privC=consents.filter(c=>c.docType==='privacy').sort((a,b)=>new Date(b.acceptedAt)-new Date(a.acceptedAt))[0];
+  const manlevaDate=co.dataOwnershipDeclaredAt;
+  return `<div class="settings-section">
+    <div class="settings-section-title">Documenti Legali</div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('tc-b2b')">T&amp;C B2B${tosC?' v'+esc(tosC.docVersion):''}</button>
+        ${tosC?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(tosC.acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('privacy')">Privacy Policy${privC?' v'+esc(privC.docVersion):''}</button>
+        ${privC?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(privC.acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showManlevaTextModal()">Dichiarazione Manleva</button>
+        ${manlevaDate?`<div style="font-size:10px;color:#64748b">Dichiarata il ${formatDate(manlevaDate)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora dichiarata</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderSuperUserPanel(){
   const suScreen=document.getElementById('superuser-screen');
   if(!suScreen)return;
   const co=currentCompany;
   const catLabel=suCatLabel(co.superuserCategory);
   const ac=_activeCollaborator;
-  const allTabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['profile','Il mio profilo'],['collaboratori','Collaboratori']];
+  const allTabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['profile','Il mio profilo'],['collaboratori','Collaboratori'],['legali','Documenti Legali']];
   let visibleTabs;
   if(ac){
     visibleTabs=allTabs.filter(([id])=>{
-      if(id==='collaboratori'||id==='profile')return false;
+      if(id==='collaboratori'||id==='profile'||id==='legali')return false;
       if(id==='comm')return ac.permessi?.chat!==false;
       if(id==='docs')return ac.permessi?.condivisioneDocumenti!==false;
       if(id==='clients')return ac.permessi?.aggiuntaClienti!==false;
@@ -7902,6 +7951,7 @@ function renderSuperUserPanel(){
   else if(suTab==='docs')content=renderSuDocs();
   else if(suTab==='profile')content=renderSuProfile();
   else if(suTab==='collaboratori')content=renderSuCollaboratori();
+  else if(suTab==='legali')content=renderSuLegali();
   const collsAttivi=!ac?DB.getCollaboratori(co.id).filter(c=>c.stato==='attivo'):[];
   const acBanner=ac?`<div style="background:#051a4a;border-bottom:2px solid #C9A84C;padding:9px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div style="color:#fff;font-size:12px"><span style="color:#C9A84C;font-weight:700">Stai operando come:</span> ${esc(ac.nome)} ${esc(ac.cognome)} — <span style="color:#C9A84C">${esc(ac.ruolo)}</span></div><button onclick="suBackFromCollaboratore()" style="background:transparent;border:1px solid rgba(255,255,255,0.4);color:rgba(255,255,255,0.85);padding:4px 12px;border-radius:6px;font-size:11px;cursor:pointer;white-space:nowrap">Torna al profilo principale</button></div>`:'';
   suScreen.innerHTML=`<div style="min-height:100vh;background:#f0f4f8">
@@ -8849,10 +8899,11 @@ function adminDeleteUser(userId){
       const okBtn2=document.getElementById('confirm-ok-btn');
       okBtn2.textContent='Conferma eliminazione';
       okBtn2.style.display='';
-      confirmCallback=()=>{
+      confirmCallback=async()=>{
         okBtn2.textContent='Elimina';
         const all=DB.getUsers().filter(x=>x.id!==userId);
         DB.setUsers(all);
+        try{await _supaSyncAwait('co_admin','users',all);}catch(e){console.warn('Sync delete failed',e);}
         showToast('Utente eliminato','success');
         renderAdmin(document.getElementById('main-page'));
       };
