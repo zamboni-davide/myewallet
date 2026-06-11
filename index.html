@@ -7902,20 +7902,20 @@ function showManlevaTextModal(){
 function renderSuLegali(){
   const user=currentUser;
   const co=currentCompany;
-  const consents=DB.getUserConsents().filter(c=>c.userId===user.id&&c.isValid);
-  const tosC=consents.filter(c=>c.docType==='tos').sort((a,b)=>new Date(b.acceptedAt)-new Date(a.acceptedAt))[0];
-  const privC=consents.filter(c=>c.docType==='privacy').sort((a,b)=>new Date(b.acceptedAt)-new Date(a.acceptedAt))[0];
+  const acceptedAt=user.termsAcceptedAt;
+  const tosV=getCurrentTermsVersion('tos');
+  const privV=getCurrentTermsVersion('privacy');
   const manlevaDate=co.dataOwnershipDeclaredAt;
   return `<div class="settings-section">
     <div class="settings-section-title">Documenti Legali</div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('tc-b2b')">T&amp;C B2B${tosC?' v'+esc(tosC.docVersion):''}</button>
-        ${tosC?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(tosC.acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('tc-b2b')">T&amp;C B2B v${esc(tosV.version)}</button>
+        ${acceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
-        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('privacy')">Privacy Policy${privC?' v'+esc(privC.docVersion):''}</button>
-        ${privC?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(privC.acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
+        <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showDocPopup('privacy')">Privacy Policy v${esc(privV.version)}</button>
+        ${acceptedAt?`<div style="font-size:10px;color:#64748b">Accettato il ${formatDate(acceptedAt)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora accettato</div>'}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
         <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showManlevaTextModal()">Dichiarazione Manleva</button>
@@ -8732,14 +8732,15 @@ async function _acceptManleva(){
   if(idx>=0){
     companies[idx].dataOwnershipDeclared=true;
     companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
-    const tosV=getCurrentTermsVersion('tos');
-    const privV=getCurrentTermsVersion('privacy');
-    saveUserConsent(user.id,'tos',tosV.version,tosV.contentHash,
-      {label:"Accetto i Termini e Condizioni B2B"});
-    saveUserConsent(user.id,'privacy',privV.version,privV.contentHash,
-      {label:"Accetto la Privacy Policy"});
     DB.setCompanies(companies);
     try{await _supaSyncAwait('co_admin','companies',companies);}catch{}
+    const allUsers=DB.getUsers();
+    const uIdx=allUsers.findIndex(u=>u.id===user.id);
+    if(uIdx>=0&&!allUsers[uIdx].termsAcceptedAt){
+      allUsers[uIdx].termsAcceptedAt=new Date().toISOString();
+      DB.setUsers(allUsers);
+      try{await _supaSyncAwait('co_admin','users',allUsers);}catch{}
+    }
   }
   document.getElementById('manleva-overlay')?.remove();
   _pendingManlevaUser=null;
