@@ -3495,7 +3495,7 @@ function checkSignatureReminders(){
 
 function startApp(user,co){
   if(getIsSuperUser(co)){
-    if(!co.dataOwnershipDeclared){_showManlevaModal(user,co);}
+    if(!co.dataOwnershipDeclared && localStorage.getItem('pda_manleva_done_'+co.id)!=='1'){_showManlevaModal(user,co);}
     else{renderSuperUserApp(user,co);}
     return;
   }
@@ -8732,6 +8732,7 @@ async function _acceptManleva(){
     companies[idx].dataOwnershipDeclared=true;
     if(!companies[idx].dataOwnershipDeclaredAt) companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
     co.dataOwnershipDeclared=true;
+    try{localStorage.setItem('pda_manleva_done_'+co.id,'1');}catch{}
     co.dataOwnershipDeclaredAt=companies[idx].dataOwnershipDeclaredAt;
     DB.setCompanies(companies);
     try{await _supaSyncAwait('co_admin','companies',companies);}catch(e){console.error('[manleva] sync companies fallita:',e);}
