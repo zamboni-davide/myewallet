@@ -3495,7 +3495,7 @@ function checkSignatureReminders(){
 
 function startApp(user,co){
   if(getIsSuperUser(co)){
-    if(!co.dataOwnershipDeclared && localStorage.getItem('pda_manleva_done_'+co.id)!=='1'){_showManlevaModal(user,co);}
+    if(!co.dataOwnershipDeclared && !localStorage.getItem('pda_manleva_done_'+co.id)){_showManlevaModal(user,co);}
     else{renderSuperUserApp(user,co);}
     return;
   }
@@ -7903,7 +7903,7 @@ function renderSuLegali(){
   const user=currentUser;
   const co=currentCompany;
   const acceptedAt=user.termsAcceptedAt;
-  const manlevaDate=co.dataOwnershipDeclaredAt;
+  const manlevaDate=co.dataOwnershipDeclaredAt||localStorage.getItem('pda_manleva_done_'+co.id);
   return `<div class="settings-section">
     <div class="settings-section-title">Documenti Legali</div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
@@ -8732,7 +8732,11 @@ async function _acceptManleva(){
     companies[idx].dataOwnershipDeclared=true;
     if(!companies[idx].dataOwnershipDeclaredAt) companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
     co.dataOwnershipDeclared=true;
-    try{localStorage.setItem('pda_manleva_done_'+co.id,'1');}catch{}
+    try{
+      if(!localStorage.getItem('pda_manleva_done_'+co.id)){
+        localStorage.setItem('pda_manleva_done_'+co.id, companies[idx].dataOwnershipDeclaredAt);
+      }
+    }catch{}
     co.dataOwnershipDeclaredAt=companies[idx].dataOwnershipDeclaredAt;
     DB.setCompanies(companies);
     try{await _supaSyncAwait('co_admin','companies',companies);}catch(e){console.error('[manleva] sync companies fallita:',e);}
