@@ -4746,7 +4746,6 @@ let _activeCollaborator=null;
 let _suCollPresenzaId=null;
 let _pendingManlevaUser=null;
 let _pendingManlevaCo=null;
-let _suManlevaCache={};
 
 
 // ════════════════════════════════════════════════
@@ -7577,18 +7576,6 @@ async function adminCreateSuperUser(){
 
 function renderAdminSuperUsers(body){
   const superUsers=DB.getCompanies().filter(c=>c.role==='superuser');
-  (async()=>{
-    const ids=superUsers.map(s=>s.id);
-    if(!ids.length) return;
-    const needsFetch=ids.some(id=>!_suManlevaCache[id]);
-    if(!needsFetch) return;
-    try{
-      const {data,error}=await _supa.from('company_store').select('company_id,store_value').eq('store_key','manleva_status').in('company_id',ids);
-      if(error){console.error('[manleva-admin] fetch fallita:',error);return;}
-      data.forEach(r=>{let v=r.store_value;if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}  _suManlevaCache[r.company_id]=v;});
-      renderAdminTab();
-    }catch(e){console.error('[manleva-admin] errore:',e);}
-  })();
   body.innerHTML=`<div style="display:flex;flex-direction:column;gap:20px">
     <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
@@ -7603,7 +7590,7 @@ function renderAdminSuperUsers(body){
               <div>
                 <div style="font-size:13px;font-weight:700;color:#041348">${esc(su.name)}</div>
                 <div style="font-size:11px;color:var(--text-muted)">${esc(su.email||'–')} · ${esc(suCatLabel(su.superuserCategory))}</div>
-                <div style="font-size:11px;margin-top:2px;color:${(()=>{const ms=_suManlevaCache[su.id];return ms?.declared?'#16a34a':'#DC2626';})()}">${(()=>{const ms=_suManlevaCache[su.id];return ms?.declared?'✅ Compliance dichiarata il '+formatDate(ms.declaredAt):'🔴 Primo accesso non ancora eseguito';})()}</div>
+                <div style="font-size:11px;margin-top:2px;color:${(()=>{const _n=DB.getNotifications().filter(n=>n.type==='compliance_accepted'&&n.companyId===su.id);const _l=_n.length?_n.reduce((a,b)=>new Date(b.createdAt)>new Date(a.createdAt)?b:a):null;return _l?.complianceData?.declared?'#16a34a':'#DC2626';})()}">${(()=>{const _n=DB.getNotifications().filter(n=>n.type==='compliance_accepted'&&n.companyId===su.id);const _l=_n.length?_n.reduce((a,b)=>new Date(b.createdAt)>new Date(a.createdAt)?b:a):null;const ms=_l?.complianceData;return ms?.declared?'✅ Compliance dichiarata il '+formatDate(ms.declaredAt):'🔴 Primo accesso non ancora eseguito';})()}</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -8755,6 +8742,13 @@ async function _acceptManleva(){
   const manlevaStatus={declared:true,declaredAt:new Date().toISOString(),termsAcceptedAt:new Date().toISOString()};
   DB.set('manleva_status',manlevaStatus);
   try{await _supaSyncAwait(co.id,'manleva_status',manlevaStatus);}catch(e){console.error('[manleva] sync fallita:',e);}
+  createNotification({
+    recipientId:'admin',recipientRole:'admin',
+    companyId:co.id,companyName:co.name,
+    type:'compliance_accepted',
+    message:`Compliance dichiarata da ${co.name}`,
+    complianceData:manlevaStatus
+  }).catch(e=>console.error('[manleva] notif fallita:',e));
   document.getElementById('manleva-overlay')?.remove();
   _pendingManlevaUser=null;
   _pendingManlevaCo=null;
@@ -10389,7 +10383,7 @@ function renderTicketThread(t, fromRole){
 // NOTIFICATION SYSTEM
 // ════════════════════════════════════════════════════════
 
-async function createNotification({recipientId, recipientRole, companyId, companyName, message, type='info', relatedRequestId=null, senderName='Studio Zamboni'}){
+async function createNotification({recipientId, recipientRole, companyId, companyName, message, type='info', relatedRequestId=null, senderName='Studio Zamboni', complianceData=null}){
   const notifs=DB.getNotifications();
   notifs.push({
     id:uid(),
@@ -10402,7 +10396,8 @@ async function createNotification({recipientId, recipientRole, companyId, compan
     senderName,
     read:false,
     createdAt:new Date().toISOString(),
-    relatedRequestId
+    relatedRequestId,
+    complianceData
   });
   DB.setNotifications(notifs);
   // Persist to Supabase immediately (awaited — prevents race with logout)
