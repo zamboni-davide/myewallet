@@ -7788,8 +7788,11 @@ function exportSuperUserCompliancePdf(){
     _pdfAddLine(ctx,'Categoria',suCatLabel(su.superuserCategory));
     _pdfAddLine(ctx,'Stato account',su.superuserActive?'Attivo':'Disattivo');
     _pdfSubSection(ctx,'Compliance / Manleva dati');
-    _pdfAddLine(ctx,'Stato compliance',su.dataOwnershipDeclared?'Dichiarata':'Primo accesso non ancora eseguito');
-    _pdfAddLine(ctx,'Data dichiarazione',su.dataOwnershipDeclaredAt?new Date(su.dataOwnershipDeclaredAt).toLocaleString('it-IT'):'–');
+    {const _n=DB.getNotifications().filter(n=>n.type==='compliance_accepted'&&n.companyId===su.id);
+    const _l=_n.length?_n.reduce((a,b)=>new Date(b.createdAt)>new Date(a.createdAt)?b:a):null;
+    const _ms=_l?.complianceData;
+    _pdfAddLine(ctx,'Stato compliance',_ms?.declared?'Dichiarata':'Primo accesso non ancora eseguito');
+    _pdfAddLine(ctx,'Data dichiarazione',_ms?.declaredAt?new Date(_ms.declaredAt).toLocaleString('it-IT'):'–');}
     _pdfAddLine(ctx,'Creato il',su.createdAt?new Date(su.createdAt).toLocaleString('it-IT'):'–');
     ctx.y+=4;
   });
