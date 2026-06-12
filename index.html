@@ -9396,6 +9396,8 @@ function renderSettingsMobile(main){
         </div>
         ${(()=>{
           const _pendingP=DB.getPurchaseRequests().find(r=>r.companyId===co.id&&PURCHASE_PENDING_STATES.includes(r.status));
+          const _pdM=DB.get('payment_declarations')||{};
+          const _displayStatusM=_pendingP?(_pdM[_pendingP.id]?'payment_pending':_pendingP.status):null;
           if(!ti.isTrial) return `<button onclick="requestMobilePurchase()" style="width:100%;margin-top:14px;background:var(--navy);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700">Rinnova / Cambia piano</button>`;
           if(_pendingP) return `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-top:12px">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -9403,8 +9405,8 @@ function renderSettingsMobile(main){
               <div style="font-size:11px;color:#64748b">${formatDate(_pendingP.requestedAt)}</div>
             </div>
             <div style="font-size:12px;color:#475569;margin-bottom:10px">Piano <strong>${_pendingP.planRequested}</strong> · ${_pendingP.paymentMethod||''}</div>
-            ${renderTimeline(_pendingP.status, null)}
-            ${_pendingP.status==='processing'&&_pendingP.paymentInstructions?`<button style="width:100%;margin-top:10px;background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer" onclick="userConfirmPaymentSent('${_pendingP.id}')">✅ Ho effettuato il pagamento</button>`:''}
+            ${renderTimeline(_displayStatusM, null)}
+            ${_displayStatusM==='processing'&&_pendingP.paymentInstructions?`<button style="width:100%;margin-top:10px;background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer" onclick="userConfirmPaymentSent('${_pendingP.id}')">✅ Ho effettuato il pagamento</button>`:''}
           </div>`;
           return `
             <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-light)">
@@ -9604,6 +9606,8 @@ function renderSettings(main){
   const _ACTIVE=PURCHASE_PENDING_STATES;
   const pendingRenewal=DB.getRenewalRequests().find(r=>r.companyId===co.id&&_ACTIVE.includes(r.status));
   const pendingPurchase=DB.getPurchaseRequests().find(r=>r.companyId===co.id&&_ACTIVE.includes(r.status));
+  const _pd=DB.get('payment_declarations')||{};
+  const _displayStatus=pendingPurchase?(_pd[pendingPurchase.id]?'payment_pending':pendingPurchase.status):null;
 
   const planCardClass=ps.status==='expiring'?'expiring':ps.status==='expired'?'expired':'active';
   const progressClass=ps.pct>50?'ok':ps.pct>20?'warn':'danger';
@@ -9767,8 +9771,8 @@ function renderSettings(main){
                   <div style="font-size:11px;color:#64748b">${formatDate(pendingPurchase.requestedAt)}</div>
                 </div>
                 <div style="font-size:12px;color:#475569;margin-bottom:10px">Piano <strong>${pendingPurchase.planRequested}</strong> · ${pendingPurchase.paymentMethod||''}</div>
-                ${renderTimeline(pendingPurchase.status, null)}
-                ${pendingPurchase.status==='processing'&&pendingPurchase.paymentInstructions?`<button style="width:100%;margin-top:10px;background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer" onclick="userConfirmPaymentSent('${pendingPurchase.id}')">✅ Ho effettuato il pagamento</button>`:''}
+                ${renderTimeline(_displayStatus, null)}
+                ${_displayStatus==='processing'&&pendingPurchase.paymentInstructions?`<button style="width:100%;margin-top:10px;background:#27AE60;color:#fff;border:none;border-radius:8px;padding:10px 14px;font-size:13px;font-weight:700;cursor:pointer" onclick="userConfirmPaymentSent('${pendingPurchase.id}')">✅ Ho effettuato il pagamento</button>`:''}
               </div>`:`
               <div style="margin-bottom:12px">
                 <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px">Scegli il tuo piano</div>
@@ -11786,6 +11790,10 @@ async function userConfirmPaymentSent(reqId){
   req.history.push({status:'payment_pending',at:new Date().toISOString(),by:'user'});
   DB.setPurchaseRequests(requests);
   await _supaSyncAwait('co_admin','purchase_requests',requests);
+  const pd=DB.get('payment_declarations')||{};
+  pd[reqId]=new Date().toISOString();
+  DB.set('payment_declarations',pd);
+  try{await _supaSyncAwait(currentCompany.id,'payment_declarations',pd);}catch(e){console.error('[payment] sync fallita:',e);}
   createNotification({
     recipientId:'admin',recipientRole:'admin',
     companyId:currentCompany.id,companyName:currentCompany.name,
