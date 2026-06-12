@@ -12090,7 +12090,7 @@ function adminApprovePurchase(reqId){
       id:purchaseId,type:'activation',plan:req.planRequested,
       startDate:companies[coIdx].planStartDate,endDate:companies[coIdx].planEndDate,
       price:pd.price,iva,total:Math.round((pd.price+iva)*100)/100,
-      vatRate:pd.vatRate,createdAt:now.toISOString(),
+      vatRate:pd.vatRate,storageMB:pd.storageMB||200,createdAt:now.toISOString(),
       paymentMethod:req.paymentMethod||'',note:'Primo acquisto',
       adminSignedAt:now.toISOString(),
       adminSignedBy:'Studio Zamboni – Davide Pasquale Zamboni',
@@ -13297,9 +13297,7 @@ function generatePurchaseContract(purch, co, user){
   const fmtD=iso=>iso?new Date(iso).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}):'–';
   const typeLabel={activation:'Attivazione Piano',renewal:'Rinnovo Piano'};
   const contractNum='MEW-'+now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+purch.id.slice(-6).toUpperCase();
-  const plans=DB.getPlansConfig();
-  const pd=plans[purch.plan]||{storageMB:200};
-  const storageMB=pd.storageMB||200;
+  const storageMB=purch.storageMB||(()=>{const pd=DB.getPlansConfig()[purch.plan]||{};return pd.storageMB||200;})();
 
   return `<!DOCTYPE html>
 <html lang="it">
@@ -13335,7 +13333,7 @@ p{margin-bottom:8px;}ul{margin:5px 0 10px 18px;}li{margin-bottom:4px;}
   <div class="header">
     <div>
       <div style="margin-bottom:4px">${LOGO_PDF}</div>
-      <div style="font-size:9pt;color:#1A52D4;letter-spacing:0.1em;text-transform:uppercase;margin-top:2px">Contratto di Fornitura Servizi – \${typeLabel[purch.type]||purch.type}</div>
+      <div style="font-size:9pt;color:#1A52D4;letter-spacing:0.1em;text-transform:uppercase;margin-top:2px">Contratto di Fornitura Servizi – ${typeLabel[purch.type]||purch.type}</div>
     </div>
     <div class="header-meta">
       <strong>Studio Zamboni</strong><br>
