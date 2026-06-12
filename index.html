@@ -2326,16 +2326,22 @@ async function _supaLoadAll(companyId) {
       .eq('company_id', companyId);
     if (error) { console.warn('[Supabase load]', error.message); return; }
     if (data && data.length > 0) {
+      const _tombRow=data.find(r=>r.store_key==='deleted_company_ids');
+      let _tVal=_tombRow?.store_value;
+      if(typeof _tVal==='string'){try{_tVal=JSON.parse(_tVal);}catch{_tVal=null;}}
+      const deletedIds=new Set(Array.isArray(_tVal)?_tVal:[]);
       data.forEach(row => {
         let val = row.store_value;
         if(typeof val === 'string'){try{val=JSON.parse(val);}catch{}}
         if(val === null || val === undefined) return;
+        if(row.store_key==='companies'&&Array.isArray(val)) val=val.filter(c=>!deletedIds.has(c.id));
+        if(row.store_key==='users'&&Array.isArray(val)) val=val.filter(u=>!deletedIds.has(u.companyId));
         // Merge arrays: keep any local record not yet in Supabase,
         // but also remove items deleted locally (honor deletions).
         if(Array.isArray(val) && _MERGE_KEYS.has(row.store_key)){
           try {
             const lsRaw = localStorage.getItem('pda_'+row.store_key);
-            const lsArr = lsRaw ? JSON.parse(lsRaw) : [];
+            let lsArr = lsRaw ? JSON.parse(lsRaw) : [];
             if(Array.isArray(lsArr) && lsArr.length > 0){
               if(row.store_key === 'doc_shares'){
                 // Status-wins merge: accepted > rejected > pending
@@ -2377,6 +2383,8 @@ async function _supaLoadAll(companyId) {
                 });
               } else {
                 // Standard merge for users/companies/notifications
+                if(row.store_key==='companies') lsArr=lsArr.filter(c=>!deletedIds.has(c.id));
+                if(row.store_key==='users') lsArr=lsArr.filter(u=>!deletedIds.has(u.companyId));
                 // Remove items deleted locally (in Supabase but not in localStorage)
                 const lsIds = new Set(lsArr.map(x=>x?.id).filter(Boolean));
                 val = val.filter(x => !x?.id || lsIds.has(x.id));
@@ -2613,7 +2621,7 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares','link_requests'];
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares','link_requests','deleted_company_ids'];
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
@@ -3495,7 +3503,8 @@ function checkSignatureReminders(){
 
 function startApp(user,co){
   if(getIsSuperUser(co)){
-    if(!co.dataOwnershipDeclared && !localStorage.getItem('pda_manleva_done_'+co.id)){_showManlevaModal(user,co);}
+    const ms=DB.get('manleva_status');
+    if(!ms?.declared){_showManlevaModal(user,co);}
     else{renderSuperUserApp(user,co);}
     return;
   }
@@ -4737,6 +4746,7 @@ let _activeCollaborator=null;
 let _suCollPresenzaId=null;
 let _pendingManlevaUser=null;
 let _pendingManlevaCo=null;
+let _suManlevaCache={};
 
 
 // ════════════════════════════════════════════════
@@ -7567,6 +7577,18 @@ async function adminCreateSuperUser(){
 
 function renderAdminSuperUsers(body){
   const superUsers=DB.getCompanies().filter(c=>c.role==='superuser');
+  (async()=>{
+    const ids=superUsers.map(s=>s.id);
+    if(!ids.length) return;
+    const needsFetch=ids.some(id=>!_suManlevaCache[id]);
+    if(!needsFetch) return;
+    try{
+      const {data,error}=await _supa.from('company_store').select('company_id,store_value').eq('store_key','manleva_status').in('company_id',ids);
+      if(error){console.error('[manleva-admin] fetch fallita:',error);return;}
+      data.forEach(r=>{let v=r.store_value;if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}  _suManlevaCache[r.company_id]=v;});
+      renderAdminTab();
+    }catch(e){console.error('[manleva-admin] errore:',e);}
+  })();
   body.innerHTML=`<div style="display:flex;flex-direction:column;gap:20px">
     <div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border-light)">
@@ -7581,7 +7603,7 @@ function renderAdminSuperUsers(body){
               <div>
                 <div style="font-size:13px;font-weight:700;color:#041348">${esc(su.name)}</div>
                 <div style="font-size:11px;color:var(--text-muted)">${esc(su.email||'–')} · ${esc(suCatLabel(su.superuserCategory))}</div>
-                <div style="font-size:11px;margin-top:2px;color:${su.dataOwnershipDeclared?'#16a34a':'#DC2626'}">${su.dataOwnershipDeclared?'✅ Compliance dichiarata il '+formatDate(su.dataOwnershipDeclaredAt):'🔴 Primo accesso non ancora eseguito'}</div>
+                <div style="font-size:11px;margin-top:2px;color:${(()=>{const ms=_suManlevaCache[su.id];return ms?.declared?'#16a34a':'#DC2626';})()}">${(()=>{const ms=_suManlevaCache[su.id];return ms?.declared?'✅ Compliance dichiarata il '+formatDate(ms.declaredAt):'🔴 Primo accesso non ancora eseguito';})()}</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -7903,7 +7925,8 @@ function renderSuLegali(){
   const user=currentUser;
   const co=currentCompany;
   const acceptedAt=user.termsAcceptedAt;
-  const manlevaDate=co.dataOwnershipDeclaredAt||localStorage.getItem('pda_manleva_done_'+co.id);
+  const ms=DB.get('manleva_status');
+  const manlevaDate=ms?.declaredAt;
   return `<div class="settings-section">
     <div class="settings-section-title">Documenti Legali</div>
     <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px">
@@ -7917,7 +7940,7 @@ function renderSuLegali(){
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-start;gap:3px">
         <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px" onclick="showManlevaTextModal()">Dichiarazione Manleva</button>
-        ${manlevaDate?`<div style="font-size:10px;color:#64748b">Dichiarata il ${formatDate(manlevaDate)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora dichiarata</div>'}
+        ${ms?.declared?`<div style="font-size:10px;color:#64748b">Dichiarata il ${formatDate(manlevaDate)}</div>`:'<div style="font-size:10px;color:#DC2626">Non ancora dichiarata</div>'}
       </div>
     </div>
   </div>`;
@@ -8728,16 +8751,10 @@ async function _acceptManleva(){
   const companies=DB.getCompanies();
   const idx=companies.findIndex(c=>c.id===co.id);
   console.log('[manleva-debug] co.id=', co.id, 'idx=', idx, 'companies.length=', companies.length, 'ids=', companies.map(c=>c.id));
+  const manlevaStatus={declared:true,declaredAt:new Date().toISOString()};
+  DB.set('manleva_status',manlevaStatus);
+  try{await _supaSyncAwait(co.id,'manleva_status',manlevaStatus);}catch(e){console.error('[manleva] sync fallita:',e);}
   if(idx>=0){
-    companies[idx].dataOwnershipDeclared=true;
-    if(!companies[idx].dataOwnershipDeclaredAt) companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
-    co.dataOwnershipDeclared=true;
-    try{
-      localStorage.setItem('pda_manleva_done_'+co.id, companies[idx].dataOwnershipDeclaredAt);
-    }catch{}
-    co.dataOwnershipDeclaredAt=companies[idx].dataOwnershipDeclaredAt;
-    DB.setCompanies(companies);
-    try{await _supaSyncAwait('co_admin','companies',companies);}catch(e){console.error('[manleva] sync companies fallita:',e);}
     const allUsers=DB.getUsers();
     const uIdx=allUsers.findIndex(u=>u.id===user.id);
     if(uIdx>=0&&!allUsers[uIdx].termsAcceptedAt){
@@ -9154,9 +9171,13 @@ async function adminDeleteCompany(coId){
     DB.setUsers(users);
     localStorage.removeItem('pda_docs_'+coId);
     localStorage.removeItem('collaboratori_'+coId);
+    const delIds=DB.get('deleted_company_ids')||[];
+    if(!delIds.includes(coId)) delIds.push(coId);
+    DB.set('deleted_company_ids',delIds);
     try{
       await _supaSyncAwait('co_admin','companies',companies);
       await _supaSyncAwait('co_admin','users',users);
+      await _supaSyncAwait('co_admin','deleted_company_ids',delIds);
     }catch(e){console.warn('Sync delete failed',e);}
     showToast('Azienda eliminata definitivamente','success');
     renderAdmin(document.getElementById('main-page'));
