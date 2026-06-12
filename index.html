@@ -3396,7 +3396,84 @@ function showDocPopup(doc){
 }
 
 function downloadUserDoc(type){
-  alert('Funzione in arrivo');
+  const docTypeMap={tc:'tos',privacy:'privacy',gdpr:'gdpr'};
+  const docLabels={tos:'Termini e Condizioni',privacy:'Privacy Policy',gdpr:'Informativa GDPR'};
+  const docType=docTypeMap[type];
+  if(!docType){showToast('Tipo documento non valido','error');return;}
+  const co=currentCompany||{name:'–',vatNumber:'',fiscalCode:'',email:''};
+  const user=currentUser||{name:'–',email:'–',id:''};
+  const year=STUDIO_INFO.year;
+  const now=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
+  const fmtD=iso=>iso?new Date(iso).toLocaleString('it-IT',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'–';
+  const consents=DB.getUserConsents().filter(c=>c.userId===user.id&&c.docType===docType&&c.isValid);
+  const latest=consents.length?consents.reduce((a,b)=>new Date(b.acceptedAt)>new Date(a.acceptedAt)?b:a):null;
+  const label=docLabels[docType];
+  const html=`<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MyEwallet – Certificato di Accettazione — ${label}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Georgia',serif;color:#1a1a2e;font-size:11pt;line-height:1.7;background:#fff;}
+.page{max-width:210mm;margin:0 auto;}
+.header{background:#041348;color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;}
+.header-meta{text-align:right;font-size:9pt;opacity:0.75;line-height:1.6;}
+.header-meta strong{color:#1A52D4;}
+.content{padding:22px 32px;}
+h2{font-size:10pt;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#fff;background:#041348;padding:5px 12px;margin:18px -32px 12px;border-left:4px solid #1A52D4;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.ib{background:#F4F3EF;border-radius:5px;padding:10px 13px;}
+.ib-l{font-size:8pt;color:#6B7280;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:2px;}
+.ib-v{font-size:11pt;font-weight:700;color:#041348;}
+.notice{border:2px solid #1A52D4;background:#FEF8EC;border-radius:5px;padding:11px 15px;margin:10px 0;font-size:10pt;}
+.notice.danger{border-color:#C0392B;background:#FEF2F2;}
+.notice.info{border-color:#2980B9;background:#EBF5FB;}
+.footer-doc{margin-top:24px;padding:10px 32px;background:#F4F3EF;font-size:8pt;color:#9CA3AF;text-align:center;border-top:1px solid #E5E0D5;}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}h2,.header{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <div style="margin-bottom:4px">${LOGO_PDF}</div>
+      <div style="font-size:9pt;color:#1A52D4;letter-spacing:0.1em;text-transform:uppercase;margin-top:4px">Certificato di Accettazione — ${esc(label)}</div>
+    </div>
+    <div class="header-meta">
+      <strong>Studio Zamboni</strong><br>
+      Via Perantoni Satta, 14 – 07100 Sassari<br>
+      consulenzesardegna@pec.it<br>
+      Generato il ${now}
+    </div>
+  </div>
+  <div class="content">
+    <h2>Dati Identificativi</h2>
+    <div class="grid2">
+      <div class="ib"><div class="ib-l">Azienda / Studio</div><div class="ib-v">${esc(co.name||'–')}</div></div>
+      <div class="ib"><div class="ib-l">Titolare</div><div class="ib-v">${esc(user.name||'–')}</div></div>
+      <div class="ib"><div class="ib-l">Email</div><div class="ib-v">${esc(user.email||'–')}</div></div>
+      <div class="ib"><div class="ib-l">P.IVA / C.F.</div><div class="ib-v">${esc(co.vatNumber||co.fiscalCode||'–')}</div></div>
+    </div>
+    <h2>Documento Accettato</h2>
+    <div class="grid2">
+      <div class="ib"><div class="ib-l">Documento</div><div class="ib-v">${esc(label)}</div></div>
+      <div class="ib"><div class="ib-l">Versione accettata</div><div class="ib-v">${esc(latest?.docVersion||'–')}</div></div>
+      <div class="ib"><div class="ib-l">Data accettazione</div><div class="ib-v">${latest?fmtD(latest.acceptedAt):'Non disponibile'}</div></div>
+      <div class="ib" style="grid-column:1/-1"><div class="ib-l">Riferimento integrità</div><div class="ib-v" style="font-size:8pt;word-break:break-all">${esc(latest?.docHash||'–')}</div></div>
+    </div>
+    ${latest
+      ?`<div class="notice info">ℹ️ Questo certificato attesta l’accettazione della versione del documento indicata, in vigore alla data sopra riportata. Il testo integrale è consultabile in piattaforma nella sezione Documenti Legali. Eventuali versioni successive del documento non sono retroattive rispetto a questa accettazione.</div>`
+      :`<div class="notice danger">⚠️ Non risulta un’accettazione registrata per questo documento sulla piattaforma.</div>`
+    }
+  </div>
+  <div class="footer-doc">
+    © ${year} Studio Zamboni · MyEwallet® è un marchio registrato di Studio Zamboni · Tutti i diritti riservati · Via Perantoni Satta, 14 – 07100 Sassari · consulenzesardegna@pec.it
+  </div>
+</div>
+</body>
+</html>`;
+  openDocModal(html,`Certificato di Accettazione — ${label}`);
 }
 function showRegTermsPreview(){
   const ut=document.getElementById('reg-usertype')?.value;
