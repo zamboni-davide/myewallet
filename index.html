@@ -8733,9 +8733,7 @@ async function _acceptManleva(){
     if(!companies[idx].dataOwnershipDeclaredAt) companies[idx].dataOwnershipDeclaredAt=new Date().toISOString();
     co.dataOwnershipDeclared=true;
     try{
-      if(!localStorage.getItem('pda_manleva_done_'+co.id)){
-        localStorage.setItem('pda_manleva_done_'+co.id, companies[idx].dataOwnershipDeclaredAt);
-      }
+      localStorage.setItem('pda_manleva_done_'+co.id, companies[idx].dataOwnershipDeclaredAt);
     }catch{}
     co.dataOwnershipDeclaredAt=companies[idx].dataOwnershipDeclaredAt;
     DB.setCompanies(companies);
