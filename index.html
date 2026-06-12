@@ -3406,7 +3406,12 @@ function downloadUserDoc(type){
   const now=new Date().toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'});
   const fmtD=iso=>iso?new Date(iso).toLocaleString('it-IT',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}):'–';
   const consents=DB.getUserConsents().filter(c=>c.userId===user.id&&c.docType===docType&&c.isValid);
-  const latest=consents.length?consents.reduce((a,b)=>new Date(b.acceptedAt)>new Date(a.acceptedAt)?b:a):null;
+  let latest=consents.length?consents.reduce((a,b)=>new Date(b.acceptedAt)>new Date(a.acceptedAt)?b:a):null;
+  let legacy=false;
+  if(!latest){
+    const legacyDate=docType==='gdpr'?(co.gdprConsentTimestamp||co.consentTimestamp):user.termsAcceptedAt;
+    if(legacyDate){latest={docVersion:null,docHash:null,acceptedAt:legacyDate};legacy=true;}
+  }
   const label=docLabels[docType];
   const html=`<!DOCTYPE html>
 <html lang="it">
@@ -3458,12 +3463,14 @@ h2{font-size:10pt;font-weight:700;letter-spacing:0.06em;text-transform:uppercase
     <h2>Documento Accettato</h2>
     <div class="grid2">
       <div class="ib"><div class="ib-l">Documento</div><div class="ib-v">${esc(label)}</div></div>
-      <div class="ib"><div class="ib-l">Versione accettata</div><div class="ib-v">${esc(latest?.docVersion||'–')}</div></div>
+      <div class="ib"><div class="ib-l">Versione accettata</div><div class="ib-v">${esc(latest?.docVersion||(legacy?'Non tracciata (registrazione precedente al sistema di versionamento)':'–'))}</div></div>
       <div class="ib"><div class="ib-l">Data accettazione</div><div class="ib-v">${latest?fmtD(latest.acceptedAt):'Non disponibile'}</div></div>
-      <div class="ib" style="grid-column:1/-1"><div class="ib-l">Riferimento integrità</div><div class="ib-v" style="font-size:8pt;word-break:break-all">${esc(latest?.docHash||'–')}</div></div>
+      <div class="ib" style="grid-column:1/-1"><div class="ib-l">Riferimento integrità</div><div class="ib-v" style="font-size:8pt;word-break:break-all">${latest?.docHash?esc(latest.docHash):(legacy?'Non disponibile per accettazioni di questo periodo':'–')}</div></div>
     </div>
     ${latest
-      ?`<div class="notice info">ℹ️ Questo certificato attesta l’accettazione della versione del documento indicata, in vigore alla data sopra riportata. Il testo integrale è consultabile in piattaforma nella sezione Documenti Legali. Eventuali versioni successive del documento non sono retroattive rispetto a questa accettazione.</div>`
+      ?(legacy
+        ?`<div class="notice info">ℹ️ Questo certificato attesta l’accettazione del documento alla data indicata. Il sistema di tracciamento versione/hash è stato introdotto successivamente a questa registrazione; il testo accettato corrisponde alla versione in vigore in piattaforma a quella data, consultabile su richiesta presso Studio Zamboni.</div>`
+        :`<div class="notice info">ℹ️ Questo certificato attesta l’accettazione della versione del documento indicata, in vigore alla data sopra riportata. Il testo integrale è consultabile in piattaforma nella sezione Documenti Legali. Eventuali versioni successive del documento non sono retroattive rispetto a questa accettazione.</div>`)
       :`<div class="notice danger">⚠️ Non risulta un’accettazione registrata per questo documento sulla piattaforma.</div>`
     }
   </div>
@@ -9794,7 +9801,7 @@ function renderSettings(main){
                 Invia Richiesta di Acquisto
               </button>`}
             ${(()=>{
-              const pr=DB.getPurchaseRequests().filter(r=>r.companyId===co.id).slice().reverse();
+              const pr=DB.getPurchaseRequests().filter(r=>r.companyId===co.id&&!(pendingPurchase&&r.id===pendingPurchase.id)).slice().reverse();
               if(!pr.length)return'';
               return`<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border-light)">
                 <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">Stato richieste di acquisto</div>
