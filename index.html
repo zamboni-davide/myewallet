@@ -13295,7 +13295,7 @@ function generatePurchaseContract(purch, co, user){
   // Build a specific contract stamped with purchase data
   const now=new Date(purch.createdAt||Date.now());
   const fmtD=iso=>iso?new Date(iso).toLocaleDateString('it-IT',{day:'2-digit',month:'long',year:'numeric'}):'–';
-  const typeLabel={activation:'Attivazione Piano',renewal:'Rinnovo Piano'};
+  const typeLabel={activation:'Attivazione Piano',renewal:'Rinnovo Piano',trial:'Attivazione Trial'};
   const contractNum='MEW-'+now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+purch.id.slice(-6).toUpperCase();
   const storageMB=purch.storageMB||(()=>{const pd=DB.getPlansConfig()[purch.plan]||{};return pd.storageMB||200;})();
 
