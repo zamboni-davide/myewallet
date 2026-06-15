@@ -2627,9 +2627,9 @@ const DB = {
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
-  getUsers(){const v=this.get('users',[]); return Array.isArray(v)?v:[];},
+  getUsers(){const v=this.get('users',[]); const del=this.get('deleted_company_ids'); const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(u=>!delSet.has(u.companyId)):v):[];},
   setUsers(u){this.set('users',u);},
-  getCompanies(){const v=this.get('companies',[]); return Array.isArray(v)?v:[];},
+  getCompanies(){const v=this.get('companies',[]); const del=this.get('deleted_company_ids'); const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(c=>!delSet.has(c.id)):v):[];},
   setCompanies(c){this.set('companies',c);},
   getPlansConfig(){return this.get('plans_config',{
     FREE:        {price:0,   vatRate:0,  paymentMethods:[], notes:'', storageMB:50,  trialDays:30, trialDocLimit:15, isFree:true},
