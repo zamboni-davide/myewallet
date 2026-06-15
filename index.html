@@ -2298,6 +2298,7 @@ function _supaSync(companyId, key, value) {
 // Stores its Promise in window._pendingCritSync so logout() can await it.
 async function _supaSyncAwait(companyId, key, value) {
   if (!companyId) return;
+  if(key==='purchase_requests'){const _dbgR=Array.isArray(value)?value.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;if(_dbgR)console.warn('[_supaSyncAwait DBG] purchase_requests status='+_dbgR.status+' updatedAt='+_dbgR.updatedAt,new Error().stack.split('\n').slice(1,4).join(' | '));}
   const p = (async () => {
     try {
       const { data } = await _supa.auth.getSession();
