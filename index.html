@@ -2265,6 +2265,8 @@ const _supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
 // In-memory cache — populated from Supabase on login
 const _mem = {};
+let _suManlevaCache={};
+let _suManlevaCacheLoaded=false;
 
 // Async write to Supabase (fire-and-forget, never blocks UI)
 // ── Supabase sync via SDK — con patch anti-DataCloneError ──
@@ -3527,7 +3529,7 @@ async function logout(){
   try { if(window._pendingCritSync) await window._pendingCritSync; } catch {}
   window._pendingCritSync = null;
   _supa.auth.signOut().catch(()=>{});
-  DB.clearSession(); localStorage.removeItem('pda_role'); localStorage.removeItem('mew_re');currentUser=null;currentCompany=null;
+  DB.clearSession(); localStorage.removeItem('pda_role'); localStorage.removeItem('mew_re');currentUser=null;currentCompany=null;_suManlevaCache={};_suManlevaCacheLoaded=false;
   // Clear memory store
   Object.keys(_mem).forEach(k=>delete _mem[k]);
   // Reset nav badges
@@ -7674,7 +7676,7 @@ function renderAdminSuperUsers(body){
               <div>
                 <div style="font-size:13px;font-weight:700;color:#041348">${esc(su.name)}</div>
                 <div style="font-size:11px;color:var(--text-muted)">${esc(su.email||'–')} · ${esc(suCatLabel(su.superuserCategory))}</div>
-                <div style="font-size:11px;margin-top:2px;color:${(()=>{const _n=DB.getNotifications().filter(n=>n.type==='compliance_accepted'&&n.companyId===su.id);const _l=_n.length?_n.reduce((a,b)=>new Date(b.createdAt)>new Date(a.createdAt)?b:a):null;return _l?.complianceData?.declared?'#16a34a':'#DC2626';})()}">${(()=>{const _n=DB.getNotifications().filter(n=>n.type==='compliance_accepted'&&n.companyId===su.id);const _l=_n.length?_n.reduce((a,b)=>new Date(b.createdAt)>new Date(a.createdAt)?b:a):null;const ms=_l?.complianceData;return ms?.declared?'✅ Compliance dichiarata il '+formatDate(ms.declaredAt):'🔴 Primo accesso non ancora eseguito';})()}</div>
+                <div style="font-size:11px;margin-top:2px;color:${(()=>{const ms=_suManlevaCache[su.id];return ms?.declared?'#16a34a':'#DC2626';})()}">${(()=>{const ms=_suManlevaCache[su.id];return ms?.declared?'✅ Compliance dichiarata il '+formatDate(ms.declaredAt):'🔴 Primo accesso non ancora eseguito';})()}</div>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -7724,6 +7726,17 @@ function renderAdminSuperUsers(body){
       </div>
     </div>
   </div>`;
+  if(superUsers.length&&!_suManlevaCacheLoaded){
+    _suManlevaCacheLoaded=true;
+    (async()=>{
+      const ids=superUsers.map(s=>s.id);
+      const {data,error}=await _supa.from('company_store').select('company_id,store_value').eq('store_key','manleva_status').in('company_id',ids);
+      if(error){_suManlevaCacheLoaded=false;console.error('[compliance-admin] fetch fallita:',error);return;}
+      _suManlevaCache={};
+      (data||[]).forEach(row=>{let v=row.store_value;if(typeof v==='string')try{v=JSON.parse(v);}catch{v=null;}if(v&&typeof v==='object')_suManlevaCache[row.company_id]=v;});
+      renderAdminTab();
+    })();
+  }
 }
 
 // ── PDF Export helpers ────────────────────────────────────────────────────────
