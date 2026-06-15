@@ -2285,6 +2285,7 @@ function _supaSync(companyId, key, value) {
   // Salta sync se non c'è sessione attiva (es. durante registrazione)
   _supa.auth.getSession().then(({data})=>{
     if(!data?.session) return; // non autenticato, skip
+    if(key==='purchase_requests'){let _v=value;if(typeof _v==='string'){try{_v=JSON.parse(_v);}catch{}}const _r=Array.isArray(_v)?_v.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;console.warn('[UPSERT-SYNC] status='+_r?.status+' updatedAt='+_r?.updatedAt);}
     _supa.from('company_store')
       .upsert([{company_id:companyId,store_key:key,store_value:JSON.stringify(value),updated_at:new Date().toISOString()}],
               {onConflict:'company_id,store_key'})
@@ -2303,6 +2304,7 @@ async function _supaSyncAwait(companyId, key, value) {
     try {
       const { data } = await _supa.auth.getSession();
       if (!data?.session) return;
+      if(key==='purchase_requests'){let _v=value;if(typeof _v==='string'){try{_v=JSON.parse(_v);}catch{}}const _r=Array.isArray(_v)?_v.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;console.warn('[UPSERT-AWAIT] status='+_r?.status+' updatedAt='+_r?.updatedAt);}
       const { error } = await _supa.from('company_store')
         .upsert([{company_id:companyId, store_key:key,
                   store_value:JSON.stringify(value),
@@ -2620,6 +2622,7 @@ async function _supaUploadAll(companyId) {
   const _deviceLocalKeys = ['session','remember_email','re'];
   const filtered = upserts.filter(u=>!_deviceLocalKeys.some(k=>u.store_key===k||u.store_key.startsWith('re')));
   if (filtered.length === 0) return;
+  const _prVal=upserts.find(u=>u.store_key==='purchase_requests');if(_prVal){let _v=_prVal.store_value;if(typeof _v==='string'){try{_v=JSON.parse(_v);}catch{}}const _r=Array.isArray(_v)?_v.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;console.warn('[UPSERT-BULK] status='+_r?.status+' updatedAt='+_r?.updatedAt);}
   const { error } = await _supa.from('company_store')
     .upsert(filtered, { onConflict: 'company_id,store_key' });
   if (error && !error.message?.includes('clone')) console.warn('[Supabase upload]', error.message);
