@@ -8176,6 +8176,7 @@ async function suSendSingleLinkRequest(userId,companyId,name,email,btn){
   if(DB.getLinkRequests().some(r=>r.targetEmail===email&&r.superUserCompanyId===currentCompany.id&&r.status==='pending'))return;
   const req={id:uid(),superUserCompanyId:currentCompany.id,superUserName:currentCompany.name,targetEmail:email,targetUserId:userId,targetCompanyId:companyId,status:'pending',createdAt:new Date().toISOString()};
   const reqs=DB.getLinkRequests();reqs.push(req);DB.setLinkRequests(reqs);
+  await _supaSyncAwait('co_admin','link_requests',reqs);
   const targetCo=DB.getCompanies().find(c=>c.id===companyId);
   await createNotification({recipientId:userId,recipientRole:'user',companyId,companyName:targetCo?.name||'',message:`${currentCompany.name} ti ha inviato una richiesta di collegamento come Super User.`,type:'link_request',relatedRequestId:req.id,senderName:currentCompany.name});
   if(btn){btn.textContent='Inviata';btn.disabled=true;}
