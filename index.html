@@ -2603,12 +2603,16 @@ async function _supaUploadAll(companyId) {
   if (!companyId) return;
   const prefix = 'pda_';
   const upserts = [];
+  // Per chiavi critiche, usa _mem invece di localStorage (evita race condition)
+  const _memPriorityKeys = ['purchase_requests','renewal_requests'];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (!k || !k.startsWith(prefix)) continue;
     const key = k.slice(prefix.length);
     try {
-      const raw = localStorage.getItem(k);
+      const raw = _memPriorityKeys.includes(key) && _mem[key] !== undefined
+        ? JSON.stringify(_mem[key])
+        : localStorage.getItem(k);
       upserts.push({ company_id: companyId, store_key: key, store_value: raw, updated_at: new Date().toISOString() });
     } catch {}
   }
