@@ -8334,14 +8334,17 @@ async function acceptLinkRequest(requestId,notifId,event){
   if(!req||req.status!=='pending')return;
   req.status='accepted';req.acceptedAt=new Date().toISOString();
   DB.setLinkRequests(reqs);
+  await _supaSyncAwait('co_admin','link_requests',reqs);
   const users=DB.getUsers();
   const user=users.find(u=>u.id===req.targetUserId);
   if(user){user.superuserOwner=req.superUserCompanyId;user.linkedAt=new Date().toISOString();}
   DB.setUsers(users);
+  await _supaSyncAwait('co_admin','users',users);
   const notifs=DB.getNotifications();
   const n=notifs.find(x=>x.id===notifId);
   if(n){n.linkHandled=true;n.read=true;}
   DB.setNotifications(notifs);
+  await _supaSyncAwait('co_admin','notifications',notifs);
   showToast('Cliente collegato con successo','success');
   renderNotifPanel();
 }
@@ -8353,10 +8356,12 @@ async function rejectLinkRequest(requestId,notifId,event){
   if(!req)return;
   req.status='rejected';req.rejectedAt=new Date().toISOString();
   DB.setLinkRequests(reqs);
+  await _supaSyncAwait('co_admin','link_requests',reqs);
   const notifs=DB.getNotifications();
   const n=notifs.find(x=>x.id===notifId);
   if(n){n.linkHandled=true;n.read=true;}
   DB.setNotifications(notifs);
+  await _supaSyncAwait('co_admin','notifications',notifs);
   showToast('Richiesta rifiutata','info');
   renderNotifPanel();
 }
