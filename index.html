@@ -8584,7 +8584,7 @@ function suRevokaCollaboratore(collId){
       document.getElementById('confirm-text').innerHTML=`<strong>ATTENZIONE: azione irreversibile.</strong><br><br>Revocare definitivamente l'accesso a <strong>${esc(name)}</strong>?`;
       const okBtn2=document.getElementById('confirm-ok-btn');
       okBtn2.textContent='Conferma revoca';okBtn2.style.display='';
-      confirmCallback=()=>{
+      confirmCallback=async()=>{
         const cs2=DB.getCollaboratori(currentCompany.id);
         const i2=cs2.findIndex(c=>c.id===collId);
         if(i2>=0){
@@ -8593,6 +8593,7 @@ function suRevokaCollaboratore(collId){
           if(!cs2[i2].storico)cs2[i2].storico=[];
           cs2[i2].storico.push({at:new Date().toISOString(),azione:'revocato',da:currentUser.name||currentCompany.name});
           DB.setCollaboratori(currentCompany.id,cs2);
+          await _supaSyncAwait(currentCompany.id,'collaboratori_'+currentCompany.id,cs2);
         }
         if(_activeCollaborator?.id===collId)_activeCollaborator=null;
         showToast('Collaboratore revocato','success');
