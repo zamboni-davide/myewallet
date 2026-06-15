@@ -7976,11 +7976,8 @@ function renderSuperUserApp(user,co){
   if(!suScreen){
     suScreen=document.createElement('div');
     suScreen.id='superuser-screen';
-    suScreen.style.cssText='position:fixed;inset:0;overflow-y:auto;z-index:500;background:#f0f4f8';
+    suScreen.style.cssText='position:fixed;inset:0;overflow-y:auto;z-index:550;background:#f0f4f8';
     document.body.appendChild(suScreen);
-    // Sposta confirm-overlay dentro superuser-screen per gestire correttamente lo stacking context
-    const _confirmOverlay=document.getElementById('confirm-overlay');
-    if(_confirmOverlay)suScreen.appendChild(_confirmOverlay);
   }
   suScreen.style.display='';
   suTab='clients';
@@ -7992,11 +7989,7 @@ function setSuTab(t){suTab=t;renderSuperUserPanel();}
 
 function suLogout(){
   const suScreen=document.getElementById('superuser-screen');
-  if(suScreen){
-    const _confirmOverlay=document.getElementById('confirm-overlay');
-    if(_confirmOverlay)document.body.appendChild(_confirmOverlay);
-    suScreen.style.display='none';
-  }
+  if(suScreen)suScreen.style.display='none';
   document.getElementById('auth-screen')?.classList.remove('hidden');
   logout();
 }
