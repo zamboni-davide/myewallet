@@ -7978,9 +7978,11 @@ function renderSuperUserApp(user,co){
     suScreen.id='superuser-screen';
     suScreen.style.cssText='position:fixed;inset:0;overflow-y:auto;z-index:550;background:#f0f4f8';
     document.body.appendChild(suScreen);
-    // confirm-overlay è dentro #app-screen (display:none) — spostalo al body per renderlo accessibile dal pannello Super User
+    // confirm-overlay e toast-container sono dentro #app-screen (display:none) — spostali al body per renderli accessibili dal pannello Super User
     const _co=document.getElementById('confirm-overlay');
     if(_co&&_co.closest('#app-screen'))document.body.appendChild(_co);
+    const _tc=document.getElementById('toast-container');
+    if(_tc&&_tc.closest('#app-screen'))document.body.appendChild(_tc);
   }
   suScreen.style.display='';
   suTab='clients';
@@ -7997,6 +7999,8 @@ function suLogout(){
   const _co=document.getElementById('confirm-overlay');
   const _as=document.getElementById('app-screen');
   if(_co&&_as&&!_as.contains(_co))(_as.querySelector('.main-content')?.appendChild(_co))||_as.appendChild(_co);
+  const _tc2=document.getElementById('toast-container');
+  if(_tc2&&_as&&!_as.contains(_tc2))_as.appendChild(_tc2);
   logout();
 }
 
