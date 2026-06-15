@@ -2387,6 +2387,15 @@ async function _supaLoadAll(companyId) {
                 // Standard merge for users/companies/notifications
                 if(row.store_key==='companies') lsArr=lsArr.filter(c=>!deletedIds.has(c.id));
                 if(row.store_key==='users') lsArr=lsArr.filter(u=>!deletedIds.has(u.companyId));
+                // Per purchase/renewal requests: Supabase vince sempre sullo status
+                if(row.store_key==='purchase_requests'||row.store_key==='renewal_requests'){
+                  const supaIds=new Set(val.map(x=>x?.id).filter(Boolean));
+                  // Aggiungi solo record localStorage NON presenti su Supabase (nuovi, non ancora syncati)
+                  const lsOnly=lsArr.filter(x=>x?.id&&!supaIds.has(x.id));
+                  _mem[row.store_key]=[...val,...lsOnly];
+                  try{localStorage.setItem('pda_'+row.store_key,JSON.stringify(_mem[row.store_key]));}catch{}
+                  return;
+                }
                 // Remove items deleted locally (in Supabase but not in localStorage)
                 const lsIds = new Set(lsArr.map(x=>x?.id).filter(Boolean));
                 val = val.filter(x => !x?.id || lsIds.has(x.id));
