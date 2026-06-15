@@ -2281,11 +2281,9 @@ async function _supaGetToken(){
 
 function _supaSync(companyId, key, value) {
   if (!companyId) return;
-  if(key==='purchase_requests'){const _dbgR=Array.isArray(value)?value.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;if(_dbgR)console.warn('[_supaSync DBG] purchase_requests status='+_dbgR.status+' updatedAt='+_dbgR.updatedAt,new Error().stack.split('\n').slice(1,4).join(' | '));}
   // Salta sync se non c'è sessione attiva (es. durante registrazione)
   _supa.auth.getSession().then(({data})=>{
     if(!data?.session) return; // non autenticato, skip
-    if(key==='purchase_requests'){let _v=value;if(typeof _v==='string'){try{_v=JSON.parse(_v);}catch{}}const _r=Array.isArray(_v)?_v.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;console.warn('[UPSERT-SYNC] status='+_r?.status+' updatedAt='+_r?.updatedAt);}
     _supa.from('company_store')
       .upsert([{company_id:companyId,store_key:key,store_value:JSON.stringify(value),updated_at:new Date().toISOString()}],
               {onConflict:'company_id,store_key'})
@@ -2299,12 +2297,10 @@ function _supaSync(companyId, key, value) {
 // Stores its Promise in window._pendingCritSync so logout() can await it.
 async function _supaSyncAwait(companyId, key, value) {
   if (!companyId) return;
-  if(key==='purchase_requests'){const _dbgR=Array.isArray(value)?value.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;if(_dbgR)console.warn('[_supaSyncAwait DBG] purchase_requests status='+_dbgR.status+' updatedAt='+_dbgR.updatedAt,new Error().stack.split('\n').slice(1,4).join(' | '));}
   const p = (async () => {
     try {
       const { data } = await _supa.auth.getSession();
       if (!data?.session) return;
-      if(key==='purchase_requests'){let _v=value;if(typeof _v==='string'){try{_v=JSON.parse(_v);}catch{}}const _r=Array.isArray(_v)?_v.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;console.warn('[UPSERT-AWAIT] status='+_r?.status+' updatedAt='+_r?.updatedAt);}
       const { error } = await _supa.from('company_store')
         .upsert([{company_id:companyId, store_key:key,
                   store_value:JSON.stringify(value),
@@ -2605,24 +2601,19 @@ async function _supaUploadAll(companyId) {
   if (!companyId) return;
   const prefix = 'pda_';
   const upserts = [];
-  // Per chiavi critiche, usa _mem invece di localStorage (evita race condition)
-  const _memPriorityKeys = ['purchase_requests','renewal_requests'];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
     if (!k || !k.startsWith(prefix)) continue;
     const key = k.slice(prefix.length);
     try {
-      const raw = _memPriorityKeys.includes(key) && _mem[key] !== undefined
-        ? JSON.stringify(_mem[key])
-        : localStorage.getItem(k);
+      const raw = localStorage.getItem(k);
       upserts.push({ company_id: companyId, store_key: key, store_value: raw, updated_at: new Date().toISOString() });
     } catch {}
   }
   // Escludi chiavi device-local da sync Supabase
-  const _deviceLocalKeys = ['session','remember_email','re'];
+  const _deviceLocalKeys = ['session','remember_email','re','purchase_requests','renewal_requests'];
   const filtered = upserts.filter(u=>!_deviceLocalKeys.some(k=>u.store_key===k||u.store_key.startsWith('re')));
   if (filtered.length === 0) return;
-  const _prVal=upserts.find(u=>u.store_key==='purchase_requests');if(_prVal){let _v=_prVal.store_value;if(typeof _v==='string'){try{_v=JSON.parse(_v);}catch{}}const _r=Array.isArray(_v)?_v.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;console.warn('[UPSERT-BULK] status='+_r?.status+' updatedAt='+_r?.updatedAt);}
   const { error } = await _supa.from('company_store')
     .upsert(filtered, { onConflict: 'company_id,store_key' });
   if (error && !error.message?.includes('clone')) console.warn('[Supabase upload]', error.message);
