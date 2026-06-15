@@ -2281,6 +2281,7 @@ async function _supaGetToken(){
 
 function _supaSync(companyId, key, value) {
   if (!companyId) return;
+  if(key==='purchase_requests'){const _dbgR=Array.isArray(value)?value.find(x=>x.id==='pr_mq9cr8ps9n8keu3off'):null;if(_dbgR)console.warn('[_supaSync DBG] purchase_requests status='+_dbgR.status+' updatedAt='+_dbgR.updatedAt,new Error().stack.split('\n').slice(1,4).join(' | '));}
   // Salta sync se non c'è sessione attiva (es. durante registrazione)
   _supa.auth.getSession().then(({data})=>{
     if(!data?.session) return; // non autenticato, skip
