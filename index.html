@@ -7978,6 +7978,9 @@ function renderSuperUserApp(user,co){
     suScreen.id='superuser-screen';
     suScreen.style.cssText='position:fixed;inset:0;overflow-y:auto;z-index:550;background:#f0f4f8';
     document.body.appendChild(suScreen);
+    // confirm-overlay è dentro #app-screen (display:none) — spostalo al body per renderlo accessibile dal pannello Super User
+    const _co=document.getElementById('confirm-overlay');
+    if(_co&&_co.closest('#app-screen'))document.body.appendChild(_co);
   }
   suScreen.style.display='';
   suTab='clients';
@@ -7991,6 +7994,9 @@ function suLogout(){
   const suScreen=document.getElementById('superuser-screen');
   if(suScreen)suScreen.style.display='none';
   document.getElementById('auth-screen')?.classList.remove('hidden');
+  const _co=document.getElementById('confirm-overlay');
+  const _as=document.getElementById('app-screen');
+  if(_co&&_as&&!_as.contains(_co))(_as.querySelector('.main-content')?.appendChild(_co))||_as.appendChild(_co);
   logout();
 }
 
