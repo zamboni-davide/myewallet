@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-16-J1-fix-rls-noncatturato';
+const APP_BUILD_VERSION='2026-06-16-J2-fix-collab-merge';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -2352,7 +2352,7 @@ async function _supaLoadAll(companyId) {
         if(row.store_key==='users'&&Array.isArray(val)) val=val.filter(u=>!deletedIds.has(u.companyId));
         // Merge arrays: keep any local record not yet in Supabase,
         // but also remove items deleted locally (honor deletions).
-        if(Array.isArray(val) && _MERGE_KEYS.has(row.store_key)){
+        if(Array.isArray(val) && (_MERGE_KEYS.has(row.store_key)||row.store_key.startsWith('collaboratori_')||row.store_key.startsWith('collab_invites_'))){
           try {
             const lsRaw = localStorage.getItem('pda_'+row.store_key);
             let lsArr = lsRaw ? JSON.parse(lsRaw) : [];
@@ -2400,7 +2400,7 @@ async function _supaLoadAll(companyId) {
                 if(row.store_key==='companies') lsArr=lsArr.filter(c=>!deletedIds.has(c.id));
                 if(row.store_key==='users') lsArr=lsArr.filter(u=>!deletedIds.has(u.companyId));
                 // Per purchase/renewal requests: Supabase vince sempre sullo status
-                if(row.store_key==='purchase_requests'||row.store_key==='renewal_requests'){
+                if(row.store_key==='purchase_requests'||row.store_key==='renewal_requests'||row.store_key.startsWith('collaboratori_')||row.store_key.startsWith('collab_invites_')){
                   const supaIds=new Set(val.map(x=>x?.id).filter(Boolean));
                   // Aggiungi solo record localStorage NON presenti su Supabase (nuovi, non ancora syncati)
                   const lsOnly=lsArr.filter(x=>x?.id&&!supaIds.has(x.id));
