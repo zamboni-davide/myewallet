@@ -2632,11 +2632,11 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares','link_requests','deleted_company_ids'];
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares','link_requests','deleted_company_ids','deleted_user_ids'];
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
-  getUsers(){const v=this.get('users',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(u=>!delSet.has(u.companyId)):v):[];},
+  getUsers(){const v=this.get('users',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); const delU=_mem['deleted_user_ids']; const delUSet=new Set(Array.isArray(delU)?delU:[]); return Array.isArray(v)?v.filter(u=>!delSet.has(u.companyId)&&!delUSet.has(u.id)):[];},
   setUsers(u){this.set('users',u);},
   getCompanies(){const v=this.get('companies',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(c=>!delSet.has(c.id)):v):[];},
   setCompanies(c){this.set('companies',c);},
