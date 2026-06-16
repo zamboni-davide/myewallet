@@ -2632,7 +2632,7 @@ const DB = {
     _mem[k]=v;
     try{localStorage.setItem('pda_'+k,JSON.stringify(v));}catch{showToast('Spazio esaurito. Elimina alcuni file.','error');}
     // Sync to Supabase: global data under 'co_admin', per-company data under company id
-    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares','link_requests','deleted_company_ids','deleted_user_ids'];
+    const _GLOBAL=['companies','users','plans_config','admin_docs','payment_requests','invoices','subscriptions','notifications','tickets','gdpr_deletions','signed_contracts','terms_versions','user_consents','audit_log','purchase_requests','renewal_requests','suspension_events','recurring_schedule','billing_profiles','plan_changelog','plan_snapshots','conversations','contacts','p2p_convs','doc_shares','link_requests','deleted_company_ids','deleted_user_ids','collaboratori_acceptances_co_admin'];
     const cid = _GLOBAL.includes(k) ? 'co_admin' : (currentCompany?.id||null);
     if(cid) _supaSync(cid, k, v);
   },
@@ -7989,7 +7989,7 @@ function renderSuperUserApp(user,co){
   suScreen.style.display='';
   suTab='clients';
   renderSuperUserPanel();
-  _supaLoadAll(co.id).then(()=>renderSuperUserPanel()).catch(()=>{});
+  _supaLoadAll(co.id).then(()=>{renderSuperUserPanel();processCollaboratoriAcceptances(currentCompany.id).catch(e=>console.error('[collab-acceptance] errore:',e));}).catch(()=>{});
 }
 
 function setSuTab(t){suTab=t;renderSuperUserPanel();}
@@ -8393,11 +8393,9 @@ async function acceptCollabInvite(inviteId,notifId,event){
   const notifs=DB.getNotifications();
   const notif=notifs.find(x=>x.id===notifId);
   if(!notif||notif.collabHandled)return;
-  console.log('[DEBUG] notif trovata:',!!notif,'collabHandled:',notif?.collabHandled);
   const cd=notif.complianceData||{};
   const suCoId=cd.superUserCompanyId;
   if(!suCoId){showToast('Dati invito non trovati','error');return;}
-  console.log('[DEBUG] suCoId:',suCoId,'cd completo:',JSON.stringify(cd));
   const now=new Date().toISOString();
 
   const invites=DB.getCollabInvites(suCoId);
@@ -8407,14 +8405,11 @@ async function acceptCollabInvite(inviteId,notifId,event){
     DB.setCollabInvites(suCoId,invites);
     await _supaSyncAwait(suCoId,'collab_invites_'+suCoId,invites);
   }
-  console.log('[DEBUG] invites.length:',invites.length);
 
   const colls=DB.getCollaboratori(suCoId);
   const inviteEmail=(cd.targetEmail||'').toLowerCase().trim();
   const already=colls.some(c=>(c.email||'').toLowerCase().trim()===inviteEmail&&c.stato!=='revocato');
-  console.log('[DEBUG] already:',already,'colls trovati:',colls.length,'stati:',colls.map(c=>c.stato));
   if(already){
-    console.log('[DEBUG] BLOCCATO da already - non dovrebbe succedere secondo evidenza raccolta');
     notif.collabHandled=true;notif.read=true;
     DB.setNotifications(notifs);
     await _supaSyncAwait('co_admin','notifications',notifs);
@@ -8423,31 +8418,74 @@ async function acceptCollabInvite(inviteId,notifId,event){
     return;
   }
 
-  const coll={
-    id:'coll_'+uid(),
-    superUserCompanyId:suCoId,
-    nome:cd.nome||'',cognome:cd.cognome||'',
+  // Staging in co_admin — evita RLS 403 su partizione Super User
+  const acceptance={
+    id:'acc_'+uid(),
     email:cd.targetEmail||'',
-    ruolo:cd.ruolo||'Collaboratore',
-    stato:'attivo',
-    permessi:cd.permessi||{},
-    datiContrattuali:cd.datiContrattuali||{},
-    registroPresenze:[],
-    firstLoginDone:false,
-    passwordChanged:false,
-    createdAt:now,updatedAt:now,
-    storico:[{at:now,azione:'accettato_da_invito',da:currentUser?.name||'utente'}]
+    targetCompanyId:suCoId,
+    payload:{
+      nome:cd.nome||'',cognome:cd.cognome||'',
+      ruolo:cd.ruolo||'Collaboratore',
+      permessi:cd.permessi||{},
+      datiContrattuali:cd.datiContrattuali||{},
+      registroPresenze:[],
+      firstLoginDone:false,
+      passwordChanged:false,
+      storico:[{at:now,azione:'accettato_da_invito',da:currentUser?.name||'utente'}]
+    },
+    status:'pending',
+    createdAt:now,
+    processedAt:null
   };
-  colls.push(coll);
-  DB.setCollaboratori(suCoId,colls);
-  console.log('[DEBUG] collaboratore PUSH eseguito, id:',coll.id,'colls.length ora:',colls.length);
-  try{await _supaSyncAwait(suCoId,'collaboratori_'+suCoId,colls);console.log('[DEBUG] sync collaboratori OK');}catch(e){console.error('[DEBUG] ERRORE sync collaboratori:',e);}
+  const accs=DB.get('collaboratori_acceptances_co_admin')||[];
+  accs.push(acceptance);
+  DB.set('collaboratori_acceptances_co_admin',accs);
+  await _supaSyncAwait('co_admin','collaboratori_acceptances_co_admin',accs);
 
   notif.collabHandled=true;notif.read=true;
   DB.setNotifications(notifs);
   await _supaSyncAwait('co_admin','notifications',notifs);
   showToast('Hai accettato il ruolo di collaboratore','success');
   renderNotifPanel();
+}
+
+async function processCollaboratoriAcceptances(suCoId){
+  const allAccs=DB.get('collaboratori_acceptances_co_admin')||[];
+  const pending=allAccs.filter(a=>a.targetCompanyId===suCoId&&a.status==='pending');
+  if(!pending.length)return;
+  const colls=DB.getCollaboratori(suCoId);
+  let changed=false;
+  const now=new Date().toISOString();
+  pending.forEach(acc=>{
+    const accEmail=(acc.email||'').toLowerCase().trim();
+    const already=colls.some(c=>(c.email||'').toLowerCase().trim()===accEmail&&c.stato!=='revocato');
+    if(!already){
+      colls.push({
+        id:'coll_'+uid(),
+        superUserCompanyId:suCoId,
+        nome:acc.payload.nome||'',cognome:acc.payload.cognome||'',
+        email:acc.email||'',
+        ruolo:acc.payload.ruolo||'Collaboratore',
+        stato:'attivo',
+        permessi:acc.payload.permessi||{},
+        datiContrattuali:acc.payload.datiContrattuali||{},
+        registroPresenze:acc.payload.registroPresenze||[],
+        firstLoginDone:acc.payload.firstLoginDone||false,
+        passwordChanged:acc.payload.passwordChanged||false,
+        createdAt:acc.createdAt||now,updatedAt:now,
+        storico:acc.payload.storico||[]
+      });
+      changed=true;
+    }
+    acc.status='processed';
+    acc.processedAt=now;
+  });
+  if(changed){
+    DB.setCollaboratori(suCoId,colls);
+    await _supaSyncAwait(suCoId,'collaboratori_'+suCoId,colls);
+  }
+  DB.set('collaboratori_acceptances_co_admin',allAccs);
+  await _supaSyncAwait('co_admin','collaboratori_acceptances_co_admin',allAccs);
 }
 
 async function rejectCollabInvite(inviteId,notifId,event){
