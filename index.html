@@ -2728,7 +2728,9 @@ const DB = {
   setDocActivity(cid,v){this.set('doc_activity_'+cid,v);},
   // ── FASE 3 — Collaboratori (per-company, NON in _GLOBAL) ─────────────────
   getCollaboratori(coId){const v=this.get('collaboratori_'+coId,[]); return Array.isArray(v)?v:[];},
-  setCollaboratori(coId,v){this.set('collaboratori_'+coId,v);}
+  setCollaboratori(coId,v){this.set('collaboratori_'+coId,v);},
+  getCollabInvites(coId){const v=this.get('collab_invites_'+coId,[]); return Array.isArray(v)?v:[];},
+  setCollabInvites(coId,v){this.set('collab_invites_'+coId,v);}
 };
 
 // Seed admin
@@ -8386,6 +8388,88 @@ async function rejectLinkRequest(requestId,notifId,event){
   renderNotifPanel();
 }
 
+async function acceptCollabInvite(inviteId,notifId,event){
+  if(event)event.stopPropagation();
+  const notifs=DB.getNotifications();
+  const notif=notifs.find(x=>x.id===notifId);
+  if(!notif||notif.collabHandled)return;
+  const cd=notif.complianceData||{};
+  const suCoId=cd.superUserCompanyId;
+  if(!suCoId){showToast('Dati invito non trovati','error');return;}
+  const now=new Date().toISOString();
+
+  const invites=DB.getCollabInvites(suCoId);
+  if(invites.length){
+    const inv=invites.find(i=>i.id===inviteId);
+    if(inv){inv.status='accepted';inv.respondedAt=now;}
+    DB.setCollabInvites(suCoId,invites);
+    await _supaSyncAwait(suCoId,'collab_invites_'+suCoId,invites);
+  }
+
+  const colls=DB.getCollaboratori(suCoId);
+  const inviteEmail=(cd.targetEmail||'').toLowerCase().trim();
+  const already=colls.some(c=>(c.email||'').toLowerCase().trim()===inviteEmail&&c.stato!=='revocato');
+  if(already){
+    notif.collabHandled=true;notif.read=true;
+    DB.setNotifications(notifs);
+    await _supaSyncAwait('co_admin','notifications',notifs);
+    showToast('Sei già collaboratore di questo Super User','info');
+    renderNotifPanel();
+    return;
+  }
+
+  const coll={
+    id:'coll_'+uid(),
+    superUserCompanyId:suCoId,
+    nome:cd.nome||'',cognome:cd.cognome||'',
+    email:cd.targetEmail||'',
+    ruolo:cd.ruolo||'Collaboratore',
+    stato:'attivo',
+    permessi:cd.permessi||{},
+    datiContrattuali:cd.datiContrattuali||{},
+    registroPresenze:[],
+    firstLoginDone:false,
+    passwordChanged:false,
+    createdAt:now,updatedAt:now,
+    storico:[{at:now,azione:'accettato_da_invito',da:currentUser?.name||'utente'}]
+  };
+  colls.push(coll);
+  DB.setCollaboratori(suCoId,colls);
+  await _supaSyncAwait(suCoId,'collaboratori_'+suCoId,colls);
+
+  notif.collabHandled=true;notif.read=true;
+  DB.setNotifications(notifs);
+  await _supaSyncAwait('co_admin','notifications',notifs);
+  showToast('Hai accettato il ruolo di collaboratore','success');
+  renderNotifPanel();
+}
+
+async function rejectCollabInvite(inviteId,notifId,event){
+  if(event)event.stopPropagation();
+  const notifs=DB.getNotifications();
+  const notif=notifs.find(x=>x.id===notifId);
+  if(!notif||notif.collabHandled)return;
+  const cd=notif.complianceData||{};
+  const suCoId=cd.superUserCompanyId;
+  const now=new Date().toISOString();
+
+  if(suCoId){
+    const invites=DB.getCollabInvites(suCoId);
+    if(invites.length){
+      const inv=invites.find(i=>i.id===inviteId);
+      if(inv){inv.status='rejected';inv.respondedAt=now;}
+      DB.setCollabInvites(suCoId,invites);
+      await _supaSyncAwait(suCoId,'collab_invites_'+suCoId,invites);
+    }
+  }
+
+  notif.collabHandled=true;notif.read=true;
+  DB.setNotifications(notifs);
+  await _supaSyncAwait('co_admin','notifications',notifs);
+  showToast('Invito rifiutato','info');
+  renderNotifPanel();
+}
+
 function renderSuComm(){
   const clientCompIds=new Set(DB.getUsers().filter(u=>u.superuserOwner===currentCompany.id).map(u=>u.companyId));
   const convs=DB.getConversations().filter(c=>clientCompIds.has(c.companyId));
@@ -8683,40 +8767,46 @@ async function suSaveNewCollaboratore(){
   const oreSettimanali=parseFloat(document.getElementById('nc-oresettimanali')?.value)||40;
   const ferieAnnuali=parseFloat(document.getElementById('nc-ferie')?.value)||0;
   const permessiAnnuali=parseFloat(document.getElementById('nc-permessi')?.value)||0;
-  const tempPwd=_genTempPwd();
   const now=new Date().toISOString();
-  const coll={
-    id:'coll_'+uid(),
-    superUserCompanyId:currentCompany.id,
-    nome,cognome,email,ruolo,
-    stato:'attivo',
-    permessi,
-    datiContrattuali:{tipoContratto,dataInizio:dataInizioVal?new Date(dataInizioVal).toISOString():'',oreSettimanali,ferieAnnuali,permessiAnnuali},
-    registroPresenze:[],
-    passwordTemporanea:tempPwd,
-    firstLoginDone:false,
-    passwordChanged:false,
-    createdAt:now,updatedAt:now,
-    storico:[{at:now,azione:'creato',da:currentUser.name||currentCompany.name}]
-  };
-  const colls=DB.getCollaboratori(currentCompany.id);
-  colls.push(coll);
-  DB.setCollaboratori(currentCompany.id,colls);
-  document.getElementById('su-new-coll-overlay')?.remove();
-  showToast('Collaboratore creato','success');
-  // Crea account Supabase Auth per il collaboratore
-  try{
-    const _cPayload={action:'create_auth_user',email,password:tempPwd,companyId:currentCompany.id};
-    await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/gdpr-delete-user',{
-      method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},
-      body:JSON.stringify(_cPayload)
+  const datiContrattuali={tipoContratto,dataInizio:dataInizioVal?new Date(dataInizioVal).toISOString():'',oreSettimanali,ferieAnnuali,permessiAnnuali};
+
+  // ── CASO A: utente già registrato ─────────────────────────────────────────
+  const normalizedEmail=email.toLowerCase().trim();
+  const existingUser=DB.getUsers().find(u=>(u.email||'').toLowerCase().trim()===normalizedEmail);
+  if(existingUser){
+    const invite={
+      id:'ci_'+uid(),
+      superUserCompanyId:currentCompany.id,
+      superUserName:currentCompany.name,
+      targetUserId:existingUser.id,
+      targetEmail:email,
+      nome,cognome,ruolo,permessi,datiContrattuali,
+      status:'pending',
+      createdAt:now
+    };
+    const invites=DB.getCollabInvites(currentCompany.id);
+    invites.push(invite);
+    DB.setCollabInvites(currentCompany.id,invites);
+    await _supaSyncAwait(currentCompany.id,'collab_invites_'+currentCompany.id,invites);
+    await createNotification({
+      recipientId:existingUser.id,
+      recipientRole:'user',
+      companyId:existingUser.companyId,
+      companyName:currentCompany.name,
+      message:`<strong>${esc(currentCompany.name)}</strong> ti ha invitato come collaboratore con ruolo <strong>${esc(ruolo)}</strong>.`,
+      type:'collab_invite',
+      relatedRequestId:invite.id,
+      senderName:currentCompany.name,
+      complianceData:{superUserCompanyId:currentCompany.id,inviteId:invite.id,targetEmail:email,nome,cognome,ruolo,permessi,datiContrattuali}
     });
-  }catch(e){console.warn('Collab create_auth_user:',e);}
-  const studioName=currentCompany.name;
-  const emailHtml=`<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f0f4f8;margin:0;padding:20px"><table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><table width="560" style="background:#041348;border-radius:12px;overflow:hidden" cellpadding="0" cellspacing="0"><tr><td style="padding:28px 36px;border-bottom:3px solid #C9A84C"><span style="color:#C9A84C;font-size:20px;font-weight:700">MyEwallet&#174;</span><span style="color:#8892a4;font-size:11px;display:block;margin-top:3px">${esc(studioName)}</span></td></tr><tr><td style="padding:28px 36px"><p style="color:#fff;font-size:16px;font-weight:700;margin:0 0 6px">Benvenuto, ${esc(nome)} ${esc(cognome)}!</p><p style="color:#C9A84C;font-size:13px;font-weight:700;margin:0 0 16px">${esc(studioName)} ti ha invitato su MyEwallet&#174;</p><p style="color:#cbd5e1;font-size:13px;line-height:1.6;margin:0 0 20px">Sei stato aggiunto come collaboratore di <strong style="color:#C9A84C">${esc(studioName)}</strong>.<br>Ruolo assegnato: <strong style="color:#C9A84C">${esc(ruolo)}</strong></p><div style="background:#0d1f5c;border-radius:8px;padding:18px 20px;margin-bottom:16px"><p style="color:#C9A84C;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px">Credenziali di accesso</p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Email:</span> <strong style="color:#fff">${esc(email)}</strong></p><p style="color:#cbd5e1;font-size:13px;margin:4px 0"><span style="color:#8892a4">Password temporanea:</span> <strong style="color:#C9A84C;font-size:15px;letter-spacing:2px">${esc(tempPwd)}</strong></p></div><p style="color:#FEF9C3;font-size:12px;background:rgba(201,168,76,0.15);border-radius:6px;padding:10px 12px;margin:0 0 16px">Al primo accesso ti verrà chiesto di impostare una nuova password e accettare i termini d'uso.</p><p style="color:#94a3b8;font-size:12px;margin:0">Accedi su MyEwallet&#174; con le credenziali indicate.</p></td></tr><tr><td style="padding:14px 36px;background:#020d2e"><p style="color:#475569;font-size:11px;margin:0;text-align:center">${esc(studioName)} &middot; MyEwallet&#174;</p></td></tr></table></td></tr></table></body></html>`;
-  try{await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/smart-handler',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+SUPA_KEY},body:JSON.stringify({to:email,toName:`${nome} ${cognome}`,subject:`${studioName} ti ha invitato su MyEwallet®`,htmlContent:emailHtml})});}
-  catch(e){console.warn('Collab welcome email:',e);}
-  renderSuperUserPanel();
+    document.getElementById('su-new-coll-overlay')?.remove();
+    showToast('Invito inviato a '+esc(existingUser.name||email),'success');
+    renderSuperUserPanel();
+    return;
+  }
+
+  // ── CASO B: utente non ancora registrato — placeholder ───────────────────
+  showToast('Funzionalità di invito nuovo account in arrivo','info');
 }
 
 function suOpenEditCollaboratoreModal(collId){
@@ -11537,6 +11627,7 @@ function renderNotifPanel(){
         </div>
       </div>
       ${n.type==='link_request'&&n.relatedRequestId&&!n.linkHandled?`<div style="display:flex;gap:8px;margin-top:8px;padding:8px 0 2px"><button class="btn btn-primary btn-sm" style="font-size:11px" onclick="acceptLinkRequest('${n.relatedRequestId}','${n.id}',event)">Accetta</button><button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="rejectLinkRequest('${n.relatedRequestId}','${n.id}',event)">Rifiuta</button></div>`:''}
+      ${n.type==='collab_invite'&&n.relatedRequestId&&!n.collabHandled?`<div style="display:flex;gap:8px;margin-top:8px;padding:8px 0 2px"><button class="btn btn-primary btn-sm" style="font-size:11px" onclick="acceptCollabInvite('${n.relatedRequestId}','${n.id}',event)">Accetta</button><button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="rejectCollabInvite('${n.relatedRequestId}','${n.id}',event)">Rifiuta</button></div>`:''}
       ${n.read?`<button class="notif-del" onclick="deleteNotif('${n.id}',event)" title="Elimina"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`:''}
     </div>`).join('');
 }
