@@ -8393,9 +8393,11 @@ async function acceptCollabInvite(inviteId,notifId,event){
   const notifs=DB.getNotifications();
   const notif=notifs.find(x=>x.id===notifId);
   if(!notif||notif.collabHandled)return;
+  console.log('[DEBUG] notif trovata:',!!notif,'collabHandled:',notif?.collabHandled);
   const cd=notif.complianceData||{};
   const suCoId=cd.superUserCompanyId;
   if(!suCoId){showToast('Dati invito non trovati','error');return;}
+  console.log('[DEBUG] suCoId:',suCoId,'cd completo:',JSON.stringify(cd));
   const now=new Date().toISOString();
 
   const invites=DB.getCollabInvites(suCoId);
@@ -8405,11 +8407,14 @@ async function acceptCollabInvite(inviteId,notifId,event){
     DB.setCollabInvites(suCoId,invites);
     await _supaSyncAwait(suCoId,'collab_invites_'+suCoId,invites);
   }
+  console.log('[DEBUG] invites.length:',invites.length);
 
   const colls=DB.getCollaboratori(suCoId);
   const inviteEmail=(cd.targetEmail||'').toLowerCase().trim();
   const already=colls.some(c=>(c.email||'').toLowerCase().trim()===inviteEmail&&c.stato!=='revocato');
+  console.log('[DEBUG] already:',already,'colls trovati:',colls.length,'stati:',colls.map(c=>c.stato));
   if(already){
+    console.log('[DEBUG] BLOCCATO da already - non dovrebbe succedere secondo evidenza raccolta');
     notif.collabHandled=true;notif.read=true;
     DB.setNotifications(notifs);
     await _supaSyncAwait('co_admin','notifications',notifs);
@@ -8435,7 +8440,8 @@ async function acceptCollabInvite(inviteId,notifId,event){
   };
   colls.push(coll);
   DB.setCollaboratori(suCoId,colls);
-  await _supaSyncAwait(suCoId,'collaboratori_'+suCoId,colls);
+  console.log('[DEBUG] collaboratore PUSH eseguito, id:',coll.id,'colls.length ora:',colls.length);
+  try{await _supaSyncAwait(suCoId,'collaboratori_'+suCoId,colls);console.log('[DEBUG] sync collaboratori OK');}catch(e){console.error('[DEBUG] ERRORE sync collaboratori:',e);}
 
   notif.collabHandled=true;notif.read=true;
   DB.setNotifications(notifs);
