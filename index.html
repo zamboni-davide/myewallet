@@ -2653,22 +2653,22 @@ const DB = {
   setAdminDocs(v){this.set('admin_docs',v);},
 
   // ── PAYMENT ARCHITECTURE ─────────────────────────────
-  getPaymentRequests(){const v=this.get('payment_requests',[]); return Array.isArray(v)?v:[];},
+  getPaymentRequests(){const v=this.get('payment_requests',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setPaymentRequests(v){this.set('payment_requests',v);},
 
-  getInvoices(){const v=this.get('invoices',[]); return Array.isArray(v)?v:[];},
+  getInvoices(){const v=this.get('invoices',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setInvoices(v){this.set('invoices',v);},
 
-  getSubscriptions(){const v=this.get('subscriptions',[]); return Array.isArray(v)?v:[];},
+  getSubscriptions(){const v=this.get('subscriptions',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setSubscriptions(v){this.set('subscriptions',v);},
 
-  getSuspensionEvents(){const v=this.get('suspension_events',[]); return Array.isArray(v)?v:[];},
+  getSuspensionEvents(){const v=this.get('suspension_events',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setSuspensionEvents(v){this.set('suspension_events',v);},
 
   getRecurringSchedule(){const v=this.get('recurring_schedule',[]); return Array.isArray(v)?v:[];},
   setRecurringSchedule(v){this.set('recurring_schedule',v);},
 
-  getBillingProfiles(){const v=this.get('billing_profiles',[]); return Array.isArray(v)?v:[];},
+  getBillingProfiles(){const v=this.get('billing_profiles',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setBillingProfiles(v){this.set('billing_profiles',v);},
 
   // ── CONTRACT ARCHITECTURE ─────────────────────────────
@@ -2677,7 +2677,7 @@ const DB = {
   setPlanSnapshots(v){this.set('plan_snapshots',v);},
 
   // Contratti firmati (read-only dopo creazione)
-  getSignedContracts(){const v=this.get('signed_contracts',[]); return Array.isArray(v)?v:[];},
+  getSignedContracts(){const v=this.get('signed_contracts',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setSignedContracts(v){this.set('signed_contracts',v);},
 
   // Versioni T&C/Privacy con hash e tipo modifica
@@ -2698,31 +2698,31 @@ const DB = {
   getDocs(cid){return this.get('docs_'+cid,[]);},
   setDocs(cid,d){this.set('docs_'+cid,d);},
   getAllDocs(){const companies=this.getCompanies();let all=[];companies.forEach(c=>all=[...all,...this.getDocs(c.id).map(d=>({...d,_company:c.name}))]);return all;},
-  getRenewalRequests(){const v=this.get('renewal_requests',[]); return Array.isArray(v)?v:[];},
+  getRenewalRequests(){const v=this.get('renewal_requests',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setRenewalRequests(r){this.set('renewal_requests',r);},
   getSession(){return this.get('session',null);},
   setSession(s){if(s===null){localStorage.removeItem('pda_session');}else{this.set('session',s);}},
   clearSession(){localStorage.removeItem('pda_session');},
   getPurchases(cid){return this.get('purchases_'+cid,[]);},
   setPurchases(cid,p){this.set('purchases_'+cid,p);},
-  getPurchaseRequests(){const v=this.get('purchase_requests',[]); return Array.isArray(v)?v:[];},
+  getPurchaseRequests(){const v=this.get('purchase_requests',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setPurchaseRequests(r){this.set('purchase_requests',r);},
-  getNotifications(){const v=this.get('notifications',[]); return Array.isArray(v)?v:[];},
+  getNotifications(){const v=this.get('notifications',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setNotifications(n){this.set('notifications',n);},
-  getTickets(){const v=this.get('tickets',[]); return Array.isArray(v)?v:[];},
+  getTickets(){const v=this.get('tickets',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setTickets(t){this.set('tickets',t);},
-  getLinkRequests(){const v=this.get('link_requests',[]); return Array.isArray(v)?v:[];},
+  getLinkRequests(){const v=this.get('link_requests',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(r=>!delSet.has(r.superUserCompanyId)&&!delSet.has(r.targetCompanyId)):v):[];},
   setLinkRequests(r){this.set('link_requests',r);},
-  getGdprDeletions(){const v=this.get('gdpr_deletions',[]); return Array.isArray(v)?v:[];},
+  getGdprDeletions(){const v=this.get('gdpr_deletions',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setGdprDeletions(r){this.set('gdpr_deletions',r);},
-  getConversations(){const v=this.get('conversations',[]); return Array.isArray(v)?v:[];},
+  getConversations(){const v=this.get('conversations',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.companyId)):v):[];},
   setConversations(v){this.set('conversations',v);},
   // ── FASE 2 ─────────────────────────────────────────────
   getContacts(){const v=this.get('contacts',[]); return Array.isArray(v)?v:[];},
   setContacts(v){this.set('contacts',v);},
   getP2PConvs(){const v=this.get('p2p_convs',[]); return Array.isArray(v)?v:[];},
   setP2PConvs(v){this.set('p2p_convs',v);},
-  getDocShares(){const v=this.get('doc_shares',[]); return Array.isArray(v)?v:[];},
+  getDocShares(){const v=this.get('doc_shares',[]); const del=_mem['deleted_company_ids']; const delSet=new Set(Array.isArray(del)?del:[]); return Array.isArray(v)?(delSet.size?v.filter(x=>!delSet.has(x.ownerCompanyId)):v):[];},
   setDocShares(v){this.set('doc_shares',v);},
   getDocActivity(cid){const v=this.get('doc_activity_'+cid,[]); return Array.isArray(v)?v:[];},
   setDocActivity(cid,v){this.set('doc_activity_'+cid,v);},
