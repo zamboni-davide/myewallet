@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-16-J1-staging-v1';
+const APP_BUILD_VERSION='2026-06-16-J1-fix-rls-noncatturato';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -8416,7 +8416,11 @@ async function acceptCollabInvite(inviteId,notifId,event){
     const inv=invites.find(i=>i.id===inviteId);
     if(inv){inv.status='accepted';inv.respondedAt=now;}
     DB.setCollabInvites(suCoId,invites);
-    await _supaSyncAwait(suCoId,'collab_invites_'+suCoId,invites);
+    try{
+      await _supaSyncAwait(suCoId,'collab_invites_'+suCoId,invites);
+    }catch(e){
+      console.warn('[collab-invite] sync storico Super User fallita (best-effort, non bloccante):',e);
+    }
   }
 
   const colls=DB.getCollaboratori(suCoId);
