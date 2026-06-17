@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-16-J3-fix-upload-collab';
+const APP_BUILD_VERSION='2026-06-17-J4-dedup-idempotenza';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -2739,7 +2739,24 @@ const DB = {
   getDocActivity(cid){const v=this.get('doc_activity_'+cid,[]); return Array.isArray(v)?v:[];},
   setDocActivity(cid,v){this.set('doc_activity_'+cid,v);},
   // ── FASE 3 — Collaboratori (per-company, NON in _GLOBAL) ─────────────────
-  getCollaboratori(coId){const v=this.get('collaboratori_'+coId,[]); return Array.isArray(v)?v:[];},
+  getCollaboratori(coId){
+    const v=this.get('collaboratori_'+coId,[]);
+    if(!Array.isArray(v)) return [];
+    const seen={};
+    const result=[];
+    v.forEach(c=>{
+      const key=(c.email||'').toLowerCase().trim();
+      if(!key||c.stato!=='attivo'){result.push(c);return;}
+      if(!seen[key]){seen[key]=c;result.push(c);return;}
+      if(new Date(c.createdAt||0)>new Date(seen[key].createdAt||0)){
+        const idx=result.indexOf(seen[key]);
+        if(idx>=0)result.splice(idx,1);
+        seen[key]=c;
+        result.push(c);
+      }
+    });
+    return result;
+  },
   setCollaboratori(coId,v){this.set('collaboratori_'+coId,v);},
   getCollabInvites(coId){const v=this.get('collab_invites_'+coId,[]); return Array.isArray(v)?v:[];},
   setCollabInvites(coId,v){this.set('collab_invites_'+coId,v);}
@@ -8436,8 +8453,9 @@ async function acceptCollabInvite(inviteId,notifId,event){
   }
 
   // Staging in co_admin — evita RLS 403 su partizione Super User
+  const accId='acc_'+uid();
   const acceptance={
-    id:'acc_'+uid(),
+    id:accId,
     email:cd.targetEmail||'',
     targetCompanyId:suCoId,
     payload:{
@@ -8448,7 +8466,8 @@ async function acceptCollabInvite(inviteId,notifId,event){
       registroPresenze:[],
       firstLoginDone:false,
       passwordChanged:false,
-      storico:[{at:now,azione:'accettato_da_invito',da:currentUser?.name||'utente'}]
+      storico:[{at:now,azione:'accettato_da_invito',da:currentUser?.name||'utente'}],
+      sourceAcceptanceId:accId
     },
     status:'pending',
     createdAt:now,
@@ -8475,7 +8494,7 @@ async function processCollaboratoriAcceptances(suCoId){
   const now=new Date().toISOString();
   pending.forEach(acc=>{
     const accEmail=(acc.email||'').toLowerCase().trim();
-    const already=colls.some(c=>(c.email||'').toLowerCase().trim()===accEmail&&c.stato!=='revocato');
+    const already=colls.some(c=>c.sourceAcceptanceId===acc.id)||colls.some(c=>(c.email||'').toLowerCase().trim()===accEmail&&c.stato==='attivo');
     if(!already){
       colls.push({
         id:'coll_'+uid(),
@@ -8490,7 +8509,8 @@ async function processCollaboratoriAcceptances(suCoId){
         firstLoginDone:acc.payload.firstLoginDone||false,
         passwordChanged:acc.payload.passwordChanged||false,
         createdAt:acc.createdAt||now,updatedAt:now,
-        storico:acc.payload.storico||[]
+        storico:acc.payload.storico||[],
+        sourceAcceptanceId:acc.id
       });
       changed=true;
     }
