@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-17-J3-consenso-collaboratore';
+const APP_BUILD_VERSION='2026-06-17-J3-fix-rls-e-uscita';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -8493,6 +8493,23 @@ async function processCollaboratoriAcceptances(suCoId){
   let changed=false;
   const now=new Date().toISOString();
   pending.forEach(acc=>{
+    if(acc.type==='consent_update'){
+      const i=colls.findIndex(c=>c.id===acc.targetCollabId);
+      if(i>=0){
+        colls[i].firstLoginDone=acc.payload.firstLoginDone??colls[i].firstLoginDone;
+        if(acc.payload.collabConsentAcceptedAt)colls[i].collabConsentAcceptedAt=acc.payload.collabConsentAcceptedAt;
+        if(acc.payload.collabConsentVersion)colls[i].collabConsentVersion=acc.payload.collabConsentVersion;
+        colls[i].updatedAt=now;
+        if(acc.payload.storico_entry){
+          if(!colls[i].storico)colls[i].storico=[];
+          colls[i].storico.push(acc.payload.storico_entry);
+        }
+        changed=true;
+      }
+      acc.status='processed';
+      acc.processedAt=now;
+      return;
+    }
     const accEmail=(acc.email||'').toLowerCase().trim();
     const already=colls.some(c=>c.sourceAcceptanceId===acc.id)||colls.some(c=>(c.email||'').toLowerCase().trim()===accEmail&&c.stato==='attivo');
     if(!already){
@@ -8724,6 +8741,14 @@ function suSwitchToCollaboratore(collId){
 
 function suBackFromCollaboratore(){
   _activeCollaborator=null;
+  if(_collabAccessOriginalContext){
+    const {user,company}=_collabAccessOriginalContext;
+    _collabAccessOriginalContext=null;
+    const suScreen=document.getElementById('superuser-screen');
+    if(suScreen)suScreen.style.display='none';
+    startApp(user,company);
+    return;
+  }
   suTab='clients';
   renderSuperUserPanel();
 }
@@ -9068,11 +9093,13 @@ async function findActiveCollabRecordForCurrentUser(){
 }
 
 let _pendingCollabAccess=null;
+let _collabAccessOriginalContext=null;
 
 function _triggerCollabAccess(){
   if(!_pendingCollabAccess) return;
   const {collRec,suCo}=_pendingCollabAccess;
   _pendingCollabAccess=null;
+  _collabAccessOriginalContext={user:currentUser,company:currentCompany};
   _handleCollaboratoreLogin(collRec,suCo,true);
 }
 
@@ -9234,14 +9261,21 @@ async function _collConsentSubmit(collId,suCoId){
   const colls=DB.getCollaboratori(suCoId);
   const idx=colls.findIndex(c=>c.id===collId);
   if(idx<0){showToast('Record collaboratore non trovato','error');return;}
+  const storEntry={at:now,azione:'consenso_collaboratore_accettato',da:currentUser?.name||colls[idx].email};
   colls[idx].firstLoginDone=true;
   colls[idx].collabConsentAcceptedAt=now;
   colls[idx].collabConsentVersion='1.2';
   colls[idx].updatedAt=now;
   if(!colls[idx].storico)colls[idx].storico=[];
-  colls[idx].storico.push({at:now,azione:'consenso_collaboratore_accettato',da:currentUser?.name||colls[idx].email});
+  colls[idx].storico.push(storEntry);
   DB.setCollaboratori(suCoId,colls);
-  try{await _supaSyncAwait(suCoId,'collaboratori_'+suCoId,colls);}catch(e){console.error('[collab-consent] sync fallita:',e);}
+  const allAccs=DB.get('collaboratori_acceptances_co_admin')||[];
+  allAccs.push({id:'cns_'+uid(),type:'consent_update',targetCompanyId:suCoId,targetCollabId:collId,
+    email:colls[idx].email,status:'pending',
+    payload:{firstLoginDone:true,collabConsentAcceptedAt:now,collabConsentVersion:'1.2',storico_entry:storEntry},
+    createdAt:now});
+  DB.set('collaboratori_acceptances_co_admin',allAccs);
+  try{await _supaSyncAwait('co_admin','collaboratori_acceptances_co_admin',allAccs);}catch(e){console.error('[collab-consent] staging fallito:',e);}
   const collRecord=colls[idx];
   document.getElementById('collab-consent-overlay')?.remove();
   _activeCollaborator=collRecord;
