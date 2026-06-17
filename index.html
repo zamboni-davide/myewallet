@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-17-J2-tasto-collab';
+const APP_BUILD_VERSION='2026-06-17-J3-consenso-collaboratore';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -9073,7 +9073,7 @@ function _triggerCollabAccess(){
   if(!_pendingCollabAccess) return;
   const {collRec,suCo}=_pendingCollabAccess;
   _pendingCollabAccess=null;
-  _handleCollaboratoreLogin(collRec,suCo);
+  _handleCollaboratoreLogin(collRec,suCo,true);
 }
 
 function injectCollabAccessButton(){
@@ -9086,9 +9086,13 @@ function injectCollabAccessButton(){
 }
 
 // Collaboratore primo login — modal
-async function _handleCollaboratoreLogin(collRecord, suCo){
+async function _handleCollaboratoreLogin(collRecord, suCo, isExistingUserFlow=false){
   if(!collRecord.firstLoginDone){
-    _showCollabFirstLoginModal(collRecord, suCo);
+    if(isExistingUserFlow){
+      _showCollabConsentModal(collRecord, suCo);
+    } else {
+      _showCollabFirstLoginModal(collRecord, suCo);
+    }
   } else {
     _activeCollaborator=collRecord;
     const synUser={id:'collab_'+collRecord.id,name:collRecord.nome+' '+collRecord.cognome,
@@ -9188,6 +9192,64 @@ async function _collFirstLoginSubmit(collId,suCoId){
   const synUser={id:'collab_'+collRecord.id,name:collRecord.nome+' '+collRecord.cognome,
                  email:collRecord.email,role:'collaboratore',companyId:suCoId,createdAt:collRecord.createdAt};
   renderSuperUserApp(synUser, suCo);
+}
+
+function _showCollabConsentModal(collRecord, suCo){
+  const existing=document.getElementById('collab-consent-overlay');
+  if(existing)existing.remove();
+  const overlay=document.createElement('div');
+  overlay.id='collab-consent-overlay';
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="max-width:500px;width:100%">
+    <div class="modal-header">
+      <h2 class="modal-title">Accesso come Collaboratore — Consenso Specifico</h2>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:#64748b;margin:0 0 16px">Stai per accedere al pannello collaboratore di <strong>${esc(suCo.name)}</strong>. Prima di procedere, è richiesta l'accettazione delle condizioni specifiche per i Collaboratori.</p>
+      <div style="background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:16px;font-size:12px;color:#334155;line-height:1.6">
+        Il Collaboratore può accedere esclusivamente ai dati relativi ai clienti espressamente assegnati dal Super User di riferimento. È fatto divieto di accedere a dati di altri utenti o Super User, effettuare attività di data harvesting o lead generation non autorizzate, registrarsi come utente autonomo per accedere a dati non consentiti, trasferire o copiare dati verso account propri o di terzi. La violazione di questi divieti costituisce inadempimento grave e può comportare la sospensione immediata dell&#39;accesso, la risoluzione del rapporto e la richiesta di risarcimento danni, incluse eventuali segnalazioni alle autorità competenti (Art. 3-bis T&amp;C B2B v1.2).
+      </div>
+      <div style="margin-bottom:18px">
+        <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;background:#F8FAFC;border:1px solid #e2e8f0;border-radius:8px">
+          <input type="checkbox" id="ccns-cb" onchange="_collConsentCheck()" style="margin-top:2px;accent-color:#041348;flex-shrink:0">
+          <span style="font-size:12px;color:#334155">Dichiaro di aver letto e accettato gli obblighi e i divieti previsti per i Collaboratori (Art. 3-bis T&amp;C B2B v1.2) — <a href="javascript:void(0)" onclick="showDocPopup('tc-b2b')" style="color:#041348;text-decoration:underline">Leggi il testo completo</a></span>
+        </label>
+      </div>
+      <button id="ccns-btn" class="btn btn-primary" style="width:100%;opacity:0.5;cursor:not-allowed" disabled onclick="_collConsentSubmit('${collRecord.id}','${suCo.id}')">Accetto e accedo</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _collConsentCheck(){
+  const ok=document.getElementById('ccns-cb')?.checked||false;
+  const btn=document.getElementById('ccns-btn');
+  if(btn){btn.disabled=!ok;btn.style.opacity=ok?'1':'0.5';btn.style.cursor=ok?'pointer':'not-allowed';}
+}
+
+async function _collConsentSubmit(collId,suCoId){
+  const btn=document.getElementById('ccns-btn');
+  if(btn){btn.disabled=true;btn.textContent='Salvataggio...';}
+  const now=new Date().toISOString();
+  const colls=DB.getCollaboratori(suCoId);
+  const idx=colls.findIndex(c=>c.id===collId);
+  if(idx<0){showToast('Record collaboratore non trovato','error');return;}
+  colls[idx].firstLoginDone=true;
+  colls[idx].collabConsentAcceptedAt=now;
+  colls[idx].collabConsentVersion='1.2';
+  colls[idx].updatedAt=now;
+  if(!colls[idx].storico)colls[idx].storico=[];
+  colls[idx].storico.push({at:now,azione:'consenso_collaboratore_accettato',da:currentUser?.name||colls[idx].email});
+  DB.setCollaboratori(suCoId,colls);
+  try{await _supaSyncAwait(suCoId,'collaboratori_'+suCoId,colls);}catch(e){console.error('[collab-consent] sync fallita:',e);}
+  const collRecord=colls[idx];
+  document.getElementById('collab-consent-overlay')?.remove();
+  _activeCollaborator=collRecord;
+  const suCo=DB.getCompanies().find(c=>c.id===suCoId);
+  if(!suCo){showToast('Studio non trovato','error');return;}
+  const synUser={id:'collab_'+collRecord.id,name:collRecord.nome+' '+collRecord.cognome,
+                 email:collRecord.email,role:'collaboratore',companyId:suCoId,createdAt:collRecord.createdAt};
+  renderSuperUserApp(synUser,suCo);
 }
 
 function adminCreateCompany(){
