@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-16-J2-fix-collab-merge';
+const APP_BUILD_VERSION='2026-06-16-J3-fix-upload-collab';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -2624,7 +2624,7 @@ async function _supaUploadAll(companyId) {
   }
   // Escludi chiavi device-local da sync Supabase
   const _deviceLocalKeys = ['session','remember_email','re','purchase_requests','renewal_requests'];
-  const filtered = upserts.filter(u=>!_deviceLocalKeys.some(k=>u.store_key===k||u.store_key.startsWith('re')));
+  const filtered = upserts.filter(u=>!_deviceLocalKeys.some(k=>u.store_key===k||u.store_key.startsWith('re'))&&!u.store_key.startsWith('collaboratori_')&&!u.store_key.startsWith('collab_invites_'));
   if (filtered.length === 0) return;
   const { error } = await _supa.from('company_store')
     .upsert(filtered, { onConflict: 'company_id,store_key' });
