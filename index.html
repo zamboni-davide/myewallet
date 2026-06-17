@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-17-J4-dedup-idempotenza';
+const APP_BUILD_VERSION='2026-06-17-J2-tasto-collab';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -9052,6 +9052,39 @@ async function _acceptManleva(){
   renderSuperUserApp(user, idx>=0?companies[idx]:co);
 }
 
+// ── J2: ricerca record collaboratore attivo per l'utente corrente ─────────────
+async function findActiveCollabRecordForCurrentUser(){
+  if(!currentUser?.email) return null;
+  const suCoArr=DB.getCompanies().filter(c=>c.role==='superuser'&&c.superuserActive===true);
+  for(const suCo of suCoArr){
+    await _supaLoadAll(suCo.id);
+    const collRec=DB.getCollaboratori(suCo.id).find(c=>
+      (c.email||'').toLowerCase().trim()===currentUser.email.toLowerCase().trim()
+      &&c.stato==='attivo'
+    );
+    if(collRec) return {collRec,suCo};
+  }
+  return null;
+}
+
+let _pendingCollabAccess=null;
+
+function _triggerCollabAccess(){
+  if(!_pendingCollabAccess) return;
+  const {collRec,suCo}=_pendingCollabAccess;
+  _pendingCollabAccess=null;
+  _handleCollaboratoreLogin(collRec,suCo);
+}
+
+function injectCollabAccessButton(){
+  findActiveCollabRecordForCurrentUser().then(result=>{
+    const slot=document.getElementById('collab-access-slot');
+    if(!slot||!result) return;
+    _pendingCollabAccess=result;
+    slot.innerHTML=`<button class="btn btn-secondary" style="width:100%;margin-top:8px" onclick="_triggerCollabAccess()">Passa a pannello collaboratore — ${esc(result.suCo.name)}</button>`;
+  }).catch(e=>console.error('[collab-access] errore:',e));
+}
+
 // Collaboratore primo login — modal
 async function _handleCollaboratoreLogin(collRecord, suCo){
   if(!collRecord.firstLoginDone){
@@ -9664,6 +9697,7 @@ function renderSettingsMobile(main){
         <input class="input" type="password" id="mob-set-newpwd" placeholder="Nuova password"/>
       </div>
       <button onclick="mobSaveUserProfile()" style="width:100%;background:var(--navy);color:#fff;border:none;border-radius:10px;padding:13px;font-size:14px;font-weight:700;margin-top:4px">Salva</button>
+      <div id="collab-access-slot"></div>
     </div>`;
 
     // Ticket
@@ -9758,6 +9792,7 @@ function renderSettingsMobile(main){
 
   main.innerHTML=`<div style="padding:12px 12px calc(var(--bottom-nav-h,64px) + 48px)"><div id="mob-settings-main" data-open="piano"></div></div>`;
   render();
+  injectCollabAccessButton();
 }
 
 function mobAccordionToggle(id){
@@ -9936,6 +9971,7 @@ function renderSettings(main){
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
               Salva Profilo
             </button>
+            <div id="collab-access-slot"></div>
           </div>
         </div>
 
@@ -10456,6 +10492,7 @@ function renderSettings(main){
 
     </div>
     </div>`;
+  injectCollabAccessButton();
 }
 
 // ════════════════════════════════════════════════════════
