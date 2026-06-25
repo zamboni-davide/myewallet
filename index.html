@@ -8484,6 +8484,8 @@ async function suBusteInvia(){
     companies[idx].bustesUsedThisPeriod=(companies[idx].bustesUsedThisPeriod||0)+1;
     DB.setCompanies(companies);
     Object.assign(currentCompany,companies[idx]);
+    await _supaSyncAwait('co_admin','companies',companies);
+    try{await _supaSyncAwait(currentCompany.id,'companies',companies);}catch{}
   }
   const targetUser=DB.getUsers().find(u=>u.companyId===clientCompanyId);
   if(targetUser){
