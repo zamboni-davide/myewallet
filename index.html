@@ -8188,13 +8188,12 @@ function renderSuperUserPanel(){
   const co=currentCompany;
   const catLabel=suCatLabel(co.superuserCategory);
   const ac=_activeCollaborator;
-  const allTabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['buste','Invia Documenti'],['profile','Il mio profilo'],['collaboratori','Collaboratori'],['legali','Documenti Legali']];
+  const allTabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['buste','Invia Documenti'],['profile','Il mio profilo'],['collaboratori','Collaboratori'],['legali','Documenti Legali']];
   let visibleTabs;
   if(ac){
     visibleTabs=allTabs.filter(([id])=>{
       if(id==='collaboratori'||id==='profile'||id==='legali')return false;
       if(id==='comm')return ac.permessi?.chat!==false;
-      if(id==='docs')return ac.permessi?.condivisioneDocumenti!==false;
       if(id==='clients')return ac.permessi?.aggiuntaClienti!==false;
       if(id==='buste')return ac.permessi?.invioDocumenti===true;
       return true;
@@ -8206,7 +8205,6 @@ function renderSuperUserPanel(){
   let content='';
   if(suTab==='clients')content=renderSuClients();
   else if(suTab==='comm')content=renderSuComm();
-  else if(suTab==='docs')content=renderSuDocs();
   else if(suTab==='buste')content=renderSuBuste();
   else if(suTab==='profile')content=renderSuProfile();
   else if(suTab==='collaboratori')content=renderSuCollaboratori();
