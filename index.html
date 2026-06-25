@@ -2190,7 +2190,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-25-buste-v2';
+const APP_BUILD_VERSION='2026-06-25-buste-v3';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -9004,11 +9004,6 @@ function renderSuComm(){
   const convs=DB.getConversations().filter(c=>clientCompIds.has(c.companyId));
   if(convs.length===0)return`<div style="text-align:center;padding:60px 20px"><div style="font-size:36px;margin-bottom:14px">&#128172;</div><div style="font-size:15px;font-weight:600;color:#334155;margin-bottom:8px">Nessuna comunicazione</div><div style="font-size:13px;color:#64748b">Le comunicazioni con i tuoi clienti appariranno qui.</div></div>`;
   return`<div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:8px">Comunicazioni (${convs.length})</div>${convs.map(cv=>{const lastMsg=cv.messages&&cv.messages.length>0?cv.messages[cv.messages.length-1]:null;return`<div class="card" style="padding:14px 18px"><div style="font-size:13px;font-weight:700;color:#041348;margin-bottom:4px">${esc(cv.companyName||'–')}</div>${lastMsg?`<div style="font-size:12px;color:#64748b">${esc((lastMsg.text||'').substring(0,80))}${(lastMsg.text||'').length>80?'…':''}</div>`:'<div style="font-size:12px;color:#94a3b8;font-style:italic">Nessun messaggio</div>'}<div style="font-size:11px;color:#94a3b8;margin-top:4px">${formatDate(lastMsg?lastMsg.at:cv.createdAt)}</div></div>`;}).join('')}</div>`;
-}
-
-function renderSuDocs(){
-  const shares=DB.getDocShares().filter(s=>s.ownerCompanyId===currentCompany.id&&s.active);
-  return`<div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:8px">Documenti condivisi (${shares.length})</div>${shares.length===0?`<div style="text-align:center;padding:40px;color:#64748b;background:#fff;border-radius:12px;border:1px solid #e2e8f0"><div style="font-size:32px;margin-bottom:12px">&#128196;</div><div style="font-size:13px">Nessun documento condiviso</div></div>`:shares.map(s=>`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:13px;font-weight:600;color:#041348">${esc(s.docName||'–')}</div><div style="font-size:11px;color:#64748b">Con: ${esc(s.recipientName||'–')} · ${formatDate(s.grantedAt)}</div></div><span style="background:${s.status==='pending'?'#FEF9C3':'#DCFCE7'};color:${s.status==='pending'?'#854D0E':'#166534'};font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px">${s.status==='pending'?'In attesa':'Accettato'}</span></div>`).join('')}</div>`;
 }
 
 function renderSuProfile(){
