@@ -10005,6 +10005,7 @@ function renderSettingsNotifBlock(co){
         </div>
         <button onclick="document.getElementById('${replyId}').style.display='block';document.getElementById('${replyId}-txt').focus()" style="font-size:11px;color:var(--navy);background:none;border:1px solid var(--border-light);border-radius:4px;padding:3px 10px;cursor:pointer;margin-top:2px">↩ Rispondi</button>
       </div>`:''}
+      ${n.type==='link_request'&&n.relatedRequestId&&!n.linkHandled?`<div style="display:flex;gap:8px;margin-top:8px;padding:8px 0 2px"><button class="btn btn-primary btn-sm" style="font-size:11px" onclick="acceptLinkRequest('${n.relatedRequestId}','${n.id}',event)">Accetta</button><button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="rejectLinkRequest('${n.relatedRequestId}','${n.id}',event)">Rifiuta</button></div>`:''}
     </div>`;
   }).join('');
   return `<div class="settings-section" style="margin-top:0;padding:0;overflow:hidden">
