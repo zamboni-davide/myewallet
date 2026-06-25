@@ -2553,6 +2553,52 @@ async function _supaLoadAll(companyId) {
       }
     }catch{}
   }
+  // Recover users and notifications written to client partitions
+  // when co_admin RLS blocked the write
+  if(companyId==='co_admin'){
+    try{
+      const clientCompanies=Array.isArray(_mem['companies'])
+        ?_mem['companies'].filter(c=>c.role!=='superuser'&&c.id!=='co_admin')
+        :[];
+      if(clientCompanies.length>0){
+        const clientIds=clientCompanies.map(c=>c.id);
+        // Recovery users
+        const{data:clientUsers}=await _supa.from('company_store')
+          .select('store_value')
+          .eq('store_key','users')
+          .in('company_id',clientIds);
+        if(clientUsers&&clientUsers.length>0){
+          const existing=Array.isArray(_mem['users'])?[..._mem['users']]:[];
+          const idSet=new Set(existing.map(r=>r?.id).filter(Boolean));
+          clientUsers.forEach(row=>{
+            let arr=row.store_value;
+            if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+            if(!Array.isArray(arr))return;
+            arr.forEach(r=>{if(r?.id&&!idSet.has(r.id)){existing.push(r);idSet.add(r.id);}});
+          });
+          _mem['users']=existing;
+          try{localStorage.setItem('pda_users',JSON.stringify(existing));}catch{}
+        }
+        // Recovery notifications
+        const{data:clientNotifs}=await _supa.from('company_store')
+          .select('store_value')
+          .eq('store_key','notifications')
+          .in('company_id',clientIds);
+        if(clientNotifs&&clientNotifs.length>0){
+          const existing=Array.isArray(_mem['notifications'])?[..._mem['notifications']]:[];
+          const idSet=new Set(existing.map(r=>r?.id).filter(Boolean));
+          clientNotifs.forEach(row=>{
+            let arr=row.store_value;
+            if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+            if(!Array.isArray(arr))return;
+            arr.forEach(r=>{if(r?.id&&!idSet.has(r.id)){existing.push(r);idSet.add(r.id);}});
+          });
+          _mem['notifications']=existing;
+          try{localStorage.setItem('pda_notifications',JSON.stringify(existing));}catch{}
+        }
+      }
+    }catch{}
+  }
   // For non-admin users: also load doc_shares from own company partition
   // (handles case where RLS blocked write to co_admin when sharing was initiated)
   if(companyId !== 'co_admin' && companyId){
@@ -8681,6 +8727,14 @@ async function acceptLinkRequest(requestId,notifId,event){
   if(n){n.linkHandled=true;n.read=true;}
   DB.setNotifications(notifs);
   await _supaSyncAwait('co_admin','notifications',notifs);
+  // Dual-write fallback: scrivi su partizione cliente
+  // così i dati sopravvivono se co_admin RLS blocca le write
+  const myCompanyId=currentCompany?.id;
+  if(myCompanyId&&myCompanyId!=='co_admin'){
+    try{await _supaSyncAwait(myCompanyId,'link_requests',reqs);}catch{}
+    try{await _supaSyncAwait(myCompanyId,'users',DB.getUsers());}catch{}
+    try{await _supaSyncAwait(myCompanyId,'notifications',DB.getNotifications());}catch{}
+  }
   showToast('Cliente collegato con successo','success');
   renderNotifPanel();
 }
