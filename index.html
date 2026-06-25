@@ -2418,6 +2418,18 @@ async function _supaLoadAll(companyId) {
             }
           } catch {}
         }
+        // docs_* union-by-id: Supabase is authoritative for existing records; local docs not yet
+        // synced (e.g. created offline or during an RLS race) are preserved by appending.
+        if(Array.isArray(val) && row.store_key.startsWith('docs_')){
+          try{
+            const lsRaw=localStorage.getItem('pda_'+row.store_key);
+            let lsArr=lsRaw?JSON.parse(lsRaw):[];
+            if(Array.isArray(lsArr)&&lsArr.length>0){
+              const supaIds=new Set(val.map(x=>x?.id).filter(Boolean));
+              lsArr.forEach(x=>{if(x?.id&&!supaIds.has(x.id))val.push(x);});
+            }
+          }catch{}
+        }
         _mem[row.store_key] = val;
         try { localStorage.setItem('pda_'+row.store_key, JSON.stringify(val)); } catch {}
       });
@@ -8089,7 +8101,7 @@ function renderSuperUserPanel(){
   const co=currentCompany;
   const catLabel=suCatLabel(co.superuserCategory);
   const ac=_activeCollaborator;
-  const allTabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['profile','Il mio profilo'],['collaboratori','Collaboratori'],['legali','Documenti Legali']];
+  const allTabs=[['clients','I miei clienti'],['comm','Comunicazioni'],['docs','Condividi Documenti'],['buste','Invia Documenti'],['profile','Il mio profilo'],['collaboratori','Collaboratori'],['legali','Documenti Legali']];
   let visibleTabs;
   if(ac){
     visibleTabs=allTabs.filter(([id])=>{
@@ -8097,6 +8109,7 @@ function renderSuperUserPanel(){
       if(id==='comm')return ac.permessi?.chat!==false;
       if(id==='docs')return ac.permessi?.condivisioneDocumenti!==false;
       if(id==='clients')return ac.permessi?.aggiuntaClienti!==false;
+      if(id==='buste')return ac.permessi?.invioDocumenti===true;
       return true;
     });
   } else {
@@ -8107,6 +8120,7 @@ function renderSuperUserPanel(){
   if(suTab==='clients')content=renderSuClients();
   else if(suTab==='comm')content=renderSuComm();
   else if(suTab==='docs')content=renderSuDocs();
+  else if(suTab==='buste')content=renderSuBuste();
   else if(suTab==='profile')content=renderSuProfile();
   else if(suTab==='collaboratori')content=renderSuCollaboratori();
   else if(suTab==='legali')content=renderSuLegali();
@@ -8164,6 +8178,232 @@ function renderSuClients(){
       ?`<div style="text-align:center;padding:40px 20px;background:#fff;border-radius:12px;border:1px solid #e2e8f0"><div style="font-size:32px;margin-bottom:12px">&#128101;</div><div style="font-size:14px;font-weight:600;color:#334155;margin-bottom:6px">Nessun cliente collegato</div><div style="font-size:12px;color:#64748b">Usa "Aggiungi cliente" o importa un CSV.</div></div>`
       :`<div><div style="font-size:13px;font-weight:700;color:#041348;margin-bottom:8px">Clienti collegati (${clients.length})</div>${clients.map(u=>{const uco=DB.getCompanies().find(c=>c.id===u.companyId);return`<div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:13px;font-weight:700;color:#041348">${esc(u.name)}</div><div style="font-size:12px;color:#64748b">${esc(u.email)}${uco?` · ${esc(uco.name)}`:''}</div>${u.linkedAt?`<div style="font-size:11px;color:#94a3b8">Collegato: ${formatDate(u.linkedAt)}</div>`:''}</div><span style="background:#DCFCE7;color:#166534;font-size:11px;font-weight:600;padding:3px 10px;border-radius:999px">Attivo</span></div>`;}).join('')}</div>`}
   </div>`;
+}
+
+function renderSuBuste(){
+  const co=currentCompany;
+  const now=new Date().toISOString();
+  if(!co.bustesPeriodStart){
+    const companies=DB.getCompanies();
+    const idx=companies.findIndex(c=>c.id===co.id);
+    if(idx>=0){
+      companies[idx].bustesPeriodStart=now;
+      companies[idx].bustesUsedThisPeriod=0;
+      companies[idx].bustesLimit=10000;
+      DB.setCompanies(companies);
+      Object.assign(co,companies[idx]);
+    }
+  } else {
+    const renewal=new Date(co.bustesPeriodStart);
+    renewal.setFullYear(renewal.getFullYear()+1);
+    if(new Date()>renewal){
+      const newStart=new Date(co.bustesPeriodStart);
+      newStart.setFullYear(newStart.getFullYear()+1);
+      const companies=DB.getCompanies();
+      const idx=companies.findIndex(c=>c.id===co.id);
+      if(idx>=0){
+        companies[idx].bustesPeriodStart=newStart.toISOString();
+        companies[idx].bustesUsedThisPeriod=0;
+        DB.setCompanies(companies);
+        Object.assign(co,companies[idx]);
+      }
+    }
+  }
+  const bustesLimit=co.bustesLimit||10000;
+  const bustesUsed=co.bustesUsedThisPeriod||0;
+  const busteRimanenti=Math.max(0,bustesLimit-bustesUsed);
+  const pct=bustesLimit>0?Math.round(bustesUsed/bustesLimit*100):0;
+  const barColor=pct>=95?'var(--danger)':pct>=80?'#F59E0B':'var(--gold)';
+  const renewalDate=new Date(co.bustesPeriodStart||now);
+  renewalDate.setFullYear(renewalDate.getFullYear()+1);
+  const clients=DB.getUsers().filter(u=>u.superuserOwner===co.id);
+  return`<div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card" style="padding:20px 24px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:10px">Buste disponibili</div>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px">
+        <span id="buste-counter-text" style="font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:700;color:var(--navy);line-height:1">${busteRimanenti}</span>
+        <span style="font-size:16px;color:var(--text-muted);font-weight:400">/ ${bustesLimit}</span>
+      </div>
+      <div style="height:8px;background:var(--border-light);border-radius:4px;overflow:hidden;margin-bottom:8px">
+        <div id="buste-counter-bar" style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:width 0.4s"></div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted)">Si rinnovano il <strong>${formatDate(renewalDate.toISOString())}</strong></div>
+      ${busteRimanenti===0?`<div style="margin-top:12px;padding:10px 14px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;font-size:13px;color:var(--danger);font-weight:600">Buste esaurite — non è possibile inviare documenti</div>`:''}
+    </div>
+    <div class="card" style="padding:20px 24px">
+      <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:14px">Invia documento a un cliente</div>
+      ${clients.length===0
+        ?`<div style="text-align:center;padding:30px 20px;color:var(--text-muted);font-size:13px">Nessun cliente collegato. Vai su "I miei clienti" per aggiungerne uno.</div>`
+        :`<div style="display:flex;flex-direction:column;gap:12px">
+          <div>
+            <label class="input-label">Seleziona cliente</label>
+            <select id="buste-client-select" class="input" onchange="suBusteOnClientChange(this)" style="width:100%">
+              <option value="">— Seleziona cliente —</option>
+              ${clients.map(u=>`<option value="${u.companyId}">${esc(u.name)} — ${esc(u.email)}</option>`).join('')}
+            </select>
+            <div id="buste-quota-info"></div>
+          </div>
+          <div>
+            <label class="input-label">Documento da inviare</label>
+            <input type="file" id="buste-file-input" class="input" style="padding:8px" disabled onchange="suBusteOnFileChange(this)">
+            <div id="buste-file-preview"></div>
+          </div>
+          <div id="buste-status"></div>
+          <button id="buste-send-btn" class="btn btn-primary" style="background:var(--gold);color:#041348;font-weight:700" disabled onclick="suBusteInvia()">Invia documento</button>
+        </div>`}
+    </div>
+  </div>`;
+}
+
+function suBusteOnClientChange(selectEl){
+  const val=selectEl.value;
+  const quotaInfo=document.getElementById('buste-quota-info');
+  const fileInput=document.getElementById('buste-file-input');
+  const filePreview=document.getElementById('buste-file-preview');
+  const sendBtn=document.getElementById('buste-send-btn');
+  const statusDiv=document.getElementById('buste-status');
+  if(!val){
+    if(quotaInfo)quotaInfo.innerHTML='';
+    if(fileInput){fileInput.disabled=true;fileInput.value='';}
+    if(filePreview)filePreview.innerHTML='';
+    if(sendBtn)sendBtn.disabled=true;
+    return;
+  }
+  const clientCo=DB.getCompanies().find(c=>c.id===val);
+  if(!clientCo)return;
+  const usedBytes=getStorageUsedBytes(clientCo);
+  const limitBytes=getPlanStorageLimitBytes(clientCo);
+  const freeBytes=Math.max(0,limitBytes-usedBytes);
+  if(quotaInfo){
+    quotaInfo.innerHTML=limitBytes===0
+      ?`<div style="font-size:12px;color:var(--text-muted);margin-top:8px">Storage illimitato</div>`
+      :freeBytes<=0
+        ?`<div style="font-size:12px;font-weight:600;color:var(--danger);margin-top:8px">Cliente senza spazio disponibile</div>`
+        :`<div style="font-size:12px;color:var(--text-muted);margin-top:8px">Storage cliente: <strong>${formatBytes(usedBytes)}</strong> usati / ${formatBytes(limitBytes)} totali — <strong style="color:#22C55E">${formatBytes(freeBytes)}</strong> disponibili</div>`;
+  }
+  if(fileInput){fileInput.disabled=(limitBytes>0&&freeBytes<=0);fileInput.value='';}
+  if(filePreview)filePreview.innerHTML='';
+  if(sendBtn)sendBtn.disabled=true;
+  if(statusDiv)statusDiv.innerHTML='';
+}
+
+function suBusteOnFileChange(inputEl){
+  const file=inputEl.files&&inputEl.files[0];
+  const preview=document.getElementById('buste-file-preview');
+  const sendBtn=document.getElementById('buste-send-btn');
+  const statusDiv=document.getElementById('buste-status');
+  if(!file||file.size===0){
+    if(preview)preview.innerHTML='';
+    if(sendBtn)sendBtn.disabled=true;
+    return;
+  }
+  const clientCompanyId=document.getElementById('buste-client-select')?.value;
+  const clientCo=clientCompanyId?DB.getCompanies().find(c=>c.id===clientCompanyId):null;
+  const limitBytes=clientCo?getPlanStorageLimitBytes(clientCo):0;
+  const usedBytes=clientCo?getStorageUsedBytes(clientCo):0;
+  const freeBytes=Math.max(0,limitBytes-usedBytes);
+  if(limitBytes>0&&file.size>freeBytes){
+    if(statusDiv)statusDiv.innerHTML=`<div style="color:var(--danger);font-size:12px;margin-top:8px">File troppo grande (${formatBytes(file.size)}) — spazio disponibile: ${formatBytes(freeBytes)}</div>`;
+    if(sendBtn)sendBtn.disabled=true;
+    return;
+  }
+  if(statusDiv)statusDiv.innerHTML='';
+  if(preview)preview.innerHTML=`<div style="font-size:12px;color:var(--text-muted);margin-top:8px;padding:8px 12px;background:#f8fafc;border-radius:6px;border:1px solid #e2e8f0">${fileIcon(file.name)} ${esc(file.name)} — ${formatBytes(file.size)}</div>`;
+  if(sendBtn)sendBtn.disabled=false;
+}
+
+async function suBusteInvia(){
+  const fileInput=document.getElementById('buste-file-input');
+  const select=document.getElementById('buste-client-select');
+  const sendBtn=document.getElementById('buste-send-btn');
+  const statusDiv=document.getElementById('buste-status');
+  const file=fileInput?.files&&fileInput.files[0];
+  const clientCompanyId=select?.value;
+  if(!file||!clientCompanyId){showToast('Seleziona cliente e documento','error');return;}
+  const co=currentCompany;
+  const busteRimanenti=Math.max(0,(co.bustesLimit||10000)-(co.bustesUsedThisPeriod||0));
+  if(busteRimanenti<=0){
+    if(statusDiv)statusDiv.innerHTML=`<div style="color:var(--danger);font-size:13px;font-weight:600">Buste esaurite — non è possibile inviare documenti.</div>`;
+    return;
+  }
+  if(sendBtn){sendBtn.disabled=true;sendBtn.textContent='Invio in corso...';}
+  if(statusDiv)statusDiv.innerHTML='';
+  const docId=uid();
+  const storagePath=`${co.id}/${docId}/${file.name}`;
+  const{error:uploadErr}=await _supa.storage.from('documents').upload(storagePath,file,{upsert:true});
+  if(uploadErr){
+    if(statusDiv)statusDiv.innerHTML=`<div style="color:var(--danger);font-size:13px">Errore upload: ${esc(uploadErr.message)}</div>`;
+    if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='Invia documento';}
+    return;
+  }
+  const ownerName=((co.ownerName||'')+' '+(co.ownerLastName||'')).trim()||co.name;
+  const payload={
+    sourceCompanyId:co.id,
+    targetCompanyId:clientCompanyId,
+    sourceStoragePath:storagePath,
+    docMetadata:{
+      name:file.name,
+      category:'Ricevuti',
+      subcategory:'',
+      description:'Documento inviato da '+co.name,
+      tags:[],
+      fileType:getExt(file.name),
+      fileSize:file.size,
+      dataEmissione:null,
+      dataScadenza:null,
+      uploadedBy:ownerName,
+      sentByCompanyId:co.id
+    }
+  };
+  let resp;
+  try{
+    const token=(await _supa.auth.getSession()).data.session?.access_token||SUPA_KEY;
+    resp=await fetch('https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/send-document-to-client',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body:JSON.stringify(payload)
+    });
+  }catch(e){
+    if(statusDiv)statusDiv.innerHTML=`<div style="color:var(--danger);font-size:13px">Errore di rete: ${esc(e?.message||'sconosciuto')}</div>`;
+    if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='Invia documento';}
+    return;
+  }
+  if(!resp.ok){
+    let errMsg='Errore sconosciuto';
+    try{const j=await resp.json();errMsg=j.error||errMsg;}catch{}
+    if(statusDiv)statusDiv.innerHTML=`<div style="color:var(--danger);font-size:13px">Invio fallito: ${esc(errMsg)}</div>`;
+    if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='Invia documento';}
+    return;
+  }
+  const companies=DB.getCompanies();
+  const idx=companies.findIndex(c=>c.id===co.id);
+  if(idx>=0){
+    companies[idx].bustesUsedThisPeriod=(companies[idx].bustesUsedThisPeriod||0)+1;
+    DB.setCompanies(companies);
+    Object.assign(co,companies[idx]);
+  }
+  if(statusDiv)statusDiv.innerHTML=`<div style="color:#16a34a;font-size:13px;font-weight:600">✓ Documento inviato con successo</div>`;
+  if(fileInput){fileInput.value='';fileInput.disabled=true;}
+  const previewEl=document.getElementById('buste-file-preview');
+  if(previewEl)previewEl.innerHTML='';
+  const quotaInfoEl=document.getElementById('buste-quota-info');
+  if(quotaInfoEl)quotaInfoEl.innerHTML='';
+  if(select)select.value='';
+  if(sendBtn){sendBtn.disabled=true;sendBtn.textContent='Invia documento';}
+  _suBusteUpdateCounter();
+}
+
+function _suBusteUpdateCounter(){
+  const co=currentCompany;
+  const bustesLimit=co.bustesLimit||10000;
+  const bustesUsed=co.bustesUsedThisPeriod||0;
+  const busteRimanenti=Math.max(0,bustesLimit-bustesUsed);
+  const pct=bustesLimit>0?Math.round(bustesUsed/bustesLimit*100):0;
+  const barColor=pct>=95?'var(--danger)':pct>=80?'#F59E0B':'var(--gold)';
+  const counterText=document.getElementById('buste-counter-text');
+  const counterBar=document.getElementById('buste-counter-bar');
+  if(counterText)counterText.textContent=String(busteRimanenti);
+  if(counterBar){counterBar.style.width=pct+'%';counterBar.style.background=barColor;}
 }
 
 function suOpenAddClientModal(){
