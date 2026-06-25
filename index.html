@@ -8355,6 +8355,33 @@ function renderSuBuste(){
           <button id="buste-send-btn" class="btn btn-primary" style="background:var(--gold);color:#041348;font-weight:700" disabled onclick="suBusteInvia()">Invia documento</button>
         </div>`}
     </div>
+    <div class="card" style="padding:20px 24px">
+      ${(()=>{
+        const busteLog=DB.get('buste_log',[])
+          .filter(r=>r.sourceCompanyId===co.id)
+          .sort((a,b)=>new Date(b.sentAt)-new Date(a.sentAt));
+        return`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div style="font-size:14px;font-weight:700;color:var(--navy)">Storico invii (${busteLog.length})</div>
+          ${busteLog.length>0?`<button onclick="suBusteExportLog()" style="font-size:11px;padding:4px 10px;border:1px solid var(--border-light);border-radius:6px;background:white;cursor:pointer;color:var(--navy)">↓ Esporta CSV</button>`:''}
+        </div>
+        ${busteLog.length===0
+          ?`<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px">Nessun invio effettuato</div>`
+          :`<div style="display:flex;flex-direction:column;gap:8px">
+            ${busteLog.slice(0,20).map(r=>{
+              const clientCo=DB.getCompanies().find(c=>c.id===r.targetCompanyId);
+              const clientName=clientCo?.name||r.targetCompanyId;
+              return`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border-light);gap:12px">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.docName||'Documento')}</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:2px">→ ${esc(clientName)} · ${formatDate(r.sentAt)}</div>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);white-space:nowrap">${r.fileSize?formatBytes(r.fileSize):''}</div>
+              </div>`;
+            }).join('')}
+            ${busteLog.length>20?`<div style="text-align:center;font-size:11px;color:var(--text-muted);padding:8px">+ altri ${busteLog.length-20} invii</div>`:''}
+          </div>`}`;
+      })()}
+    </div>
   </div>`;
 }
 
@@ -8521,6 +8548,34 @@ function _suBusteUpdateCounter(){
   const counterBar=document.getElementById('buste-counter-bar');
   if(counterText)counterText.textContent=String(busteRimanenti);
   if(counterBar){counterBar.style.width=pct+'%';counterBar.style.background=barColor;}
+}
+
+function suBusteExportLog(){
+  const co=currentCompany;
+  const log=DB.get('buste_log',[])
+    .filter(r=>r.sourceCompanyId===co.id)
+    .sort((a,b)=>new Date(b.sentAt)-new Date(a.sentAt));
+  if(!log.length){showToast('Nessun invio da esportare','error');return;}
+  const header='Data,Documento,Destinatario,Dimensione,Mittente';
+  const rows=log.map(r=>{
+    const clientCo=DB.getCompanies().find(c=>c.id===r.targetCompanyId);
+    const clientName=clientCo?.name||r.targetCompanyId;
+    return[
+      new Date(r.sentAt).toLocaleDateString('it-IT'),
+      '"'+(r.docName||'').replace(/"/g,'""')+'"',
+      '"'+clientName.replace(/"/g,'""')+'"',
+      r.fileSize?formatBytes(r.fileSize):'',
+      '"'+(r.sentBy||'').replace(/"/g,'""')+'"'
+    ].join(',');
+  });
+  const csv=header+'\n'+rows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='storico-invii-buste-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function suOpenAddClientModal(){
