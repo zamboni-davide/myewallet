@@ -2522,6 +2522,37 @@ async function _supaLoadAll(companyId) {
       }
     }catch{}
   }
+  // For any caller loading co_admin: recover link_requests
+  // written to SU's own partition when co_admin RLS blocked the write
+  if(companyId==='co_admin'){
+    try{
+      const suCompanies=Array.isArray(_mem['companies'])
+        ?_mem['companies'].filter(c=>c.role==='superuser')
+        :[];
+      if(suCompanies.length>0){
+        const suIds=suCompanies.map(c=>c.id);
+        const{data:suLR}=await _supa.from('company_store')
+          .select('store_value')
+          .eq('store_key','link_requests')
+          .in('company_id',suIds);
+        if(suLR&&suLR.length>0){
+          const existing=Array.isArray(_mem['link_requests'])
+            ?[..._mem['link_requests']]:[];
+          const idSet=new Set(existing.map(r=>r?.id).filter(Boolean));
+          suLR.forEach(row=>{
+            let arr=row.store_value;
+            if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
+            if(!Array.isArray(arr))return;
+            arr.forEach(r=>{
+              if(r?.id&&!idSet.has(r.id)){existing.push(r);idSet.add(r.id);}
+            });
+          });
+          _mem['link_requests']=existing;
+          try{localStorage.setItem('pda_link_requests',JSON.stringify(existing));}catch{}
+        }
+      }
+    }catch{}
+  }
   // For non-admin users: also load doc_shares from own company partition
   // (handles case where RLS blocked write to co_admin when sharing was initiated)
   if(companyId !== 'co_admin' && companyId){
@@ -8459,6 +8490,9 @@ async function suSendSingleLinkRequest(userId,companyId,name,email,btn){
   const req={id:uid(),superUserCompanyId:currentCompany.id,superUserName:currentCompany.name,targetEmail:email,targetUserId:userId,targetCompanyId:companyId,status:'pending',createdAt:new Date().toISOString()};
   const reqs=DB.getLinkRequests();reqs.push(req);DB.setLinkRequests(reqs);
   await _supaSyncAwait('co_admin','link_requests',reqs);
+  // Dual-write fallback: scrivi anche sulla partizione SU
+  // così il record sopravvive se co_admin RLS blocca la write
+  try { await _supaSyncAwait(currentCompany.id,'link_requests',reqs); } catch {}
   const targetCo=DB.getCompanies().find(c=>c.id===companyId);
   await createNotification({recipientId:userId,recipientRole:'user',companyId,companyName:targetCo?.name||'',message:`${currentCompany.name} ti ha inviato una richiesta di collegamento come Super User.`,type:'link_request',relatedRequestId:req.id,senderName:currentCompany.name});
   if(btn){btn.textContent='Inviata';btn.disabled=true;}
@@ -8635,6 +8669,8 @@ async function acceptLinkRequest(requestId,notifId,event){
   req.status='accepted';req.acceptedAt=new Date().toISOString();
   DB.setLinkRequests(reqs);
   await _supaSyncAwait('co_admin','link_requests',reqs);
+  // Dual-write fallback sulla partizione SU
+  try{const suCompanyId=req.superUserCompanyId;if(suCompanyId)await _supaSyncAwait(suCompanyId,'link_requests',reqs);}catch{}
   const users=DB.getUsers();
   const user=users.find(u=>u.id===req.targetUserId);
   if(user){user.superuserOwner=req.superUserCompanyId;user.linkedAt=new Date().toISOString();}
@@ -11067,6 +11103,14 @@ function renderTicketThread(t, fromRole){
 
 async function createNotification({recipientId, recipientRole, companyId, companyName, message, type='info', relatedRequestId=null, senderName='Studio Zamboni', complianceData=null}){
   const notifs=DB.getNotifications();
+  if(relatedRequestId){
+    const already=notifs.some(x=>
+      x.relatedRequestId===relatedRequestId&&
+      x.recipientId===recipientId&&
+      !x.linkHandled
+    );
+    if(already) return;
+  }
   notifs.push({
     id:uid(),
     recipientId,       // userId or 'admin'
