@@ -8499,7 +8499,8 @@ async function suBusteInvia(){
   if(!resp.ok){
     let errMsg='Errore sconosciuto';
     try{const j=await resp.json();errMsg=j.error||errMsg;}catch{}
-    if(statusDiv)statusDiv.innerHTML=`<div style="color:var(--danger);font-size:13px">Invio fallito: ${esc(errMsg)}</div>`;
+    const dupMsg=resp.status===409?'Documento già presente per questo cliente':null;
+    if(statusDiv)statusDiv.innerHTML=`<div style="color:var(--danger);font-size:13px">${esc(dupMsg||('Invio fallito: '+errMsg))}</div>`;
     if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='Invia documento';}
     return;
   }
