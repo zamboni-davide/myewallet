@@ -3202,7 +3202,8 @@ async function doLogin(){
         }
 
         // Sync dati locali verso Supabase (solo se ci sono dati da sincronizzare)
-        _supaUploadAll('co_admin').catch(()=>{});
+        // Solo l'utente con partizione co_admin può scrivere su co_admin (RLS)
+        if(user?.companyId==='co_admin'||co?.id==='co_admin') _supaUploadAll('co_admin').catch(()=>{});
         if(companyId && companyId !== 'co_admin') _supaUploadAll(companyId).catch(()=>{});
         if(remember){localStorage.setItem('mew_re',email);DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*30});}
         else{localStorage.removeItem('mew_re');DB.setSession({userId:user.id,companyId:user.companyId,expires:Date.now()+86400000*7});}
@@ -8244,7 +8245,15 @@ let _csvToInvite=[];
 
 function renderSuClients(){
   const co=currentCompany;
-  const clients=DB.getUsers().filter(u=>u.superuserOwner===co.id);
+  const _allU=DB.getUsers();
+  const clients=(()=>{
+    const b=_allU.filter(u=>u.superuserOwner===co.id);
+    const s=new Set(b.map(u=>u.id));
+    DB.getLinkRequests()
+      .filter(r=>r.superUserCompanyId===co.id&&r.status==='accepted')
+      .forEach(r=>{if(!s.has(r.targetUserId)){const u=_allU.find(u2=>u2.id===r.targetUserId);if(u){b.push(u);s.add(u.id);}}});
+    return b;
+  })();
   const pending=DB.getLinkRequests().filter(r=>r.superUserCompanyId===co.id&&r.status==='pending');
   return`<div style="display:flex;flex-direction:column;gap:16px">
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -8302,7 +8311,15 @@ function renderSuBuste(){
   const barColor=pct>=95?'var(--danger)':pct>=80?'#F59E0B':'var(--gold)';
   const renewalDate=new Date(co.bustesPeriodStart||now);
   renewalDate.setFullYear(renewalDate.getFullYear()+1);
-  const clients=DB.getUsers().filter(u=>u.superuserOwner===co.id);
+  const _allUB=DB.getUsers();
+  const clients=(()=>{
+    const b=_allUB.filter(u=>u.superuserOwner===co.id);
+    const s=new Set(b.map(u=>u.id));
+    DB.getLinkRequests()
+      .filter(r=>r.superUserCompanyId===co.id&&r.status==='accepted')
+      .forEach(r=>{if(!s.has(r.targetUserId)){const u=_allUB.find(u2=>u2.id===r.targetUserId);if(u){b.push(u);s.add(u.id);}}});
+    return b;
+  })();
   return`<div style="display:flex;flex-direction:column;gap:16px">
     <div class="card" style="padding:20px 24px">
       <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:10px">Buste disponibili</div>
