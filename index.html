@@ -2538,13 +2538,22 @@ async function _supaLoadAll(companyId) {
         if(suLR&&suLR.length>0){
           const existing=Array.isArray(_mem['link_requests'])
             ?[..._mem['link_requests']]:[];
-          const idSet=new Set(existing.map(r=>r?.id).filter(Boolean));
+          const _LR_RANK={accepted:2,rejected:1,pending:0};
+          const _lrRank=x=>_LR_RANK[x?.status||'pending']??0;
+          const existingMap=new Map(existing.map(r=>[r?.id,r]).filter(([id])=>id));
           suLR.forEach(row=>{
             let arr=row.store_value;
             if(typeof arr==='string')try{arr=JSON.parse(arr);}catch{arr=null;}
             if(!Array.isArray(arr))return;
             arr.forEach(r=>{
-              if(r?.id&&!idSet.has(r.id)){existing.push(r);idSet.add(r.id);}
+              if(!r?.id)return;
+              const ex=existingMap.get(r.id);
+              if(!ex){existing.push(r);existingMap.set(r.id,r);}
+              else if(_lrRank(r)>_lrRank(ex)){
+                ex.status=r.status;
+                if(r.acceptedAt!==undefined)ex.acceptedAt=r.acceptedAt;
+                if(r.rejectedAt!==undefined)ex.rejectedAt=r.rejectedAt;
+              }
             });
           });
           _mem['link_requests']=existing;
