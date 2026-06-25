@@ -8621,9 +8621,17 @@ async function suSendAllInvites(){
 
 async function acceptLinkRequest(requestId,notifId,event){
   if(event)event.stopPropagation();
-  const reqs=DB.getLinkRequests();
-  const req=reqs.find(r=>r.id===requestId);
-  if(!req||req.status!=='pending')return;
+  let reqs=DB.getLinkRequests();
+  let req=reqs.find(r=>r.id===requestId);
+  if(!req){
+    await _supaLoadAll('co_admin');
+    reqs=DB.getLinkRequests();
+    req=reqs.find(r=>r.id===requestId);
+  }
+  if(!req||req.status!=='pending'){
+    showToast('Richiesta non trovata o già gestita','error');
+    return;
+  }
   req.status='accepted';req.acceptedAt=new Date().toISOString();
   DB.setLinkRequests(reqs);
   await _supaSyncAwait('co_admin','link_requests',reqs);
@@ -14434,7 +14442,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     if(supaSession?.user){
       const session=DB.getSession();
       if(session&&session.expires>Date.now()){
-        const user=DB.getUsers().find(u=>u.id===session.userId);
+        let user=DB.getUsers().find(u=>u.id===session.userId);
         const co=DB.getCompanies().find(c=>c.id===session.companyId);
         if(user&&co){
           const srRole = await requireRole();
