@@ -12193,7 +12193,8 @@ function toggleNotifPanel(e){
     if(!document.getElementById('notif-overlay')){
       const ov=document.createElement('div');
       ov.id='notif-overlay';
-      ov.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.3);z-index:999;cursor:default';
+      const isMobile=window.innerWidth<=480;
+      ov.style.cssText='position:fixed;top:0;left:0;height:100%;background:rgba(0,0,0,0.3);z-index:999;cursor:default;width:'+(isMobile?'0':'calc(100% - 380px)');
       ov.onclick=()=>closeNotifPanel();
       document.body.appendChild(ov);
     }
