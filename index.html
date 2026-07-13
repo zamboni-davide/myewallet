@@ -2426,15 +2426,17 @@ async function _supaLoadAll(companyId) {
             }
           } catch {}
         }
-        // docs_* union-by-id: Supabase is authoritative for existing records; local docs not yet
-        // synced (e.g. created offline or during an RLS race) are preserved by appending.
+        // docs_* merge: Supabase is authoritative; append only local docs (non-received) not yet
+        // synced to Supabase. Deletions honored: a doc absent from lsArr is NOT re-added.
         if(Array.isArray(val) && row.store_key.startsWith('docs_')){
           try{
             const lsRaw=localStorage.getItem('pda_'+row.store_key);
             let lsArr=lsRaw?JSON.parse(lsRaw):[];
             if(Array.isArray(lsArr)&&lsArr.length>0){
               const supaIds=new Set(val.map(x=>x?.id).filter(Boolean));
-              lsArr.forEach(x=>{if(x?.id&&!supaIds.has(x.id))val.push(x);});
+              lsArr.forEach(x=>{
+                if(x?.id&&!supaIds.has(x.id)&&!x.isReceived){val.push(x);}
+              });
             }
           }catch{}
         }
@@ -4888,13 +4890,15 @@ function confirmDelete(docId){
       try{await _supa.storage.from('documents').remove([toDelete.storagePath]);}catch(e){}
     }
     DB.setDocs(currentCompany.id,docs2.filter(d=>d.id!==docId));
-    _supaSync(currentCompany.id,'docs_'+currentCompany.id,docs2.filter(d=>d.id!==docId));
+    window._pendingCritSync=_supaSyncAwait(currentCompany.id,'docs_'+currentCompany.id,docs2.filter(d=>d.id!==docId));
     updateDocCount();
     showToast('Documento eliminato','success');
     refreshCurrentPage();
   };
   document.getElementById('confirm-overlay').classList.remove('hidden');
 }
+
+function deleteDoc(docId){confirmDelete(docId);}
 
 function closeConfirm(){
   document.getElementById('confirm-overlay').classList.add('hidden');
