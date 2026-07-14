@@ -12226,7 +12226,14 @@ function getMyNotifications(){
   } else {
     mine=DB.getNotifications()
       .filter(n=>{
-        if(n.type==='link_request'&&n.linkHandled) return false;
+        if(n.type==='link_request'){
+          if(n.linkHandled) return false;
+          // Controlla lo stato reale della link_request
+          if(n.relatedRequestId){
+            const lr=DB.getLinkRequests().find(r=>r.id===n.relatedRequestId);
+            if(lr&&lr.status!=='pending') return false;
+          }
+        }
         if(n.type==='collab_invite'&&n.collabHandled) return false;
         return n.recipientId===currentUser.id||
           (n.recipientRole==='user'&&n.companyId===currentCompany.id);
@@ -12413,7 +12420,11 @@ function renderNotifPanel(){
   body.innerHTML=notifs.map(n=>{
     const icon=typeIcon[n.type]||typeIcon.info;
     const color=typeColor[n.type]||typeColor.info;
-    const isActionable=(n.type==='link_request'&&n.relatedRequestId&&!n.linkHandled)||
+    const _lrHandled=n.type==='link_request'&&(n.linkHandled||(n.relatedRequestId&&(()=>{
+      const lr=DB.getLinkRequests().find(r=>r.id===n.relatedRequestId);
+      return lr&&lr.status!=='pending';
+    })()));
+    const isActionable=(n.type==='link_request'&&n.relatedRequestId&&!_lrHandled)||
                        (n.type==='collab_invite'&&n.relatedRequestId&&!n.collabHandled);
     return`<div class="notif-item${n.read?'':' unread'}"
         onclick="readNotif('${n.id}')"
