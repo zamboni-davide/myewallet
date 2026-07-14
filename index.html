@@ -2403,8 +2403,20 @@ async function _supaLoadAll(companyId) {
                     }
                   }
                 });
+              } else if(row.store_key === 'notifications'){
+                // Read-wins merge: per stesso id, vince la versione con read=true (più aggiornata).
+                // Rispetta comunque le cancellazioni locali (id assente in locale -> rimosso da val).
+                const lsIds = new Set(lsArr.map(x=>x?.id).filter(Boolean));
+                val = val.filter(x => !x?.id || lsIds.has(x.id));
+                const lsMap = new Map(lsArr.map(x=>[x?.id,x]).filter(([id])=>id));
+                val = val.map(x=>{
+                  const ls = lsMap.get(x.id);
+                  return (ls && ls.read && !x.read) ? {...x, ...ls} : x;
+                });
+                const inSupa = new Set(val.map(x=>x?.id).filter(Boolean));
+                lsArr.forEach(x=>{ if(x?.id && !inSupa.has(x.id)) val.push(x); });
               } else {
-                // Standard merge for users/companies/notifications
+                // Standard merge for users/companies
                 if(row.store_key==='companies') lsArr=lsArr.filter(c=>!deletedIds.has(c.id));
                 if(row.store_key==='users') lsArr=lsArr.filter(u=>!deletedIds.has(u.companyId));
                 // Per purchase/renewal requests: Supabase vince sempre sullo status
