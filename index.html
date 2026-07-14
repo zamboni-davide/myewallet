@@ -2198,7 +2198,7 @@ textarea.input{resize:vertical;min-height:80px;}
   </nav>
 
 <script>
-const APP_BUILD_VERSION='2026-06-25-buste-v3';
+const APP_BUILD_VERSION='2026-07-14-appmeta-v1';
 (function(){
   const stored=localStorage.getItem('pda_app_build_version');
   if(stored&&stored!==APP_BUILD_VERSION){
@@ -8283,7 +8283,7 @@ function renderSuClients(){
   const co=currentCompany;
   const _allU=DB.getUsers();
   const clients=(()=>{
-    const b=_allU.filter(u=>u.superuserOwner===co.id);
+    const b=_allU.filter(u=>_getSuperuserOwners(u).includes(co.id));
     const s=new Set(b.map(u=>u.id));
     DB.getLinkRequests()
       .filter(r=>r.superUserCompanyId===co.id&&r.status==='accepted')
@@ -8349,7 +8349,7 @@ function renderSuBuste(){
   renewalDate.setFullYear(renewalDate.getFullYear()+1);
   const _allUB=DB.getUsers();
   const clients=(()=>{
-    const b=_allUB.filter(u=>u.superuserOwner===co.id);
+    const b=_allUB.filter(u=>_getSuperuserOwners(u).includes(co.id));
     const s=new Set(b.map(u=>u.id));
     DB.getLinkRequests()
       .filter(r=>r.superUserCompanyId===co.id&&r.status==='accepted')
@@ -8648,7 +8648,7 @@ function suSearchClient(){
   if(!email||!email.includes('@')){showToast('Inserisci una email valida','error');return;}
   if(!resultDiv)return;
   _suSearchResult=null;
-  if(DB.getUsers().some(u=>u.email===email&&u.superuserOwner===currentCompany.id)){
+  if(DB.getUsers().some(u=>u.email===email&&_getSuperuserOwners(u).includes(currentCompany.id))){
     resultDiv.innerHTML=`<div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;padding:12px;font-size:13px;color:#92400E">Questo utente è già un tuo cliente.</div>`;return;}
   if(DB.getLinkRequests().some(r=>r.targetEmail===email&&r.superUserCompanyId===currentCompany.id&&r.status==='pending')){
     resultDiv.innerHTML=`<div style="background:#FEF9C3;border:1px solid #FDE68A;border-radius:8px;padding:12px;font-size:13px;color:#92400E">Hai già una richiesta in attesa per questa email.</div>`;return;}
@@ -8722,7 +8722,7 @@ async function suProcessCsv(file){
   const headers=parseCsvRow(lines[0]).map(h=>h.toLowerCase().replace(/[^a-z0-9]/g,''));
   const getCol=(cols,name)=>{const idx=headers.indexOf(name.toLowerCase().replace(/[^a-z0-9]/g,''));return idx>=0?(cols[idx]||'').replace(/^"|"$/g,'').trim():'';};
   const toLink=[],toInvite=[],errors=[];
-  const alreadyClientEmails=new Set(DB.getUsers().filter(u=>u.superuserOwner===currentCompany.id).map(u=>u.email.toLowerCase()));
+  const alreadyClientEmails=new Set(DB.getUsers().filter(u=>_getSuperuserOwners(u).includes(currentCompany.id)).map(u=>u.email.toLowerCase()));
   const pendingEmails=new Set(DB.getLinkRequests().filter(r=>r.superUserCompanyId===currentCompany.id&&r.status==='pending').map(r=>r.targetEmail.toLowerCase()));
   const allUserEmails=new Set(DB.getUsers().map(u=>u.email.toLowerCase()));
   const seenInFile=new Set();
@@ -8831,6 +8831,13 @@ async function suSendAllInvites(){
   showToast(count+' inviti inviati','success');
 }
 
+function _getSuperuserOwners(user){
+  if(!user?.superuserOwner) return [];
+  return Array.isArray(user.superuserOwner)
+    ? user.superuserOwner
+    : [user.superuserOwner];
+}
+
 async function acceptLinkRequest(requestId,notifId,event){
   if(event)event.stopPropagation();
   let reqs=DB.getLinkRequests();
@@ -8851,7 +8858,12 @@ async function acceptLinkRequest(requestId,notifId,event){
   try{const suCompanyId=req.superUserCompanyId;if(suCompanyId)await _supaSyncAwait(suCompanyId,'link_requests',reqs);}catch{}
   const users=DB.getUsers();
   const user=users.find(u=>u.id===req.targetUserId);
-  if(user){user.superuserOwner=req.superUserCompanyId;user.linkedAt=new Date().toISOString();}
+  if(user){
+    const owners=_getSuperuserOwners(user);
+    if(!owners.includes(req.superUserCompanyId)){owners.push(req.superUserCompanyId);}
+    user.superuserOwner=owners;
+    user.linkedAt=new Date().toISOString();
+  }
   DB.setUsers(users);
   await _supaSyncAwait('co_admin','users',users);
   const notifs=DB.getNotifications();
@@ -9039,7 +9051,7 @@ async function rejectCollabInvite(inviteId,notifId,event){
 }
 
 function renderSuComm(){
-  const clientCompIds=new Set(DB.getUsers().filter(u=>u.superuserOwner===currentCompany.id).map(u=>u.companyId));
+  const clientCompIds=new Set(DB.getUsers().filter(u=>_getSuperuserOwners(u).includes(currentCompany.id)).map(u=>u.companyId));
   const convs=DB.getConversations().filter(c=>clientCompIds.has(c.companyId));
   if(convs.length===0)return`<div style="text-align:center;padding:60px 20px"><div style="font-size:36px;margin-bottom:14px">&#128172;</div><div style="font-size:15px;font-weight:600;color:#334155;margin-bottom:8px">Nessuna comunicazione</div><div style="font-size:13px;color:#64748b">Le comunicazioni con i tuoi clienti appariranno qui.</div></div>`;
   return`<div style="display:flex;flex-direction:column;gap:8px"><div style="font-size:14px;font-weight:700;color:#041348;margin-bottom:8px">Comunicazioni (${convs.length})</div>${convs.map(cv=>{const lastMsg=cv.messages&&cv.messages.length>0?cv.messages[cv.messages.length-1]:null;return`<div class="card" style="padding:14px 18px"><div style="font-size:13px;font-weight:700;color:#041348;margin-bottom:4px">${esc(cv.companyName||'–')}</div>${lastMsg?`<div style="font-size:12px;color:#64748b">${esc((lastMsg.text||'').substring(0,80))}${(lastMsg.text||'').length>80?'…':''}</div>`:'<div style="font-size:12px;color:#94a3b8;font-style:italic">Nessun messaggio</div>'}<div style="font-size:11px;color:#94a3b8;margin-top:4px">${formatDate(lastMsg?lastMsg.at:cv.createdAt)}</div></div>`;}).join('')}</div>`;
@@ -10283,10 +10295,13 @@ function renderSettingsMobile(main){
       </label>
     </div>`;
 
-    const _suReq=DB.getLinkRequests().find(r=>r.targetUserId===currentUser.id&&r.status==='accepted');
-    const _suCompanyId=currentUser?.superuserOwner||_suReq?.superUserCompanyId;
-    const _suCo=_suCompanyId?DB.getCompanies().find(c=>c.id===_suCompanyId):null;
-    const studioContent=_suCo?`<div style="padding-top:12px;display:flex;flex-direction:column;gap:10px">
+    const _suOwners=_getSuperuserOwners(currentUser);
+    const _suReqs=DB.getLinkRequests().filter(r=>r.targetUserId===currentUser.id&&r.status==='accepted');
+    _suReqs.forEach(r=>{if(!_suOwners.includes(r.superUserCompanyId))_suOwners.push(r.superUserCompanyId);});
+    const _suCos=_suOwners.map(id=>DB.getCompanies().find(c=>c.id===id)).filter(Boolean);
+    const studioContent=_suCos.length?_suCos.map(_suCo=>{
+      const _suReq=_suReqs.find(r=>r.superUserCompanyId===_suCo.id);
+      return `<div style="padding-top:12px;display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg);border-radius:12px;border:1px solid var(--border-light)">
         <div style="width:44px;height:44px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:700;color:var(--gold);flex-shrink:0">${esc((_suCo.ownerName||_suCo.name||'S')[0].toUpperCase())}</div>
         <div style="flex:1;min-width:0">
@@ -10297,7 +10312,8 @@ function renderSettingsMobile(main){
           ${_suReq?.acceptedAt?`<div style="font-size:11px;color:var(--text-muted);margin-top:6px">Collegato dal ${formatDate(_suReq.acceptedAt)}</div>`:''}
         </div>
       </div>
-    </div>`:null;
+    </div>`;
+    }).join(''):null;
 
     document.getElementById('mob-settings-main').innerHTML=`
       ${pendingSig?`<div style="background:#FEF2F2;border:1.5px solid #F87171;border-radius:14px;padding:14px 16px;margin-bottom:12px;display:flex;align-items:center;gap:12px">
@@ -10312,7 +10328,7 @@ function renderSettingsMobile(main){
       ${section('ticket','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v2z"/></svg>','Assistenza',openTickets>0?openTickets:'',ticketContent)}
       ${section('backup','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>','Backup Dati','',backupContent)}
       ${section('privacy','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>','Privacy & GDPR','',privacyContent)}
-      ${_suCo&&studioContent?section('studio','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>','Il mio Studio','',studioContent):''}
+      ${_suCos.length&&studioContent?section('studio','<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A52D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>','Il mio Studio','',studioContent):''}
 
       <!-- Logout -->
       <button onclick="logout()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:16px;background:#fff;border:1.5px solid #FEE2E2;border-radius:14px;color:#DC2626;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;-webkit-tap-highlight-color:transparent">
@@ -10391,9 +10407,10 @@ function renderSettings(main){
   const daysText=ps.daysLeft===null?'Nessuna scadenza':ps.daysLeft<0?`Scaduto da ${Math.abs(ps.daysLeft)} giorni`:`${ps.daysLeft} giorni rimanenti`;
 
   const renewalHistory=DB.getRenewalRequests().filter(r=>r.companyId===co.id).slice(-3).reverse();
-  const _suReq=DB.getLinkRequests().find(r=>r.targetUserId===currentUser.id&&r.status==='accepted');
-  const _suCompanyId=currentUser?.superuserOwner||_suReq?.superUserCompanyId;
-  const _suCo=_suCompanyId?DB.getCompanies().find(c=>c.id===_suCompanyId):null;
+  const _suOwners=_getSuperuserOwners(currentUser);
+  const _suReqs=DB.getLinkRequests().filter(r=>r.targetUserId===currentUser.id&&r.status==='accepted');
+  _suReqs.forEach(r=>{if(!_suOwners.includes(r.superUserCompanyId))_suOwners.push(r.superUserCompanyId);});
+  const _suCos=_suOwners.map(id=>DB.getCompanies().find(c=>c.id===id)).filter(Boolean);
 
   main.innerHTML=`
     <div class="page-header"><h1 class="page-title">Il mio Account</h1><p class="page-subtitle">Gestisci il profilo aziendale, piano e preferenze</p></div>
@@ -10736,9 +10753,11 @@ function renderSettings(main){
         <button class="btn" style="font-size:12px;padding:6px 12px;background:#FEF2F2;border:1px solid #FCA5A5;color:#DC2626" onclick="openDeleteAccountModal()">⚠ Richiedi cancellazione account (art.17 GDPR)</button>
       </div>
     </div>
-    ${_suCo?`<div class="settings-section">
-      <div class="settings-section-title">Il mio Studio</div>
-      <div class="card" style="padding:20px 24px">
+    ${_suCos.length?`<div class="settings-section">
+      <div class="settings-section-title">${_suCos.length>1?'I miei Studi':'Il mio Studio'}</div>
+      ${_suCos.map(_suCo=>{
+        const _suReq=_suReqs.find(r=>r.superUserCompanyId===_suCo.id);
+        return `<div class="card" style="padding:20px 24px;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
           <div style="width:48px;height:48px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--gold)">${esc((_suCo.ownerName||_suCo.name||'S')[0].toUpperCase())}</div>
           <div>
@@ -10751,7 +10770,8 @@ function renderSettings(main){
           ${_suCo.phone?`<div style="font-size:13px;color:var(--text-muted)">📞 ${esc(_suCo.phone)}</div>`:''}
           ${_suReq?.acceptedAt?`<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Collegato dal ${formatDate(_suReq.acceptedAt)}</div>`:''}
         </div>
-      </div>
+      </div>`;
+      }).join('')}
     </div>`:''}
    ${renderSettingsNotifBlock(co)}
 
