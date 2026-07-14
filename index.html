@@ -12300,6 +12300,9 @@ function deleteNotif(id, event){
     'co_admin','notifications',
     DB.getNotifications()
   );
+  if(currentCompany?.id&&currentCompany.id!=='co_admin'){
+    try{_supaSyncAwait(currentCompany.id,'notifications',DB.getNotifications());}catch{}
+  }
   updateNotifBadge();
   updateNavNotifBadge();
   // Re-render whichever panel is visible
@@ -12317,6 +12320,9 @@ function deleteAllReadNotifs(){
     'co_admin','notifications',
     DB.getNotifications()
   );
+  if(currentCompany?.id&&currentCompany.id!=='co_admin'){
+    try{_supaSyncAwait(currentCompany.id,'notifications',DB.getNotifications());}catch{}
+  }
   updateNotifBadge();
   updateNavNotifBadge();
   renderNotifPanel();
@@ -12486,7 +12492,14 @@ function renderNotifPanel(){
 async function readNotif(id){
   const notifs=DB.getNotifications();
   const n=notifs.find(x=>x.id===id);
-  if(n&&!n.read){n.read=true;DB.setNotifications(notifs);await _supaSyncAwait('co_admin','notifications',notifs);}
+  if(n&&!n.read){
+    n.read=true;
+    DB.setNotifications(notifs);
+    await _supaSyncAwait('co_admin','notifications',notifs);
+    if(currentCompany?.id&&currentCompany.id!=='co_admin'){
+      try{await _supaSyncAwait(currentCompany.id,'notifications',notifs);}catch{}
+    }
+  }
   updateNotifBadge();
   renderNotifPanel();
   if(n&&n.recipientRole==='user') navTo('settings');
@@ -12507,6 +12520,9 @@ async function markAllNotifsRead(){
   notifs.forEach(n=>{if(myIds.includes(n.id))n.read=true;});
   DB.setNotifications(notifs);
   await _supaSyncAwait('co_admin','notifications',notifs);
+  if(currentCompany?.id&&currentCompany.id!=='co_admin'){
+    try{await _supaSyncAwait(currentCompany.id,'notifications',notifs);}catch{}
+  }
   updateNotifBadge();
   updateNavNotifBadge();
   updateAdminNotifTabBadge();
