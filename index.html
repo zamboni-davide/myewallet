@@ -3050,7 +3050,8 @@ async function doLogin(){
     const {data:authData, error:authError} = await _supa.auth.signInWithPassword({email, password:pwd});
     if(!authError && authData?.user){
       const meta = authData.user.user_metadata || {};
-      const companyId = meta.company_id;
+      const appMeta = authData.user.app_metadata || {};
+      const companyId = appMeta.company_id || meta.company_id;
       // PATCH 5 — Blocco login account GDPR cancellati, prima di qualsiasi operazione su _mem
       try{
         const {data:_gdprRow}=await _supa.from('company_store')
@@ -3129,8 +3130,8 @@ async function doLogin(){
                 termsAcceptedAt: meta.termsAcceptedAt||null,
                 createdAt: new Date().toISOString()};
         // Propagate userType to company if available from metadata
-        if(meta.userType && meta.company_id){
-          const _cos=DB.getCompanies(); const _ci=_cos.findIndex(c=>c.id===meta.company_id);
+        if(meta.userType && companyId){
+          const _cos=DB.getCompanies(); const _ci=_cos.findIndex(c=>c.id===companyId);
           if(_ci>=0 && !_cos[_ci].userType){ _cos[_ci].userType=meta.userType; DB.setCompanies(_cos); }
         }
         users.push(user); DB.setUsers(users);
@@ -3343,6 +3344,31 @@ async function doRegister(){
     });
     signUpData=res.data; signUpError=res.error;
   }catch(e){ console.warn('[doRegister] signUp error:',e?.message); }
+
+  // Scrivi company_id in app_metadata via edge function
+  if(signUpData?.user?.id){
+    try{
+      const token=(await _supa.auth.getSession())
+        .data.session?.access_token||SUPA_KEY;
+      await fetch(
+        'https://jvobrgidkrwjtgirqrzw.supabase.co/functions/v1/set-app-metadata',
+        {
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Authorization':'Bearer '+token
+          },
+          body:JSON.stringify({
+            userId: signUpData.user.id,
+            company_id: coId,
+            role: 'user'
+          })
+        }
+      );
+    }catch(e){
+      console.warn('[doRegister] set-app-metadata error:',e?.message);
+    }
+  }
 
   // ── STEP 3: Supabase fallito → nessuna scrittura locale, errore all'utente ─
   if(signUpError || !signUpData?.user){
@@ -14732,7 +14758,8 @@ window.addEventListener('DOMContentLoaded',()=>{
     const {data:{session:supaSession}} = await _supa.auth.getSession();
     if(supaSession?.user){
       const meta = supaSession.user.user_metadata || {};
-      const companyId = meta.company_id;
+      const appMeta = supaSession.user.app_metadata || {};
+      const companyId = appMeta.company_id || meta.company_id;
       await _supaLoadAll('co_admin');
       if(companyId && companyId !== 'co_admin') await _supaLoadAll(companyId);
     }
@@ -14872,7 +14899,9 @@ async function saveNewPassword(){
         // Only assign admin/co_admin if server confirmed the role.
         // Default non-admin users to 'user' role and their own company (not co_admin).
         const safeRole = spRole === 'admin' ? 'admin' : 'user';
-        const safeCoId = spRole === 'admin' ? 'co_admin' : (data.session.user.user_metadata?.company_id||null);
+        const safeCoId = spRole === 'admin' ? 'co_admin' :
+          (data.session.user.app_metadata?.company_id ||
+           data.session.user.user_metadata?.company_id || null);
         if(safeCoId){ // only create if we have a valid companyId
           user={id:'u_'+data.session.user.id.slice(0,8),name:email.split('@')[0],email,
                 pwd:'__supabase__',companyId:safeCoId,role:safeRole,
