@@ -12228,10 +12228,12 @@ function getMyNotifications(){
       .filter(n=>{
         if(n.type==='link_request'){
           if(n.linkHandled) return false;
-          // Controlla lo stato reale della link_request
           if(n.relatedRequestId){
             const lr=DB.getLinkRequests().find(r=>r.id===n.relatedRequestId);
+            // Se la link_request esiste ed è gestita → nascondi
             if(lr&&lr.status!=='pending') return false;
+            // Se la link_request NON esiste (orfana) → nascondi
+            if(!lr) return false;
           }
         }
         if(n.type==='collab_invite'&&n.collabHandled) return false;
@@ -12422,7 +12424,7 @@ function renderNotifPanel(){
     const color=typeColor[n.type]||typeColor.info;
     const _lrHandled=n.type==='link_request'&&(n.linkHandled||(n.relatedRequestId&&(()=>{
       const lr=DB.getLinkRequests().find(r=>r.id===n.relatedRequestId);
-      return lr&&lr.status!=='pending';
+      return !lr||lr.status!=='pending';
     })()));
     const isActionable=(n.type==='link_request'&&n.relatedRequestId&&!_lrHandled)||
                        (n.type==='collab_invite'&&n.relatedRequestId&&!n.collabHandled);
