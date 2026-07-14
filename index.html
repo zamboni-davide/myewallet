@@ -12296,6 +12296,10 @@ function deleteNotif(id, event){
   const n=notifs.find(x=>x.id===id);
   if(!n||!n.read) return; // only delete read notifications
   DB.setNotifications(notifs.filter(x=>x.id!==id));
+  window._pendingCritSync=_supaSyncAwait(
+    'co_admin','notifications',
+    DB.getNotifications()
+  );
   updateNotifBadge();
   updateNavNotifBadge();
   // Re-render whichever panel is visible
@@ -12309,6 +12313,10 @@ function deleteNotif(id, event){
 function deleteAllReadNotifs(){
   const myIds=getMyNotifications().filter(n=>n.read).map(n=>n.id);
   DB.setNotifications(DB.getNotifications().filter(n=>!myIds.includes(n.id)));
+  window._pendingCritSync=_supaSyncAwait(
+    'co_admin','notifications',
+    DB.getNotifications()
+  );
   updateNotifBadge();
   updateNavNotifBadge();
   renderNotifPanel();
